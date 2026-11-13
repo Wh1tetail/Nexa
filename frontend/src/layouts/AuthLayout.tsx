@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 
 import { Logo } from "@/components/common";
+import { BrandMark } from "@/components/common/BrandMark";
 import { useI18n } from "@/contexts/I18nContext";
 
 export function AuthLayout() {
@@ -20,6 +21,7 @@ export function AuthLayout() {
         <div className="absolute -right-24 -top-24 size-[420px] rounded-full bg-accent/40 blur-3xl" />
         <div className="absolute -bottom-32 -left-16 size-[360px] rounded-full bg-accent/25 blur-3xl" />
         <div className="relative flex h-full flex-col justify-end p-12 text-white">
+          <BrandMark inverted className="mb-auto size-12" />
           <p className="max-w-md text-3xl font-semibold leading-tight tracking-tight">
             “The limits of my language mean the limits of my world.”
           </p>

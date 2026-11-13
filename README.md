@@ -1,4 +1,4 @@
-# Lingua — LMS для онлайн-школы английского
+# NEXA — LMS для онлайн-школы английского
 
 Полноценная платформа: публичный сайт, авторизация, кабинеты **ученика** и **преподавателя**, домашние задания с файлами, тесты с автопроверкой, посещаемость, абонементы и уведомления. Все данные хранятся в PostgreSQL.
 
@@ -69,10 +69,10 @@ cd frontend && npm install && npm run dev
 
 | Роль | Email |
 |---|---|
-| Преподаватель | `teacher@lingua.school` |
-| Ученик | `anna@lingua.school` (а также `dmitry@`, `maria@`, `igor@`, `elena@`, `sergey@`, `olga@`) |
-| Администратор | `admin@lingua.school` |
-| Ученик другого преподавателя (проверка изоляции) | `peter@lingua.school` |
+| Преподаватель | `teacher@nexa.school` |
+| Ученик | `anna@nexa.school` (а также `dmitry@`, `maria@`, `igor@`, `elena@`, `sergey@`, `olga@`) |
+| Администратор | `admin@nexa.school` |
+| Ученик другого преподавателя (проверка изоляции) | `peter@nexa.school` |
 
 На странице входа в dev-режиме есть кнопки «Демо-доступ».
 
@@ -168,7 +168,7 @@ cd frontend && npm run build     # проверка типов + production-сб
 Уведомление появляется у пользователя сразу после события: всплывающее сообщение с кнопкой «Открыть», новая запись вверху центра уведомлений, обновлённый счётчик. Связанные данные тоже обновляются сами — например, у ученика сразу появляется новое ДЗ в списке.
 
 ```
-notify() -> INSERT notifications -> after_flush: pg_notify('lingua_notifications', json)
+notify() -> INSERT notifications -> after_flush: pg_notify('nexa_notifications', json)
           -> COMMIT (событие уходит только при успешном коммите)
 PostgreSQL --LISTEN--> поток-слушатель в каждом процессе backend
           -> NotificationBroker -> открытые SSE-потоки этого пользователя

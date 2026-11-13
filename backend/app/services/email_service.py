@@ -40,10 +40,11 @@ def _layout(title: str, body_html: str, button: tuple[str, str] | None = None) -
         )
     return f"""<!doctype html><html><body style="margin:0;background:#F5F7FB;font-family:Inter,Segoe UI,Arial,sans-serif;color:#14213D">
 <div style="max-width:520px;margin:32px auto;background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:32px">
-<p style="font-weight:700;font-size:18px;margin:0 0 24px">Lingua</p>
+<p style="margin:0 0 24px;font-size:18px;font-weight:700;letter-spacing:0.16em;color:#14213D">
+<span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:8px;background:#14213D;color:#fff;text-align:center;letter-spacing:0;margin-right:10px;vertical-align:middle">N</span><span style="vertical-align:middle">NEXA</span></p>
 <h1 style="font-size:20px;margin:0 0 12px">{escape(title)}</h1>
 {body_html}{btn}
-<p style="color:#6b7280;font-size:12px;margin-top:32px">Это автоматическое письмо онлайн-школы Lingua.</p>
+<p style="color:#6b7280;font-size:12px;margin-top:32px">Это автоматическое письмо онлайн-школы NEXA.</p>
 </div></body></html>"""
 
 
@@ -97,21 +98,21 @@ def password_reset(to: str, name: str, url: str) -> None:
         "<p style='color:#6b7280;font-size:14px'>Если вы не запрашивали восстановление, просто проигнорируйте письмо.</p>",
         ("Задать новый пароль", url),
     )
-    send(to, "Восстановление пароля — Lingua", text, html)
+    send(to, "Восстановление пароля — NEXA", text, html)
 
 
 def invitation(to: str, name: str, url: str, teacher_name: str | None) -> None:
     hours = settings.INVITE_EXPIRE_HOURS
     who = f" Ваш преподаватель — {teacher_name}." if teacher_name else ""
     text = (
-        f"Здравствуйте, {name}!\n\nДля вас создан аккаунт в онлайн-школе Lingua.{who}\n"
+        f"Здравствуйте, {name}!\n\nДля вас создан аккаунт в онлайн-школе NEXA.{who}\n"
         f"Задайте пароль по ссылке (действует {hours} ч):\n{url}\n\n"
         f"Ваш логин: {to}\nВход: {settings.FRONTEND_URL}/login"
     )
     html = _layout(
-        "Добро пожаловать в Lingua!",
+        "Добро пожаловать в NEXA!",
         f"<p>Здравствуйте, {escape(name)}!</p><p>Для вас создан личный кабинет.{escape(who)}</p>"
         f"<p>Ваш логин: <b>{escape(to)}</b><br>Задайте пароль по кнопке ниже — ссылка действует {hours} ч.</p>",
         ("Задать пароль", url),
     )
-    send(to, "Ваш аккаунт в Lingua", text, html)
+    send(to, "Ваш аккаунт в NEXA", text, html)

@@ -5,7 +5,7 @@ Uses the `pgserver` pip package (bundled PostgreSQL 16 binaries).
     python -m scripts.dev_postgres            # prints the DATABASE_URL
 Production / normal setups should use a regular PostgreSQL server instead.
 
-Also creates `lingua_readonly`, a SELECT-only role used by the Postgres MCP
+Also creates `nexa_readonly`, a SELECT-only role used by the Postgres MCP
 server configured in `.mcp.json`.
 """
 from pathlib import Path
@@ -14,7 +14,7 @@ import pgserver
 import psycopg
 
 DATA_DIR = Path(__file__).resolve().parents[2] / ".devdata" / "pg"
-READONLY_ROLE = "lingua_readonly"
+READONLY_ROLE = "nexa_readonly"
 
 
 def ensure_readonly_role(app_db_uri: str) -> None:

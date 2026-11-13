@@ -1,10 +1,10 @@
 ---
 name: project-conventions
-description: Conventions of the Lingua LMS codebase (FastAPI + React). Use whenever adding or changing an API endpoint, a model, a page, a dialog or any UI text in this project.
+description: Conventions of the NEXA LMS codebase (FastAPI + React). Use whenever adding or changing an API endpoint, a model, a page, a dialog or any UI text in this project.
 user-invocable: false
 ---
 
-# Lingua LMS conventions
+# NEXA LMS conventions
 
 ## Backend (FastAPI)
 - **Auth & roles**: use the dependencies in `app/api/deps.py` — `CurrentUser`, `CurrentTeacher`, `CurrentStudent`, `AdminUser`. Never trust ids from the client.

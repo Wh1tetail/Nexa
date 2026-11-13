@@ -261,7 +261,7 @@ export default function LandingPage() {
               <p className="mx-auto mt-3 max-w-lg text-white/70">{l.ctaText}</p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Button size="lg" asChild>
-                  <a href="mailto:hello@lingua.school?subject=Trial%20lesson">{l.ctaButton}</a>
+                  <a href="mailto:hello@nexa.school?subject=Trial%20lesson">{l.ctaButton}</a>
                 </Button>
                 <Button size="lg" variant="outline" className="border-white/20 bg-white/10 text-white hover:bg-white/20" asChild>
                   <Link to={cabinet}>{l.login}</Link>
@@ -288,7 +288,7 @@ export default function LandingPage() {
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="size-4 shrink-0" />
-                <a href="mailto:hello@lingua.school" className="hover:text-primary">hello@lingua.school</a>
+                <a href="mailto:hello@nexa.school" className="hover:text-primary">hello@nexa.school</a>
               </li>
               <li className="flex items-center gap-2">
                 <MapPin className="size-4 shrink-0" />

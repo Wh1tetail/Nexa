@@ -3,7 +3,7 @@ import { pluralRu } from "@/i18n/plural";
 /** Russian (default) dictionary. The `Dict` type derived from it forces
  *  every other language file to provide exactly the same keys. */
 const ru = {
-  appName: "Lingua",
+  appName: "NEXA",
   appTagline: "Онлайн-школа английского",
 
   common: {

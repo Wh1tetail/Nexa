@@ -9,6 +9,9 @@ import App from "@/App";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { I18nProvider } from "@/contexts/I18nContext";
 import "@/index.css";
+import { migrateLegacyStorageKeys } from "@/utils/legacyStorage";
+
+migrateLegacyStorageKeys();
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -3,8 +3,8 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import type { ApiErrorBody, TokenPair } from "@/types/api";
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? "") + "/api/v1";
-const ACCESS_KEY = "lingua.access";
-const REFRESH_KEY = "lingua.refresh";
+const ACCESS_KEY = "nexa.access";
+const REFRESH_KEY = "nexa.refresh";
 
 // Access token lives in memory (+ sessionStorage for reloads); refresh token in localStorage.
 export const tokenStore = {

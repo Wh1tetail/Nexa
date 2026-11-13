@@ -107,11 +107,11 @@ export default function LoginPage() {
         <div className="mt-8 rounded-xl border border-dashed p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.auth.demoTitle}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" onClick={() => fillDemo("teacher@lingua.school")} disabled={isSubmitting}>
+            <Button variant="outline" size="sm" onClick={() => fillDemo("teacher@nexa.school")} disabled={isSubmitting}>
               <Presentation />
               {t.auth.demoTeacher}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => fillDemo("anna@lingua.school")} disabled={isSubmitting}>
+            <Button variant="outline" size="sm" onClick={() => fillDemo("anna@nexa.school")} disabled={isSubmitting}>
               <GraduationCap />
               {t.auth.demoStudent}
             </Button>

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
         env_file=BASE_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    APP_NAME: str = "Lingua LMS"
+    APP_NAME: str = "NEXA LMS"
     ENVIRONMENT: Literal["development", "test", "production"] = "development"
     DEBUG: bool = False
     API_PREFIX: str = "/api/v1"
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # E-mail: "console" logs messages (development), "smtp" sends them.
     EMAIL_BACKEND: Literal["console", "smtp"] = "console"
-    EMAIL_FROM: str = "Lingua <no-reply@lingua.school>"
+    EMAIL_FROM: str = "NEXA <no-reply@nexa.school>"
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587
     SMTP_USER: str | None = None

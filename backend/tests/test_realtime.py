@@ -110,7 +110,7 @@ def test_rolled_back_notification_is_not_sent(client, school):
 
     dsn = settings.DATABASE_URL.replace("postgresql+psycopg://", "postgresql://", 1)
     with psycopg.connect(dsn, autocommit=True) as conn:
-        conn.execute("LISTEN lingua_notifications")
+        conn.execute("LISTEN nexa_notifications")
         with SessionLocal() as db:
             db.add(Notification(user_id=school["s1"].user_id, type=NotificationType.SYSTEM, title="rollback me"))
             db.flush()

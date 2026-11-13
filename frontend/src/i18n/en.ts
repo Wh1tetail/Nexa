@@ -2,7 +2,7 @@ import { pluralEn } from "@/i18n/plural";
 import type { Dict } from "@/i18n/ru";
 
 const en: Dict = {
-  appName: "Lingua",
+  appName: "NEXA",
   appTagline: "Online English school",
 
   common: {

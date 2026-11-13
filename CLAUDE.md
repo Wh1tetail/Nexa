@@ -1,4 +1,4 @@
-# Lingua LMS — notes for Claude
+# NEXA LMS — notes for Claude
 
 Online English school LMS. Russian UI by default (English supported). Full docs: `README.md`.
 

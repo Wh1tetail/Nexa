@@ -41,13 +41,13 @@ from app.models.enums import NotificationType
 DEMO_PASSWORD = "Demo12345"
 
 STUDENTS = [
-    ("Анна Смирнова", "anna@lingua.school", EnglishLevel.B1, "+7 900 111-22-33"),
-    ("Дмитрий Козлов", "dmitry@lingua.school", EnglishLevel.A2, "+7 900 222-33-44"),
-    ("Мария Иванова", "maria@lingua.school", EnglishLevel.B2, "+7 900 333-44-55"),
-    ("Игорь Петров", "igor@lingua.school", EnglishLevel.A1, "+7 900 444-55-66"),
-    ("Елена Волкова", "elena@lingua.school", EnglishLevel.C1, "+7 900 555-66-77"),
-    ("Сергей Новиков", "sergey@lingua.school", EnglishLevel.B1, "+7 900 666-77-88"),
-    ("Ольга Морозова", "olga@lingua.school", EnglishLevel.A2, "+7 900 777-88-99"),
+    ("Анна Смирнова", "anna@nexa.school", EnglishLevel.B1, "+7 900 111-22-33"),
+    ("Дмитрий Козлов", "dmitry@nexa.school", EnglishLevel.A2, "+7 900 222-33-44"),
+    ("Мария Иванова", "maria@nexa.school", EnglishLevel.B2, "+7 900 333-44-55"),
+    ("Игорь Петров", "igor@nexa.school", EnglishLevel.A1, "+7 900 444-55-66"),
+    ("Елена Волкова", "elena@nexa.school", EnglishLevel.C1, "+7 900 555-66-77"),
+    ("Сергей Новиков", "sergey@nexa.school", EnglishLevel.B1, "+7 900 666-77-88"),
+    ("Ольга Морозова", "olga@nexa.school", EnglishLevel.A2, "+7 900 777-88-99"),
 ]
 
 
@@ -69,11 +69,11 @@ def main(reset: bool) -> None:
     today = datetime.now(UTC).date()
     now = datetime.now(UTC)
 
-    admin = User(email="admin@lingua.school", password_hash=pw, full_name="Администратор", role=UserRole.ADMIN)
-    t_user = User(email="teacher@lingua.school", password_hash=pw, full_name="Екатерина Соколова",
+    admin = User(email="admin@nexa.school", password_hash=pw, full_name="Администратор", role=UserRole.ADMIN)
+    t_user = User(email="teacher@nexa.school", password_hash=pw, full_name="Екатерина Соколова",
                   phone="+7 900 000-00-01", role=UserRole.TEACHER)
     teacher = TeacherProfile(user=t_user, bio="CELTA, 8 лет преподавания")
-    t2_user = User(email="teacher2@lingua.school", password_hash=pw, full_name="Джон Уилсон", role=UserRole.TEACHER)
+    t2_user = User(email="teacher2@nexa.school", password_hash=pw, full_name="Джон Уилсон", role=UserRole.TEACHER)
     teacher2 = TeacherProfile(user=t2_user, bio="Native speaker")
     db.add_all([admin, t_user, teacher, t2_user, teacher2])
     db.flush()
@@ -86,7 +86,7 @@ def main(reset: bool) -> None:
         db.add_all([u, sp])
         students.append(sp)
     # a student of the other teacher (to demonstrate isolation)
-    other = User(email="peter@lingua.school", password_hash=pw, full_name="Пётр Лебедев", role=UserRole.STUDENT)
+    other = User(email="peter@nexa.school", password_hash=pw, full_name="Пётр Лебедев", role=UserRole.STUDENT)
     db.add_all([other, StudentProfile(user=other, teacher=teacher2, english_level=EnglishLevel.B1)])
     db.flush()
 
@@ -149,7 +149,7 @@ def main(reset: bool) -> None:
         for group, hour in ((g1, 16), (g2, 14)):
             lesson = Lesson(teacher=teacher, group=group, title=group.name, topic=topics[(k + 2) % len(topics)],
                             starts_at=at(today + timedelta(days=k * 2 - 1), hour), duration_minutes=60,
-                            meeting_url="https://meet.example.com/lingua")
+                            meeting_url="https://meet.example.com/nexa")
             db.add(lesson)
             for sp in group.students:
                 lesson.attendance.append(Attendance(student=sp))
@@ -248,7 +248,7 @@ def main(reset: bool) -> None:
     take(test2, students[1], [["a"], ["false"], ["pasport"]], 300)  # pending review
 
     # A few extra notifications
-    notify(db, [students[0].user_id], NotificationType.SYSTEM, "Добро пожаловать в Lingua!",
+    notify(db, [students[0].user_id], NotificationType.SYSTEM, "Добро пожаловать в NEXA!",
            "Здесь вы найдёте домашние задания, тесты и расписание.", "/student")
     for sp, hw in ((students[0], hw1), (students[5], hw1)):
         notify(db, [sp.user_id], NotificationType.HOMEWORK_ASSIGNED, "Новое домашнее задание", hw.title,
@@ -262,9 +262,9 @@ def main(reset: bool) -> None:
     check_expirations(db)
     db.close()
     print("Seed complete.")
-    print(f"  Teacher: teacher@lingua.school / {DEMO_PASSWORD}")
-    print(f"  Student: anna@lingua.school / {DEMO_PASSWORD}")
-    print(f"  Admin:   admin@lingua.school / {DEMO_PASSWORD}")
+    print(f"  Teacher: teacher@nexa.school / {DEMO_PASSWORD}")
+    print(f"  Student: anna@nexa.school / {DEMO_PASSWORD}")
+    print(f"  Admin:   admin@nexa.school / {DEMO_PASSWORD}")
 
 
 if __name__ == "__main__":

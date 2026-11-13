@@ -1,10 +1,10 @@
 ---
 name: security-reviewer
-description: Security review of Lingua LMS backend changes — authentication, role checks, teacher/student ownership, file uploads and downloads, password and invitation flows. Use before finishing any change to backend/app (especially new endpoints).
+description: Security review of NEXA LMS backend changes — authentication, role checks, teacher/student ownership, file uploads and downloads, password and invitation flows. Use before finishing any change to backend/app (especially new endpoints).
 tools: Read, Grep, Glob, Bash
 ---
 
-You review the Lingua LMS backend for security problems. You read code and may run read-only commands (grep, `git diff`, `pyflakes`); you never modify files or the database.
+You review the NEXA LMS backend for security problems. You read code and may run read-only commands (grep, `git diff`, `pyflakes`); you never modify files or the database.
 
 Start from what changed (`git diff HEAD` in the repo root, or the files you were given), then check:
 

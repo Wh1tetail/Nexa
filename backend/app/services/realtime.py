@@ -3,7 +3,7 @@
 Flow:
 1. Whenever a `Notification` row is flushed (or a user's `token_version` is
    bumped by logout / password change / deactivation), an `after_flush` hook runs
-   `pg_notify('lingua_notifications', <json>)` in the SAME transaction —
+   `pg_notify('nexa_notifications', <json>)` in the SAME transaction —
    PostgreSQL delivers it only if the transaction commits (no phantom events).
 2. A background thread LISTENs on that channel (one connection per worker
    process) and hands events to the asyncio loop.
@@ -32,7 +32,7 @@ from app.models import Notification, User
 
 log = logging.getLogger(__name__)
 
-CHANNEL = "lingua_notifications"
+CHANNEL = "nexa_notifications"
 MAX_BODY = 1000  # pg_notify payload limit is 8000 bytes
 QUEUE_SIZE = 100
 

@@ -5,7 +5,7 @@ import ru, { type Dict } from "@/i18n/ru";
 
 export type Locale = "ru" | "en";
 const DICTS: Record<Locale, Dict> = { ru, en };
-const STORAGE_KEY = "lingua.locale";
+const STORAGE_KEY = "nexa.locale";
 
 interface I18nValue {
   t: Dict;

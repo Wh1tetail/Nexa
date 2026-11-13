@@ -2,6 +2,7 @@ import { AlertCircle, Inbox, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { BrandMark } from "@/components/common/BrandMark";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -12,13 +13,9 @@ import { cn } from "@/lib/utils";
 export function Logo({ className, to = "/" }: { className?: string; to?: string }) {
   const { t } = useI18n();
   return (
-    <Link to={to} className={cn("flex items-center gap-2.5 font-semibold text-primary", className)}>
-      <span className="flex size-8 items-center justify-center rounded-[10px] bg-accent text-white shadow-sm">
-        <svg viewBox="0 0 32 32" className="size-5" aria-hidden>
-          <path d="M11 8v15h10" stroke="currentColor" strokeWidth="3.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-      <span className="text-[17px] tracking-tight">{t.appName}</span>
+    <Link to={to} className={cn("flex items-center gap-2.5 text-primary", className)} aria-label={t.appName}>
+      <BrandMark className="shadow-sm" />
+      <span className="text-[17px] font-bold tracking-[0.16em]">{t.appName}</span>
     </Link>
   );
 }
