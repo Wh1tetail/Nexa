@@ -1,0 +1,28 @@
+# Local dev PostgreSQL data (scripts/dev_postgres.py)
+.devdata/
+
+# Claude Code: share hooks, skills, agents and project settings; keep personal files local
+.claude/settings.local.json
+.claude/worktrees/
+
+# Dependencies / builds / caches
+**/node_modules/
+**/dist/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+*.pyc
+
+# Secrets (templates live in .env.example)
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Uploaded files (local storage backend)
+backend/storage/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

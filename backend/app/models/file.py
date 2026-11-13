@@ -1,0 +1,32 @@
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.database import Base, TimestampMixin
+
+
+class Attachment(Base, TimestampMixin):
+    """A stored file attached either to a homework (teacher material)
+    or to a homework submission (student work)."""
+
+    __tablename__ = "attachments"
+    __table_args__ = (
+        CheckConstraint(
+            "(homework_id IS NOT NULL)::int + (submission_id IS NOT NULL)::int = 1",
+            name="single_owner",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    uploaded_by_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    homework_id: Mapped[int | None] = mapped_column(
+        ForeignKey("homework.id", ondelete="CASCADE"), index=True
+    )
+    submission_id: Mapped[int | None] = mapped_column(
+        ForeignKey("homework_submissions.id", ondelete="CASCADE"), index=True
+    )
+    original_name: Mapped[str] = mapped_column(String(255))
+    storage_key: Mapped[str] = mapped_column(String(500), unique=True)
+    mime_type: Mapped[str] = mapped_column(String(127))
+    size_bytes: Mapped[int] = mapped_column(BigInteger)

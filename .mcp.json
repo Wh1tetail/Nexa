@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@upstash/context7-mcp@4.4.4"]
+    },
+    "postgres-dev": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-postgres@0.6.2",
+        "postgresql://lingua_readonly@127.0.0.1:4934/english_lms"
+      ]
+    }
+  }
+}
