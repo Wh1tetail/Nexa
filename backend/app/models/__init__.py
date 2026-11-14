@@ -2,6 +2,7 @@
 from app.models.file import Attachment
 from app.models.homework import Homework, HomeworkSubmission
 from app.models.lesson import Attendance, Lesson
+from app.models.message import AuthAttempt, Message
 from app.models.notification import Notification
 from app.models.subscription import Subscription
 from app.models.test import Test, TestAnswer, TestAttempt, TestQuestion, test_assignments
@@ -16,11 +17,13 @@ from app.models.user import (
 
 __all__ = [
     "Attachment",
+    "AuthAttempt",
     "Attendance",
     "Group",
     "Homework",
     "HomeworkSubmission",
     "Lesson",
+    "Message",
     "Notification",
     "PasswordResetToken",
     "StudentProfile",

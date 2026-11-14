@@ -10,6 +10,9 @@ Flow:
 3. `NotificationBroker` fans events out to the user's open SSE streams
    (`GET /api/v1/notifications/stream`).
 
+Chat events (new message, messages read) are published explicitly with
+`publish()` from `message_service` — also inside the transaction.
+
 Because the bus is PostgreSQL itself, it works with several uvicorn workers or
 servers — each process receives every event and serves its own subscribers.
 """
@@ -65,10 +68,8 @@ def _token_version_bumps(session: Session) -> list[tuple[int, int]]:
     return out
 
 
-@event.listens_for(Session, "after_flush")
-def _publish_realtime_events(session: Session, _ctx) -> None:
-    payloads = [notification_payload(n) for n in session.new if isinstance(n, Notification)]
-    payloads += [{"user_id": uid, "revoke": ver} for uid, ver in _token_version_bumps(session)]
+def publish(session: Session, payloads: list[dict[str, Any]]) -> None:
+    """Queue events in the session's transaction; PostgreSQL delivers them on commit."""
     if not payloads:
         return
     conn = session.connection()
@@ -77,6 +78,13 @@ def _publish_realtime_events(session: Session, _ctx) -> None:
             text("SELECT pg_notify(:ch, :payload)"),
             {"ch": CHANNEL, "payload": json.dumps(payload, ensure_ascii=False)},
         )
+
+
+@event.listens_for(Session, "after_flush")
+def _publish_realtime_events(session: Session, _ctx) -> None:
+    payloads = [notification_payload(n) for n in session.new if isinstance(n, Notification)]
+    payloads += [{"user_id": uid, "revoke": ver} for uid, ver in _token_version_bumps(session)]
+    publish(session, payloads)
 
 
 class NotificationBroker:
@@ -108,9 +116,11 @@ class NotificationBroker:
 
     def dispatch(self, payload: dict[str, Any]) -> None:
         """Must run on the event loop thread. Queue items are
-        ("notification", data) or ("revoke", new_token_version)."""
+        ("notification", data), ("chat", data) or ("revoke", new_token_version)."""
         if "revoke" in payload:
             item: tuple[str, Any] = ("revoke", int(payload["revoke"]))
+        elif "chat" in payload:
+            item = ("chat", payload["chat"])
         else:
             item = ("notification", payload["notification"])
         for q in list(self._subs.get(payload.get("user_id"), ())):

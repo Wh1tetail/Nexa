@@ -1,10 +1,19 @@
-/** Server-Sent Events client for live notifications.
+/** Server-Sent Events client for live notifications and chat events.
  *  Uses fetch streaming (not EventSource) so the access token travels in the
  *  Authorization header instead of the URL. */
 import { http, tokenStore } from "@/services/http";
-import type { Notification } from "@/types/api";
+import type { ChatEvent, Notification } from "@/types/api";
 
 const STREAM_URL = (import.meta.env.VITE_API_URL ?? "") + "/api/v1/notifications/stream";
+
+/** The conversation currently open on screen (no toast for its new messages). */
+let openThread: number | null = null;
+export const activeChat = {
+  get: () => openThread,
+  set: (studentId: number | null) => {
+    openThread = studentId;
+  },
+};
 
 type Status = "connecting" | "live" | "offline";
 let status: Status = "offline";
@@ -27,6 +36,7 @@ function setStatus(s: Status) {
 
 interface Options {
   onNotification: (n: Notification) => void;
+  onChat: (e: ChatEvent) => void;
   signal: AbortSignal;
 }
 
@@ -87,6 +97,7 @@ async function readStream(res: Response, opts: Options, kill: () => void): Promi
         }
         if (event === "ready") setStatus("live");
         else if (event === "notification") opts.onNotification(JSON.parse(data.join("\n")) as Notification);
+        else if (event === "chat") opts.onChat(JSON.parse(data.join("\n")) as ChatEvent);
         else if (event === "expired") return "closed"; // token expired: reconnect with a fresh one
         else if (event === "revoked") return "revoked";
       }

@@ -390,6 +390,38 @@ export interface Notification {
   created_at: string;
 }
 
+export interface ChatMessage {
+  id: number;
+  teacher_id: number;
+  student_id: number;
+  sender_user_id: number;
+  body: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+/** A teacher <-> student conversation; `student_id` is the thread key for both sides. */
+export interface ChatThread {
+  student_id: number;
+  teacher_id: number;
+  partner: { user_id: number; full_name: string; is_active: boolean };
+  last_message: ChatMessage | null;
+  unread_count: number;
+}
+
+/** `chat` event of the realtime stream. */
+export type ChatEvent =
+  | {
+      type: "message";
+      student_id: number;
+      teacher_id: number;
+      message_id: number;
+      sender_user_id: number;
+      sender_name: string;
+      preview: string;
+    }
+  | { type: "read"; student_id: number; teacher_id: number; reader_user_id: number; up_to_id: number };
+
 export interface StudentDashboard {
   full_name: string;
   english_level: EnglishLevel;

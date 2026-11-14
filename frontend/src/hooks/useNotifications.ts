@@ -3,11 +3,12 @@ import { useEffect, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { homePath, useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
 import { notificationsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
-import { realtimeStatus, runNotificationStream } from "@/services/realtime";
-import type { Notification, NotificationType } from "@/types/api";
+import { activeChat, realtimeStatus, runNotificationStream } from "@/services/realtime";
+import type { ChatEvent, Notification, NotificationType } from "@/types/api";
 
 /** Fallback polling: frequent only while the live stream is down. */
 const POLL_OFFLINE_MS = 30_000;
@@ -57,6 +58,9 @@ export function useRealtimeNotifications() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { t } = useI18n();
+  const { user } = useAuth();
+  const userId = user?.id;
+  const role = user?.role;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -73,9 +77,22 @@ export function useRealtimeNotifications() {
         action: n.link ? { label: t.notifications.open, onClick: () => navigate(n.link!) } : undefined,
       });
     };
-    runNotificationStream({ onNotification, signal: controller.signal });
+    const onChat = (e: ChatEvent) => {
+      qc.invalidateQueries({ queryKey: ["messages", "threads"] });
+      qc.invalidateQueries({ queryKey: ["messages", "unread"] });
+      qc.invalidateQueries({ queryKey: ["messages", "thread", e.student_id] });
+      // toast only for someone else's message in a conversation that is not on screen
+      if (e.type === "message" && e.sender_user_id !== userId && activeChat.get() !== e.student_id && role) {
+        const link = role === "teacher" ? `/teacher/messages/${e.student_id}` : `${homePath(role)}/messages`;
+        toast(t.messages.newFrom(e.sender_name), {
+          description: e.preview,
+          action: { label: t.notifications.open, onClick: () => navigate(link) },
+        });
+      }
+    };
+    runNotificationStream({ onNotification, onChat, signal: controller.signal });
     return () => controller.abort();
-  }, [qc, navigate, t]);
+  }, [qc, navigate, t, userId, role]);
 }
 
 export function useNotificationActions() {

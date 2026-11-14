@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarCheck, CalendarDays, CalendarX2, Mail, Pencil, Percent, Phone, Plus, Power, Send } from "lucide-react";
+import { ArrowLeft, CalendarCheck, CalendarDays, CalendarX2, Mail, MessageSquare, Pencil, Percent, Phone, Plus, Power, Send } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -102,6 +102,11 @@ export default function StudentProfilePage() {
             )}
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="icon" asChild>
+              <Link to={`/teacher/messages/${s.id}`} aria-label={t.messages.write} title={t.messages.write}>
+                <MessageSquare />
+              </Link>
+            </Button>
             <Button variant="outline" onClick={() => setEditing(true)}>
               <Pencil />
               {t.common.edit}

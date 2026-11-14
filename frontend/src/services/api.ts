@@ -10,6 +10,8 @@ import type {
   AttendanceRecord,
   AttendanceStats,
   AttendanceStatus,
+  ChatMessage,
+  ChatThread,
   EnglishLevel,
   Group,
   HomeworkDetail,
@@ -268,6 +270,18 @@ export const notificationsApi = {
   unreadCount: () => get<{ count: number }>("/notifications/unread-count"),
   read: (id: number) => post<Notification>(`/notifications/${id}/read`),
   readAll: () => post("/notifications/read-all"),
+};
+
+/** Messages per history page (the API allows up to 100). */
+export const MESSAGES_PAGE = 50;
+
+export const messagesApi = {
+  threads: () => get<ChatThread[]>("/messages/threads"),
+  unreadCount: () => get<{ count: number }>("/messages/unread-count"),
+  history: (studentId: number, beforeId?: number) =>
+    get<ChatMessage[]>(`/messages/threads/${studentId}`, clean({ before_id: beforeId, limit: MESSAGES_PAGE })),
+  send: (studentId: number, body: string) => post<ChatMessage>(`/messages/threads/${studentId}`, { body }),
+  read: (studentId: number) => post<{ count: number }>(`/messages/threads/${studentId}/read`),
 };
 
 export interface AdminUserFilters {

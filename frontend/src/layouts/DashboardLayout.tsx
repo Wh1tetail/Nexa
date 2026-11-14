@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   Settings,
   Users,
   UsersRound,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { homePath, useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
+import { useChatUnread } from "@/hooks/useMessages";
 import { useRealtimeNotifications } from "@/hooks/useNotifications";
 import { cn } from "@/lib/utils";
 
@@ -39,11 +41,13 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  badge?: number;
 }
 
 function useNav(): NavItem[] {
   const { user } = useAuth();
   const { t } = useI18n();
+  const unread = useChatUnread(user?.role === "teacher" || user?.role === "student").data ?? 0;
   if (user?.role === "admin") {
     return [{ to: "/admin", label: t.nav.dashboard, icon: LayoutDashboard, end: true }];
   }
@@ -51,6 +55,7 @@ function useNav(): NavItem[] {
     return [
       { to: "/student", label: t.nav.dashboard, icon: LayoutDashboard, end: true },
       { to: "/student/homework", label: t.nav.homework, icon: ClipboardList },
+      { to: "/student/messages", label: t.nav.messages, icon: MessageSquare, badge: unread },
       { to: "/student/tests", label: t.nav.tests, icon: BookOpenCheck },
       { to: "/student/schedule", label: t.nav.schedule, icon: CalendarDays },
       { to: "/student/attendance", label: t.nav.attendance, icon: CalendarCheck },
@@ -59,6 +64,7 @@ function useNav(): NavItem[] {
   }
   return [
     { to: "/teacher", label: t.nav.dashboard, icon: LayoutDashboard, end: true },
+    { to: "/teacher/messages", label: t.nav.messages, icon: MessageSquare, badge: unread },
     { to: "/teacher/students", label: t.nav.students, icon: Users },
     { to: "/teacher/groups", label: t.nav.groups, icon: UsersRound },
     { to: "/teacher/lessons", label: t.nav.lessons, icon: CalendarCheck },
@@ -72,7 +78,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const items = useNav();
   return (
     <nav className="grid gap-1">
-      {items.map(({ to, label, icon: Icon, end }) => (
+      {items.map(({ to, label, icon: Icon, end, badge }) => (
         <NavLink
           key={to}
           to={to}
@@ -87,6 +93,11 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         >
           <Icon className="size-[18px] shrink-0" />
           <span className="truncate">{label}</span>
+          {!!badge && (
+            <span className="tabular ml-auto rounded-full bg-accent px-1.5 text-[11px] font-medium leading-5 text-white">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          )}
         </NavLink>
       ))}
     </nav>

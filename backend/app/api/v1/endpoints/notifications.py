@@ -51,7 +51,8 @@ async def stream(
     Auth uses the regular `Authorization: Bearer` header (the client reads the
     stream with fetch, so the token never appears in a URL). The stream ends
     when the access token expires — the client refreshes it and reconnects.
-    Events: `ready`, `notification` (JSON like NotificationOut), `expired`,
+    Events: `ready`, `notification` (JSON like NotificationOut), `chat`
+    (`{"type": "message" | "read", ...}`, see message_service), `expired`,
     `revoked` (logout / password change / deactivation — sent immediately, then
     the stream closes);
     `: ping` comments keep proxies from closing the connection.
@@ -80,7 +81,7 @@ async def stream(
                         yield sse("revoked", {})
                         return
                     continue
-                yield sse("notification", data)
+                yield sse(kind, data)  # "notification" or "chat"
         finally:
             broker.unsubscribe(user_id, queue)
 

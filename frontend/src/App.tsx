@@ -38,6 +38,7 @@ const SubscriptionsPage = lazy(() => import("@/pages/teacher/SubscriptionsPage")
 const AdminPage = lazy(() => import("@/pages/teacher/AdminPage"));
 
 const NotificationsPage = lazy(() => import("@/pages/shared/NotificationsPage"));
+const MessagesPage = lazy(() => import("@/pages/shared/MessagesPage"));
 const SettingsPage = lazy(() => import("@/pages/shared/SettingsPage"));
 
 export default function App() {
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="schedule" element={<StudentSchedule />} />
             <Route path="attendance" element={<StudentAttendance />} />
             <Route path="subscription" element={<StudentSubscription />} />
+            <Route path="messages" element={<MessagesPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
@@ -87,6 +89,8 @@ export default function App() {
             <Route path="tests/:testId" element={<TestResultsPage />} />
             <Route path="tests/:testId/attempts/:attemptId" element={<GradeAttemptPage />} />
             <Route path="subscriptions" element={<SubscriptionsPage />} />
+            <Route path="messages" element={<MessagesPage />} />
+            <Route path="messages/:studentId" element={<MessagesPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

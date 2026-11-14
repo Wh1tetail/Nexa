@@ -5,41 +5,16 @@ opens the SSE stream like the browser does and checks that a notification
 created by another user's action arrives live.
 """
 import json
-import socket
-import threading
 import time
 from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-import uvicorn
 from conftest import login
 
-from app.main import app
 from app.services.realtime import broker
 
 API = "/api/v1"
-
-
-def _free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
-@pytest.fixture
-def live_server():
-    port = _free_port()
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", lifespan="on"))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    deadline = time.time() + 15
-    while not server.started and time.time() < deadline:
-        time.sleep(0.05)
-    assert server.started
-    yield f"http://127.0.0.1:{port}"
-    server.should_exit = True
-    thread.join(timeout=15)
 
 
 _LINES: dict[int, object] = {}

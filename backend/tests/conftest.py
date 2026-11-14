@@ -4,7 +4,10 @@ Set TEST_DATABASE_URL (defaults to <DATABASE_URL>_test). The schema is created
 with Alembic migrations, so migrations are tested too.
 """
 import os
+import socket
 import tempfile
+import threading
+import time
 
 from dotenv_shim import load_env
 
@@ -23,6 +26,7 @@ os.environ["DEBUG"] = "true"
 os.environ["LOCAL_STORAGE_PATH"] = tempfile.mkdtemp(prefix="lms-test-")
 
 import pytest  # noqa: E402
+import uvicorn  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -31,7 +35,6 @@ from sqlalchemy import text  # noqa: E402
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
-from app.middleware.rate_limit import login_limiter  # noqa: E402
 from app.models import StudentProfile, TeacherProfile, User  # noqa: E402
 from app.models.enums import UserRole  # noqa: E402
 
@@ -52,9 +55,30 @@ def _migrate():
 def _clean():
     with engine.begin() as conn:
         tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+        # also clears auth_attempts (login limiter state)
         conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
-    login_limiter._hits.clear()
     yield
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture
+def live_server():
+    port = _free_port()
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", lifespan="on"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.time() + 15
+    while not server.started and time.time() < deadline:
+        time.sleep(0.05)
+    assert server.started
+    yield f"http://127.0.0.1:{port}"
+    server.should_exit = True
+    thread.join(timeout=15)
 
 
 @pytest.fixture
