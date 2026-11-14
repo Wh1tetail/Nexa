@@ -2,5 +2,6 @@
 __pycache__/
 *.pyc
 .env
-storage/
+# uploaded files (LOCAL_STORAGE_PATH); anchored so app/storage/ (code) is NOT ignored
+/storage/
 .pytest_cache/
