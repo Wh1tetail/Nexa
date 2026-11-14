@@ -73,6 +73,14 @@ class Settings(BaseSettings):
     EMAIL_NOTIFY_DELAY_MINUTES: int = 10
     EMAIL_OUTBOX_INTERVAL_SECONDS: int = 60
 
+    @field_validator("LOCAL_STORAGE_PATH")
+    @classmethod
+    def storage_relative_to_backend(cls, v: Path) -> Path:
+        """A relative path (e.g. ./storage from .env.example) is resolved against the
+        backend folder, not the current directory: uploads must never land in the
+        repository root when the server is started from elsewhere."""
+        return v if v.is_absolute() else (BASE_DIR / v).resolve()
+
     @field_validator("DATABASE_URL")
     @classmethod
     def _normalize_db_url(cls, v: str) -> str:

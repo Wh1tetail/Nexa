@@ -26,3 +26,6 @@ backend/storage/
 Thumbs.db
 .vscode/
 .idea/
+
+# Uploaded files (LOCAL_STORAGE_PATH) - never commit user uploads
+/storage/
