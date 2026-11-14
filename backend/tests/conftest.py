@@ -10,8 +10,14 @@ from dotenv_shim import load_env
 
 load_env()  # populate os.environ from .env before reading DATABASE_URL
 
-base_url = os.environ["DATABASE_URL"]
-os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", base_url.rsplit("/", 1)[0] + "/english_lms_test")
+# conftest is imported twice (by pytest and by `from conftest import ...`), so remember
+# the real application DB once instead of deriving from an already-rewritten value.
+base_url = os.environ.setdefault("APP_DATABASE_URL", os.environ["DATABASE_URL"])
+test_url = os.environ.get("TEST_DATABASE_URL") or base_url + "_test"  # e.g. .../Nexa -> .../Nexa_test
+# The test DB is wiped (DROP SCHEMA public) on every run: never let it be the main DB.
+if test_url.rstrip("/") == base_url.rstrip("/"):
+    raise RuntimeError("TEST_DATABASE_URL must point to a separate database, not DATABASE_URL")
+os.environ["DATABASE_URL"] = test_url
 os.environ["ENVIRONMENT"] = "test"
 os.environ["DEBUG"] = "true"
 os.environ["LOCAL_STORAGE_PATH"] = tempfile.mkdtemp(prefix="lms-test-")

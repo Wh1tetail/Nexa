@@ -11,12 +11,22 @@ backend/    FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL + JWT
 
 ### 1. База данных
 
-Нужен PostgreSQL 14+. Создайте базы:
+Нужен PostgreSQL 14+ (основной вариант для разработки — установленный PostgreSQL 18 как служба Windows на порту 5432). Создайте две базы — основную и тестовую с суффиксом `_test`:
 
 ```sql
 CREATE DATABASE english_lms;
 CREATE DATABASE english_lms_test;   -- для автотестов
 ```
+
+Имена могут быть любыми: тесты берут базу `<имя из DATABASE_URL>_test` (например, `Nexa` → `Nexa_test`) или адрес из `TEST_DATABASE_URL`. Тестовая база **полностью очищается** при каждом запуске, поэтому она обязана отличаться от основной — `conftest.py` это проверяет.
+
+**MCP-доступ к базе только на чтение** (сервер `postgres-dev` в `.mcp.json`): создайте роль `nexa_readonly` с паролем и правами только на `SELECT`, а её адрес положите в `.claude/settings.local.json` (файл не попадает в git):
+
+```json
+{ "env": { "NEXA_RO_DATABASE_URL": "postgresql://nexa_readonly:ПАРОЛЬ@127.0.0.1:5432/english_lms" } }
+```
+
+`.mcp.json` подставляет его как `${NEXA_RO_DATABASE_URL}`, поэтому пароль не хранится в репозитории.
 
 Нет установленного PostgreSQL? Для разработки можно поднять локальный сервер без установки (пакет `pgserver` с бинарниками PostgreSQL 16) — после создания `.venv` из шага 2:
 

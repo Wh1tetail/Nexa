@@ -7,11 +7,12 @@ Online English school LMS. Russian UI by default (English supported). Full docs:
 - `frontend/` — React 18 + TS + Vite + Tailwind + shadcn-style components (`src/components/ui`), TanStack Query, react-hook-form + Zod.
 
 ## Commands (Windows, Git Bash)
-- Dev Postgres (no system install): `cd backend && .venv/Scripts/python -m scripts.dev_postgres`
+- Database: local PostgreSQL 18 Windows service (`postgresql-x64-18`, port 5432); main DB from `DATABASE_URL` in `backend/.env`, tests use `<db>_test`. Fallback without an install: `cd backend && .venv/Scripts/python -m scripts.dev_postgres` (port 4934)
+- DB inspection: `postgres-dev` MCP server, read-only role `nexa_readonly`, URL in `NEXA_RO_DATABASE_URL` (`.claude/settings.local.json`, not in git)
 - Migrations: `cd backend && .venv/Scripts/alembic upgrade head`
 - Backend: `cd backend && .venv/Scripts/python -m uvicorn app.main:app --port 8000` (or the `backend` entry in `.claude/launch.json`)
 - Frontend: `cd frontend && npm run dev` (Vite proxies `/api` to :8000)
-- Tests (real PostgreSQL, ~3 min): `cd backend && .venv/Scripts/python -m pytest -q`
+- Tests (real PostgreSQL, ~4 min; wipe the `<db>_test` database each run): `cd backend && .venv/Scripts/python -m pytest -q`
 - Lint: `cd backend && .venv/Scripts/python -m pyflakes app tests scripts`
 - Types/build: `cd frontend && npx tsc -b --noEmit` / `npm run build`
 - Demo data: `cd backend && .venv/Scripts/python -m scripts.seed --reset` (password `Demo12345` for all demo users)
