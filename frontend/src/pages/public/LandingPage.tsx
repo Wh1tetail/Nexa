@@ -6,7 +6,6 @@ import {
   ClipboardList,
   CreditCard,
   Mail,
-  MapPin,
   Menu,
   Phone,
   Sparkles,
@@ -23,23 +22,30 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { homePath, useAuth } from "@/contexts/AuthContext";
-import { useI18n } from "@/contexts/I18nContext";
+import { LOCALES, useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
+
+/** School contacts shown on the landing page. */
+const WHATSAPP_URL = "https://wa.me/message/BKGS736WHM6NI1";
+const CONTACT_PHONE = "+7 705 654 0935";
+const CONTACT_EMAIL = "kadrzhnvdaniyar@gmail.com";
 
 function LanguageToggle() {
   const { locale, setLocale } = useI18n();
   return (
     <div className="flex rounded-lg bg-secondary p-0.5 text-xs font-medium">
-      {(["ru", "en"] as const).map((l) => (
+      {LOCALES.map((l) => (
         <button
-          key={l}
-          onClick={() => setLocale(l)}
+          key={l.code}
+          onClick={() => setLocale(l.code)}
+          aria-label={l.name}
+          title={l.name}
           className={cn(
-            "rounded-md px-2 py-1 uppercase transition-colors",
-            locale === l ? "bg-background text-primary shadow-sm" : "text-muted-foreground",
+            "rounded-md px-2 py-1 transition-colors",
+            locale === l.code ? "bg-background text-primary shadow-sm" : "text-muted-foreground",
           )}
         >
-          {l}
+          {l.short}
         </button>
       ))}
     </div>
@@ -261,7 +267,7 @@ export default function LandingPage() {
               <p className="mx-auto mt-3 max-w-lg text-white/70">{l.ctaText}</p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Button size="lg" asChild>
-                  <a href="mailto:hello@nexa.school?subject=Trial%20lesson">{l.ctaButton}</a>
+                  <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">{l.ctaButton}</a>
                 </Button>
                 <Button size="lg" variant="outline" className="border-white/20 bg-white/10 text-white hover:bg-white/20" asChild>
                   <Link to={cabinet}>{l.login}</Link>
@@ -284,15 +290,11 @@ export default function LandingPage() {
             <ul className="mt-4 grid gap-3 text-sm text-muted-foreground">
               <li className="flex items-center gap-2">
                 <Phone className="size-4 shrink-0" />
-                <a href="tel:+78000000000" className="hover:text-primary">+7 (800) 000-00-00</a>
+                <a href={`tel:${CONTACT_PHONE.replace(/\s/g, "")}`} className="hover:text-primary">{CONTACT_PHONE}</a>
               </li>
-              <li className="flex items-center gap-2">
+              <li className="flex min-w-0 items-center gap-2">
                 <Mail className="size-4 shrink-0" />
-                <a href="mailto:hello@nexa.school" className="hover:text-primary">hello@nexa.school</a>
-              </li>
-              <li className="flex items-center gap-2">
-                <MapPin className="size-4 shrink-0" />
-                {l.address}
+                <a href={`mailto:${CONTACT_EMAIL}`} className="min-w-0 break-all hover:text-primary">{CONTACT_EMAIL}</a>
               </li>
             </ul>
           </div>

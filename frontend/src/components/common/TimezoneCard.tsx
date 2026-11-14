@@ -11,8 +11,15 @@ import { authApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
 import { browserTimeZone, fmtDateTime } from "@/utils/format";
 
-/** Russian zones first: most users of the school are there. */
+/** Kazakhstan and Russia first: most users of the school are there. */
 const POPULAR = [
+  "Asia/Almaty",
+  "Asia/Qostanay",
+  "Asia/Qyzylorda",
+  "Asia/Aqtobe",
+  "Asia/Aqtau",
+  "Asia/Atyrau",
+  "Asia/Oral",
   "Europe/Kaliningrad",
   "Europe/Moscow",
   "Europe/Samara",

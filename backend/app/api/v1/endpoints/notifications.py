@@ -1,6 +1,7 @@
 import asyncio
 import json
 import time
+from typing import Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -14,6 +15,7 @@ from app.core.security import decode_token
 from app.models import Notification
 from app.schemas.common import Message
 from app.schemas.notification import NotificationOut
+from app.services.notification_service import SECTION_OF, SECTIONS, types_of
 from app.services.realtime import broker
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -21,6 +23,10 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 class UnreadCount(BaseModel):
     count: int
+
+
+class SectionRead(BaseModel):
+    section: Literal["homework", "tests", "lessons", "subscription"]
 
 
 @router.get("", response_model=list[NotificationOut])
@@ -100,6 +106,38 @@ def unread_count(user: CurrentUser, db: DB) -> UnreadCount:
         )
     )
     return UnreadCount(count=n or 0)
+
+
+@router.get("/unread-by-section", response_model=dict[str, int])
+def unread_by_section(user: CurrentUser, db: DB) -> dict[str, int]:
+    """Counters for the side menu: {"homework": 2, "tests": 0, "lessons": 1, "subscription": 0}."""
+    rows = db.execute(
+        select(Notification.type, func.count())
+        .where(Notification.user_id == user.id, Notification.is_read.is_(False))
+        .group_by(Notification.type)
+    ).all()
+    out = dict.fromkeys(SECTIONS, 0)
+    for type_, n in rows:
+        section = SECTION_OF.get(type_)
+        if section:
+            out[section] += n
+    return out
+
+
+@router.post("/read-section", response_model=UnreadCount)
+def read_section(data: SectionRead, user: CurrentUser, db: DB) -> UnreadCount:
+    """The user opened that section: its notifications count as seen."""
+    result = db.execute(
+        update(Notification)
+        .where(
+            Notification.user_id == user.id,
+            Notification.is_read.is_(False),
+            Notification.type.in_(types_of(data.section)),
+        )
+        .values(is_read=True)
+    )
+    db.commit()
+    return UnreadCount(count=result.rowcount or 0)
 
 
 @router.post("/{notification_id}/read", response_model=NotificationOut)

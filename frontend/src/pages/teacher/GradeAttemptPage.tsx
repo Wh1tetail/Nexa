@@ -94,6 +94,7 @@ export default function GradeAttemptPage() {
               key={qq.id}
               index={i}
               question={qq}
+              files={a.files}
               value={ans?.answer ?? []}
               result={ans && ans.points_awarded !== null ? ans : undefined}
               footer={

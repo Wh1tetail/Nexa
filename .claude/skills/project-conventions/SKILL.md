@@ -21,7 +21,7 @@ user-invocable: false
 ## Frontend (React)
 - Types in `src/types/api.ts` mirror the Pydantic response models exactly; API calls live only in `src/services/api.ts`.
 - Data fetching with TanStack Query; after mutations invalidate the affected keys (`["students"]`, `["lessons"]`, `["dashboard"]`, ...). Errors → `toast.error(errorMessage(e))`; success → `toast.success(...)`.
-- Every visible string goes through `useI18n()` and must be added to both `src/i18n/ru.ts` and `src/i18n/en.ts`.
+- Every visible string goes through `useI18n()` and must be added to `src/i18n/ru.ts`, `src/i18n/en.ts` and `src/i18n/kk.ts` (Kazakh). Dates and times only via `utils/format.ts`.
 - Use the UI kit (`src/components/ui/*`) and common blocks (`PageHeader`, `EmptyState`, `ErrorState`, `StatCard`, `Field`, skeletons from `src/components/common`). Destructive actions use `ConfirmDialog`.
 - Loading states use skeletons, never a blank page. No dead buttons: every control calls a real API.
 - Layout must work at 375px without horizontal scroll: tables live inside `Card` with their own overflow, single-column grids use `grid` (global `minmax(0,1fr)` rule) or `grid-cols-1`.

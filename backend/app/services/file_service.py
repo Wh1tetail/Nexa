@@ -33,6 +33,7 @@ def store_validated(
     homework_id: int | None = None,
     submission_id: int | None = None,
     message_id: int | None = None,
+    test_id: int | None = None,
 ) -> Attachment:
     """Save an already validated file and add its row to the session (caller commits)."""
     now = datetime.now(UTC)
@@ -44,6 +45,7 @@ def store_validated(
         homework_id=homework_id,
         submission_id=submission_id,
         message_id=message_id,
+        test_id=test_id,
         original_name=vf.original_name,
         storage_key=key,
         mime_type=vf.mime_type,
@@ -65,6 +67,7 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
     - teacher: files of their own homework and of submissions to it
     - student: materials of homework assigned to them, and their own submission files
     - chat files: only the two participants of the conversation (not even admins)
+    - test materials: the test's teacher; a student once they have started the test
     - admin: everything else
     """
     att = db.get(Attachment, attachment_id)
@@ -78,6 +81,19 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
         raise NotFound("Файл не найден")
     if user.role == UserRole.ADMIN:
         return att
+
+    if att.test_id is not None:
+        from app.models import Test, TestAttempt
+
+        test = db.get(Test, att.test_id)
+        if user.role == UserRole.TEACHER and user.teacher_profile and test.teacher_id == user.teacher_profile.id:
+            return att
+        # students only once they have started the test (no peeking at a listening task)
+        if user.role == UserRole.STUDENT and user.student_profile:
+            started = db.query(TestAttempt.id).filter_by(test_id=test.id, student_id=user.student_profile.id).first()
+            if started:
+                return att
+        raise NotFound("Файл не найден")
 
     if att.homework_id is not None:
         from app.models import Homework

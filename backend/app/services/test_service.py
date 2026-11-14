@@ -1,9 +1,11 @@
 """Test grading logic."""
+import random
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
 from app.models import StudentProfile, Test, TestAnswer, TestAttempt, TestQuestion
+from app.core.exceptions import BadRequest
 from app.models.enums import AttemptStatus, NotificationType, QuestionType
 from app.schemas.test import (
     AnswerOut,
@@ -23,7 +25,16 @@ def normalize_text(s: str) -> str:
     return " ".join(s.strip().lower().replace("’", "'").split()).rstrip(".!")
 
 
+def check_attachment_ids(test: Test, questions: list[QuestionIn]) -> None:
+    """Questions may only show files of this very test."""
+    own = {f.id for f in test.files}
+    for q in questions:
+        if not set(q.attachment_ids) <= own:
+            raise BadRequest("Файл к вопросу не найден среди материалов теста")
+
+
 def build_questions(test: Test, questions: list[QuestionIn]) -> None:
+    check_attachment_ids(test, questions)
     test.questions.clear()
     for i, q in enumerate(questions):
         test.questions.append(
@@ -34,8 +45,32 @@ def build_questions(test: Test, questions: list[QuestionIn]) -> None:
                 options=[o.model_dump() for o in q.options],
                 correct_answer=q.correct_answer,
                 points=q.points,
+                explanation=q.explanation,
+                attachment_ids=q.attachment_ids,
             )
         )
+
+
+def apply_settings(test: Test, data) -> None:
+    test.available_from = data.available_from
+    test.shuffle_questions = data.shuffle_questions
+    test.shuffle_options = data.shuffle_options
+    test.show_correct_answers = data.show_correct_answers
+    test.passing_percent = data.passing_percent
+
+
+def settings_of(test: Test) -> dict:
+    return {
+        "available_from": test.available_from,
+        "shuffle_questions": test.shuffle_questions,
+        "shuffle_options": test.shuffle_options,
+        "show_correct_answers": test.show_correct_answers,
+        "passing_percent": test.passing_percent,
+    }
+
+
+def is_available(test: Test, now: datetime | None = None) -> bool:
+    return test.available_from is None or test.available_from <= (now or datetime.now(UTC))
 
 
 def auto_grade(question: TestQuestion, answer: list[str]) -> tuple[bool | None, float | None]:
@@ -144,16 +179,42 @@ def percent(attempt: TestAttempt) -> int | None:
     return round(attempt.score * 100 / attempt.max_score)
 
 
-def question_out(q: TestQuestion, reveal: bool) -> QuestionOut:
+def passed(attempt: TestAttempt) -> bool | None:
+    """Pass/fail once graded; None when the test has no passing score."""
+    pct = percent(attempt)
+    if attempt.status != AttemptStatus.GRADED or attempt.test.passing_percent is None or pct is None:
+        return None
+    return pct >= attempt.test.passing_percent
+
+
+def question_out(q: TestQuestion, reveal: bool, option_order: random.Random | None = None) -> QuestionOut:
+    options = [OptionIn(**o) for o in q.options]
+    if option_order is not None and q.type != QuestionType.TRUE_FALSE:
+        option_order.shuffle(options)
     return QuestionOut(
         id=q.id,
         position=q.position,
         type=q.type,
         text=q.text,
-        options=[OptionIn(**o) for o in q.options],
+        options=options,
         correct_answer=list(q.correct_answer) if reveal else None,
         points=q.points,
+        explanation=q.explanation if reveal else None,
+        attachment_ids=list(q.attachment_ids or []),
     )
+
+
+def ordered_questions(attempt: TestAttempt) -> list[tuple[TestQuestion, random.Random | None]]:
+    """The order a student sees: stable for the attempt (seeded by its id),
+    so reloading the page never reshuffles."""
+    test = attempt.test
+    questions = list(test.questions)
+    if test.shuffle_questions:
+        random.Random(f"q-{attempt.id}").shuffle(questions)
+    return [
+        (q, random.Random(f"o-{attempt.id}-{q.id}") if test.shuffle_options else None)
+        for q in questions
+    ]
 
 
 def attempt_summary(a: TestAttempt) -> AttemptSummary:
@@ -170,12 +231,17 @@ def attempt_summary(a: TestAttempt) -> AttemptSummary:
         score=a.score if graded else None,
         max_score=a.max_score or float(sum(q.points for q in a.test.questions)),
         percent=percent(a) if graded else None,
+        passed=passed(a),
     )
 
 
 def attempt_detail(a: TestAttempt, for_teacher: bool) -> AttemptDetail:
+    from app.schemas.homework import AttachmentOut
+
     graded = a.status == AttemptStatus.GRADED
-    reveal = for_teacher or graded
+    # the score is always shown once graded; correct answers only if the teacher allows it
+    show_score = for_teacher or graded
+    reveal = for_teacher or (graded and a.test.show_correct_answers)
     summary = attempt_summary(a)
     if for_teacher and a.score is not None:
         summary.score = a.score
@@ -185,18 +251,25 @@ def attempt_detail(a: TestAttempt, for_teacher: bool) -> AttemptDetail:
             id=x.id,
             question_id=x.question_id,
             answer=x.answer,
-            is_correct=x.is_correct if reveal else None,
-            points_awarded=x.points_awarded if reveal else None,
-            teacher_comment=x.teacher_comment if reveal else None,
+            is_correct=x.is_correct if show_score else None,
+            points_awarded=x.points_awarded if show_score else None,
+            teacher_comment=x.teacher_comment if show_score else None,
         )
         for x in a.answers
     ]
+    if for_teacher:
+        questions = [question_out(q, reveal) for q in a.test.questions]
+    else:
+        questions = [question_out(q, reveal, order) for q, order in ordered_questions(a)]
     return AttemptDetail(
         **summary.model_dump(),
         time_limit_minutes=a.test.time_limit_minutes,
         deadline_at=deadline(a),
-        questions=[question_out(q, reveal) for q in a.test.questions],
+        passing_percent=a.test.passing_percent,
+        show_correct_answers=a.test.show_correct_answers,
+        questions=questions,
         answers=answers,
+        files=[AttachmentOut.model_validate(f) for f in a.test.files],
     )
 
 
@@ -210,6 +283,10 @@ def student_item(test: Test, attempt: TestAttempt | None) -> StudentTestItem:
         description=test.description,
         time_limit_minutes=test.time_limit_minutes,
         due_at=test.due_at,
+        available_from=test.available_from,
+        is_available=is_available(test, now),
+        passing_percent=test.passing_percent,
+        passed=passed(attempt) if attempt else None,
         questions_count=len(test.questions),
         is_overdue=bool(test.due_at and test.due_at < now and not done),
         attempt_id=attempt.id if attempt else None,

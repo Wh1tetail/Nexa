@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowLeft, ArrowUp, Lock, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Lock, Paperclip, Plus, Settings2, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ErrorState, Field, PageSkeleton } from "@/components/common";
+import { FileDropzone, FileList } from "@/components/common/Files";
 import { RecipientPicker } from "@/components/common/RecipientPicker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
 import { testsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
-import type { QuestionInput, QuestionType } from "@/types/api";
+import type { Attachment, QuestionInput, QuestionType } from "@/types/api";
 import { localInputToIso, toDateTimeInput } from "@/utils/format";
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz";
@@ -43,11 +44,13 @@ function QuestionEditor({
   onRemove,
   onMove,
   error,
+  files,
 }: {
   q: QuestionInput;
   index: number;
   total: number;
   locked: boolean;
+  files: Attachment[];
   onChange: (q: QuestionInput) => void;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
@@ -58,7 +61,7 @@ function QuestionEditor({
 
   const setType = (type: QuestionType) => {
     const fresh = blankQuestion(type);
-    onChange({ ...fresh, text: q.text, points: q.points, options: isChoice && (type === "single_choice" || type === "multiple_choice") ? q.options : fresh.options });
+    onChange({ ...fresh, text: q.text, points: q.points, explanation: q.explanation, attachment_ids: q.attachment_ids, options: isChoice && (type === "single_choice" || type === "multiple_choice") ? q.options : fresh.options });
   };
 
   const nextId = () => LETTERS.split("").find((l) => !q.options.some((o) => o.id === l)) ?? String(Date.now());
@@ -169,8 +172,61 @@ function QuestionEditor({
           />
         </Field>
       )}
+      {files.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-xs text-muted-foreground">{t.tests.questionFiles}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {files.map((f) => {
+              const on = (q.attachment_ids ?? []).includes(f.id);
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  disabled={locked}
+                  aria-pressed={on}
+                  onClick={() =>
+                    onChange({
+                      ...q,
+                      attachment_ids: on ? (q.attachment_ids ?? []).filter((x) => x !== f.id) : [...(q.attachment_ids ?? []), f.id],
+                    })
+                  }
+                  className={cn(
+                    "flex max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors disabled:opacity-60",
+                    on ? "border-accent bg-accent-soft text-accent" : "text-muted-foreground hover:bg-secondary",
+                  )}
+                >
+                  <Paperclip className="size-3.5 shrink-0" />
+                  <span className="max-w-[200px] truncate">{f.original_name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <Field label={t.tests.explanation} hint={t.tests.explanationHint} optional className="mt-3">
+        <Textarea
+          rows={2}
+          value={q.explanation ?? ""}
+          disabled={locked}
+          maxLength={5000}
+          onChange={(e) => onChange({ ...q, explanation: e.target.value })}
+        />
+      </Field>
       {error && <p className="mt-3 text-xs text-danger">{error}</p>}
     </Card>
+  );
+}
+
+function Toggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg p-2 transition-colors hover:bg-secondary">
+      <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} className="mt-0.5" />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-primary">{label}</span>
+        <span className="block text-xs text-muted-foreground">{hint}</span>
+      </span>
+    </label>
   );
 }
 
@@ -187,6 +243,11 @@ export default function TestEditorPage() {
   const [limit, setLimit] = useState<string>("");
   const [due, setDue] = useState("");
   const [questions, setQuestions] = useState<QuestionInput[]>([blankQuestion()]);
+  const [availableFrom, setAvailableFrom] = useState("");
+  const [passing, setPassing] = useState("");
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [shuffleOptions, setShuffleOptions] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(true);
   const [recipients, setRecipients] = useState({ studentIds: [] as number[], groupIds: [] as number[] });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -197,11 +258,39 @@ export default function TestEditorPage() {
     setDescription(d.description ?? "");
     setLimit(d.time_limit_minutes?.toString() ?? "");
     setDue(d.due_at ? toDateTimeInput(new Date(d.due_at)) : "");
-    setQuestions(d.questions.map((q) => ({ type: q.type, text: q.text, options: q.type === "true_false" ? [] : q.options, correct_answer: q.correct_answer ?? [], points: q.points })));
+    setQuestions(
+      d.questions.map((q) => ({
+        type: q.type,
+        text: q.text,
+        options: q.type === "true_false" ? [] : q.options,
+        correct_answer: q.correct_answer ?? [],
+        points: q.points,
+        explanation: q.explanation ?? "",
+        attachment_ids: q.attachment_ids,
+      })),
+    );
+    setAvailableFrom(d.available_from ? toDateTimeInput(new Date(d.available_from)) : "");
+    setPassing(d.passing_percent?.toString() ?? "");
+    setShuffleQuestions(d.shuffle_questions);
+    setShuffleOptions(d.shuffle_options);
+    setShowAnswers(d.show_correct_answers);
     setRecipients({ studentIds: d.student_ids, groupIds: [] });
   }, [existing.data]);
 
   const locked = !!existing.data?.has_attempts;
+  const files = existing.data?.files ?? [];
+
+  const uploadFiles = (list: File[], onProgress: (p: number) => void) =>
+    testsApi.uploadFiles(editId!, list, onProgress).then(() => qc.invalidateQueries({ queryKey: ["tests", editId] }));
+  const removeFile = useMutation({
+    mutationFn: (f: Attachment) => testsApi.deleteFile(editId!, f.id),
+    onSuccess: (_, f) => {
+      // questions stop referring to it (the server does the same)
+      setQuestions((qs) => qs.map((q) => ({ ...q, attachment_ids: (q.attachment_ids ?? []).filter((x) => x !== f.id) })));
+      qc.invalidateQueries({ queryKey: ["tests", editId] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
 
   const save = useMutation({
     mutationFn: () => {
@@ -210,9 +299,15 @@ export default function TestEditorPage() {
         description: description.trim() || null,
         time_limit_minutes: limit ? Number(limit) : null,
         due_at: localInputToIso(due),
+        available_from: localInputToIso(availableFrom),
+        passing_percent: passing ? Number(passing) : null,
+        shuffle_questions: shuffleQuestions,
+        shuffle_options: shuffleOptions,
+        show_correct_answers: showAnswers,
         questions: questions.map((q) => ({
           ...q,
           text: q.text.trim(),
+          explanation: q.explanation?.trim() || null,
           options: q.type === "true_false" ? [{ id: "true", text: "True" }, { id: "false", text: "False" }] : q.options.map((o) => ({ ...o, text: o.text.trim() })),
           correct_answer: q.correct_answer.map((c) => c.trim()).filter(Boolean),
         })),
@@ -233,6 +328,9 @@ export default function TestEditorPage() {
     const e: Record<string, string> = {};
     if (!title.trim()) e.title = t.common.required;
     if (!questions.length) e.questions = t.tests.minOneQuestion;
+    const p = Number(passing);
+    if (passing && (!Number.isInteger(p) || p < 1 || p > 100)) e.passing = t.tests.passingRange;
+    if (availableFrom && due && availableFrom >= due) e.availableFrom = t.tests.openBeforeDue;
     questions.forEach((q, i) => {
       if (!q.text.trim()) e[`q${i}`] = t.tests.questionText + ": " + t.common.required.toLowerCase();
       else if ((q.type === "single_choice" || q.type === "multiple_choice") && q.options.some((o) => !o.text.trim())) e[`q${i}`] = t.tests.fillOptions;
@@ -289,6 +387,48 @@ export default function TestEditorPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings2 className="size-4 text-accent" />
+            {t.tests.settings}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <Field label={t.tests.availableFrom} hint={t.tests.availableFromHint} error={errors.availableFrom} optional>
+            <Input type="datetime-local" value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} aria-invalid={!!errors.availableFrom} />
+          </Field>
+          <Field label={t.tests.passingPercent} hint={t.tests.passingHint} error={errors.passing} optional>
+            <Input type="number" min={1} max={100} placeholder="70" value={passing} onChange={(e) => setPassing(e.target.value)} aria-invalid={!!errors.passing} />
+          </Field>
+          <div className="grid gap-1 sm:col-span-2">
+            <Toggle label={t.tests.shuffleQuestions} hint={t.tests.shuffleQuestionsHint} checked={shuffleQuestions} onChange={setShuffleQuestions} />
+            <Toggle label={t.tests.shuffleOptions} hint={t.tests.shuffleOptionsHint} checked={shuffleOptions} onChange={setShuffleOptions} />
+            <Toggle label={t.tests.showAnswers} hint={t.tests.showAnswersHint} checked={showAnswers} onChange={setShowAnswers} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Paperclip className="size-4 text-accent" />
+            {t.tests.materials}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">{t.tests.materialsHint}</p>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {!editId ? (
+            <p className="rounded-lg bg-secondary px-3 py-2.5 text-sm text-muted-foreground">{t.tests.materialsSaveFirst}</p>
+          ) : (
+            <>
+              <FileList files={files} onRemove={locked ? undefined : (f) => removeFile.mutate(f)} emptyText={t.tests.noMaterials} />
+              {!locked && <FileDropzone compact onUpload={uploadFiles} />}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="space-y-3">
         <h2 className="text-base font-semibold">{t.tests.questions} · {questions.length}</h2>
         {questions.map((q, i) => (
@@ -298,6 +438,7 @@ export default function TestEditorPage() {
             index={i}
             total={questions.length}
             locked={locked}
+            files={files}
             error={errors[`q${i}`]}
             onChange={(nq) => update(i, nq)}
             onRemove={() => setQuestions((qs) => qs.filter((_, j) => j !== i))}

@@ -42,7 +42,7 @@ class MeOut(UserOut):
 class UpdateMeRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=200)
     phone: str | None = Field(default=None, max_length=32)
-    locale: str | None = Field(default=None, pattern="^(ru|en)$")
+    locale: str | None = Field(default=None, pattern="^(ru|en|kk)$")
     timezone: str | None = Field(default=None, max_length=64)
     # partial update: only the categories sent are changed
     email_prefs: dict[str, bool] | None = None

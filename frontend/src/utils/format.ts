@@ -1,6 +1,8 @@
 import type { Locale } from "@/contexts/I18nContext";
 
-const tag = (l: Locale) => (l === "ru" ? "ru-RU" : "en-GB");
+const TAGS: Record<Locale, string> = { ru: "ru-RU", en: "en-GB", kk: "kk-KZ" };
+export const localeTag = (l: Locale) => TAGS[l];
+const tag = localeTag;
 
 /* ---------- display time zone ----------
  * Instants (ISO strings with an offset) are shown in the user's profile time
@@ -24,6 +26,80 @@ export function getDisplayTimeZone(): string {
   return displayTimeZone ?? browserTimeZone();
 }
 
+
+/* ---------- Kazakh dates ----------
+ * Many browsers (and Chrome's built-in ICU) ship without Kazakh date data and
+ * fall back to "M11 14" / "Sat". Kazakh dates are therefore assembled here from
+ * numeric parts; the numbers still come from Intl, so time zones stay correct. */
+const KK_MONTHS = ["қаңтар", "ақпан", "наурыз", "сәуір", "мамыр", "маусым", "шілде", "тамыз", "қыркүйек", "қазан", "қараша", "желтоқсан"];
+const KK_MONTHS_SHORT = ["қаң.", "ақп.", "нау.", "сәу.", "мам.", "мау.", "шіл.", "там.", "қыр.", "қаз.", "қар.", "жел."];
+const KK_WEEKDAYS = ["жексенбі", "дүйсенбі", "сейсенбі", "сәрсенбі", "бейсенбі", "жұма", "сенбі"];
+const KK_WEEKDAYS_SHORT = ["жс", "дс", "сс", "ср", "бс", "жм", "сб"];
+const EN_WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function kazakhDate(date: Date, opts: Intl.DateTimeFormatOptions, timeZone: string): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(date)
+      .map((p) => [p.type, p.value]),
+  );
+  const month = Number(parts.month) - 1;
+  const out: string[] = [];
+  if (opts.weekday) {
+    const wd = EN_WEEKDAY.indexOf(parts.weekday);
+    out.push((opts.weekday === "long" ? KK_WEEKDAYS : KK_WEEKDAYS_SHORT)[wd] + ",");
+  }
+  if (opts.day) out.push(String(Number(parts.day)));
+  if (opts.month) {
+    out.push(
+      opts.month === "long"
+        ? KK_MONTHS[month]
+        : opts.month === "short" || opts.month === "narrow"
+          ? KK_MONTHS_SHORT[month]
+          : String(month + 1).padStart(2, "0"),
+    );
+  }
+  if (opts.year) out.push(`${parts.year} ж.`);
+  let text = out.join(" ").replace(/,$/, "");
+  if (opts.hour || opts.minute) {
+    const time = `${parts.hour}:${parts.minute}`;
+    text = text ? `${text}, ${time}` : time;
+  }
+  return text;
+}
+
+/** Every date/time on screen goes through here (opts list exactly the fields to show). */
+export function formatInstant(date: Date, l: Locale, opts: Intl.DateTimeFormatOptions, timeZone: string): string {
+  if (l === "kk") return kazakhDate(date, opts, timeZone);
+  return date.toLocaleString(tag(l), { ...opts, timeZone });
+}
+
+function kazakhRelative(seconds: number): string {
+  const abs = Math.abs(seconds);
+  const past = seconds < 0;
+  if (abs < 60) return "жаңа ғана";
+  if (abs < 3600) {
+    const n = Math.round(abs / 60);
+    return past ? `${n} минут бұрын` : `${n} минуттан кейін`;
+  }
+  if (abs < 86400) {
+    const n = Math.round(abs / 3600);
+    return past ? `${n} сағат бұрын` : `${n} сағаттан кейін`;
+  }
+  const n = Math.round(abs / 86400);
+  if (n === 1) return past ? "кеше" : "ертең";
+  return past ? `${n} күн бұрын` : `${n} күннен кейін`;
+}
+
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** "YYYY-MM-DD" as UTC midnight (formatted with timeZone UTC, so the day never shifts). */
@@ -39,10 +115,7 @@ const zoneFor = (value: string) => (DATE_ONLY.test(value) ? "UTC" : getDisplayTi
 
 export function fmtDate(value: string | null | undefined, l: Locale, opts?: Intl.DateTimeFormatOptions) {
   if (!value) return "—";
-  return parseDate(value).toLocaleDateString(tag(l), {
-    ...(opts ?? { day: "numeric", month: "short", year: "numeric" }),
-    timeZone: zoneFor(value),
-  });
+  return formatInstant(parseDate(value), l, opts ?? { day: "numeric", month: "short", year: "numeric" }, zoneFor(value));
 }
 
 export function fmtShortDate(value: string | null | undefined, l: Locale) {
@@ -51,30 +124,25 @@ export function fmtShortDate(value: string | null | undefined, l: Locale) {
 
 export function fmtDateTime(value: string | null | undefined, l: Locale) {
   if (!value) return "—";
-  return new Date(value).toLocaleString(tag(l), {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: getDisplayTimeZone(),
-  });
+  return formatInstant(
+    new Date(value),
+    l,
+    { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" },
+    getDisplayTimeZone(),
+  );
 }
 
 export function fmtTime(value: string, l: Locale) {
-  return new Date(value).toLocaleTimeString(tag(l), { hour: "2-digit", minute: "2-digit", timeZone: getDisplayTimeZone() });
+  return formatInstant(new Date(value), l, { hour: "2-digit", minute: "2-digit" }, getDisplayTimeZone());
 }
 
 export function fmtWeekday(value: string, l: Locale) {
-  return new Date(value).toLocaleDateString(tag(l), {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: getDisplayTimeZone(),
-  });
+  return formatInstant(new Date(value), l, { weekday: "short", day: "numeric", month: "short" }, getDisplayTimeZone());
 }
 
 export function fmtRelative(value: string, l: Locale) {
   const diff = (new Date(value).getTime() - Date.now()) / 1000;
+  if (l === "kk") return Math.abs(diff) < 86400 * 30 ? kazakhRelative(diff) : fmtDate(value, l);
   const rtf = new Intl.RelativeTimeFormat(tag(l), { numeric: "auto" });
   const abs = Math.abs(diff);
   if (abs < 60) return rtf.format(Math.round(diff), "second");

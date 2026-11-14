@@ -1,12 +1,13 @@
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Lightbulb, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Checkbox, RadioGroup, RadioGroupItem } from "@/components/ui/checkbox";
+import { MediaFiles } from "@/components/tests/TestMedia";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
-import type { Answer, Question } from "@/types/api";
+import type { Answer, Attachment, Question } from "@/types/api";
 
 interface Props {
   index: number;
@@ -15,9 +16,11 @@ interface Props {
   onChange?: (v: string[]) => void;
   result?: Answer; // when present -> read-only review mode
   footer?: React.ReactNode;
+  /** All files of the test; the ones this question refers to are shown under its text. */
+  files?: Attachment[];
 }
 
-export function QuestionView({ index, question: q, value, onChange, result, footer }: Props) {
+export function QuestionView({ index, question: q, value, onChange, result, footer, files = [] }: Props) {
   const { t } = useI18n();
   const readOnly = !onChange;
   const correct = q.correct_answer ?? [];
@@ -50,6 +53,11 @@ export function QuestionView({ index, question: q, value, onChange, result, foot
         </div>
       </div>
       <p className="mt-2 whitespace-pre-wrap break-words text-base font-medium text-primary">{q.text}</p>
+      {q.attachment_ids.length > 0 && (
+        <div className="mt-3">
+          <MediaFiles files={files.filter((f) => q.attachment_ids.includes(f.id))} />
+        </div>
+      )}
       {q.type === "multiple_choice" && !readOnly && (
         <p className="mt-1 text-xs text-muted-foreground">{t.tests.selectMany}</p>
       )}
@@ -133,6 +141,15 @@ export function QuestionView({ index, question: q, value, onChange, result, foot
           ))}
       </div>
 
+      {readOnly && q.explanation && (
+        <div className="mt-4 flex gap-2 rounded-xl border border-accent/20 bg-accent-soft/40 px-4 py-3 text-sm text-primary">
+          <Lightbulb className="mt-0.5 size-4 shrink-0 text-accent" />
+          <p className="whitespace-pre-wrap break-words">
+            <span className="font-medium">{t.tests.explanation}: </span>
+            {q.explanation}
+          </p>
+        </div>
+      )}
       {result?.teacher_comment && (
         <p className="mt-4 rounded-xl bg-accent-soft/60 px-4 py-3 text-sm text-primary">💬 {result.teacher_comment}</p>
       )}

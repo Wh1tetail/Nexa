@@ -13,7 +13,7 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -33,7 +33,8 @@ import {
 import { homePath, useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
 import { useChatUnread } from "@/hooks/useMessages";
-import { useRealtimeNotifications } from "@/hooks/useNotifications";
+import { useMarkSectionSeen, useRealtimeNotifications, useSectionCounts } from "@/hooks/useNotifications";
+import type { NotificationSection } from "@/services/api";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -42,24 +43,33 @@ interface NavItem {
   icon: LucideIcon;
   end?: boolean;
   badge?: number;
+  /** Notifications of this section are counted on the item and marked seen when it is opened. */
+  section?: NotificationSection;
 }
 
 function useNav(): NavItem[] {
   const { user } = useAuth();
   const { t } = useI18n();
-  const unread = useChatUnread(user?.role === "teacher" || user?.role === "student").data ?? 0;
-  if (user?.role === "admin") {
+  const participant = user?.role === "teacher" || user?.role === "student";
+  const unread = useChatUnread(participant).data ?? 0;
+  const counts = useSectionCounts(participant).data;
+  const items = navFor(user?.role, t, unread);
+  return items.map((i) => (i.section ? { ...i, badge: counts?.[i.section] ?? 0 } : i));
+}
+
+function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], unread: number): NavItem[] {
+  if (role === "admin") {
     return [{ to: "/admin", label: t.nav.dashboard, icon: LayoutDashboard, end: true }];
   }
-  if (user?.role === "student") {
+  if (role === "student") {
     return [
       { to: "/student", label: t.nav.dashboard, icon: LayoutDashboard, end: true },
-      { to: "/student/homework", label: t.nav.homework, icon: ClipboardList },
+      { to: "/student/homework", label: t.nav.homework, icon: ClipboardList, section: "homework" },
       { to: "/student/messages", label: t.nav.messages, icon: MessageSquare, badge: unread },
-      { to: "/student/tests", label: t.nav.tests, icon: BookOpenCheck },
-      { to: "/student/schedule", label: t.nav.schedule, icon: CalendarDays },
+      { to: "/student/tests", label: t.nav.tests, icon: BookOpenCheck, section: "tests" },
+      { to: "/student/schedule", label: t.nav.schedule, icon: CalendarDays, section: "lessons" },
       { to: "/student/attendance", label: t.nav.attendance, icon: CalendarCheck },
-      { to: "/student/subscription", label: t.nav.subscription, icon: CreditCard },
+      { to: "/student/subscription", label: t.nav.subscription, icon: CreditCard, section: "subscription" },
     ];
   }
   return [
@@ -68,10 +78,22 @@ function useNav(): NavItem[] {
     { to: "/teacher/students", label: t.nav.students, icon: Users },
     { to: "/teacher/groups", label: t.nav.groups, icon: UsersRound },
     { to: "/teacher/lessons", label: t.nav.lessons, icon: CalendarCheck },
-    { to: "/teacher/homework", label: t.nav.homework, icon: ClipboardList },
-    { to: "/teacher/tests", label: t.nav.tests, icon: BookOpenCheck },
-    { to: "/teacher/subscriptions", label: t.nav.subscriptions, icon: CreditCard },
+    { to: "/teacher/homework", label: t.nav.homework, icon: ClipboardList, section: "homework" },
+    { to: "/teacher/tests", label: t.nav.tests, icon: BookOpenCheck, section: "tests" },
+    { to: "/teacher/subscriptions", label: t.nav.subscriptions, icon: CreditCard, section: "subscription" },
   ];
+}
+
+/** Marks a section's notifications seen while the user is in that section. */
+function useSeenOnVisit(items: NavItem[]) {
+  const { pathname } = useLocation();
+  const { mutate } = useMarkSectionSeen();
+  const current = items.find((i) => i.section && (pathname === i.to || pathname.startsWith(i.to + "/")));
+  const section = current?.section;
+  const pending = current?.badge ?? 0;
+  useEffect(() => {
+    if (section && pending > 0) mutate(section);
+  }, [section, pending, mutate]);
 }
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
@@ -127,6 +149,11 @@ function SidebarFooter({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+function SectionSeenTracker() {
+  useSeenOnVisit(useNav());
+  return null;
+}
+
 export function DashboardLayout() {
   const { user, logout } = useAuth();
   useRealtimeNotifications();
@@ -144,6 +171,7 @@ export function DashboardLayout() {
 
   return (
     <div className="min-h-dvh bg-secondary/60">
+      <SectionSeenTracker />
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r bg-background px-4 py-5 lg:flex">
         <Logo to={base} className="px-2" />

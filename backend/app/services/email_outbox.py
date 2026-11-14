@@ -19,26 +19,17 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models import Message, Notification, StudentProfile, TeacherProfile, User
-from app.models.enums import NotificationType, UserRole
+from app.models.enums import UserRole
 from app.services import email_service
+from app.services.notification_service import SECTION_OF, SECTIONS
 
 OUTBOX_LOCK = 724_002
 BATCH = 500
 
-# user-facing categories (keys of users.email_prefs); all on by default
-CATEGORY_OF: dict[NotificationType, str] = {
-    NotificationType.HOMEWORK_ASSIGNED: "homework",
-    NotificationType.HOMEWORK_SUBMITTED: "homework",
-    NotificationType.HOMEWORK_REVIEWED: "homework",
-    NotificationType.TEST_ASSIGNED: "tests",
-    NotificationType.TEST_COMPLETED: "tests",
-    NotificationType.TEST_GRADED: "tests",
-    NotificationType.LESSON_CHANGED: "lessons",
-    NotificationType.SUBSCRIPTION_EXPIRING: "subscription",
-    NotificationType.SUBSCRIPTION_EXPIRED: "subscription",
-    # NotificationType.SYSTEM: in-app only
-}
-CATEGORIES = ("messages", "homework", "tests", "lessons", "subscription")
+# user-facing categories (keys of users.email_prefs); all on by default.
+# Notification categories are the app sections; SYSTEM notifications stay in-app.
+CATEGORY_OF = SECTION_OF
+CATEGORIES = ("messages", *SECTIONS)
 
 
 def effective_prefs(user: User) -> dict[str, bool]:

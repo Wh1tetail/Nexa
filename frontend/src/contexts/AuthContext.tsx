@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { useI18n } from "@/contexts/I18nContext";
+import { isLocale, useI18n } from "@/contexts/I18nContext";
 import { authApi } from "@/services/api";
 import { setSessionExpiredHandler, tokenStore } from "@/services/http";
 import { wasRecentlyRevoked } from "@/services/realtime";
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await authApi.me();
       qc.clear();
       setUser(me);
-      if (me.locale === "ru" || me.locale === "en") setLocale(me.locale);
+      if (isLocale(me.locale)) setLocale(me.locale);
       return me;
     },
     [qc, setLocale, setUser],

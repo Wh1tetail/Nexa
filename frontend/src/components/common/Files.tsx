@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useI18n } from "@/contexts/I18nContext";
+import type { Dict } from "@/i18n/ru";
 import { cn } from "@/lib/utils";
 import { filesApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
@@ -23,14 +24,14 @@ function iconFor(mime: string) {
 }
 
 /** Client-side pre-validation (server re-validates extension, size and magic bytes). */
-export function validateFiles(files: File[]): { ok: File[]; errors: string[] } {
+export function validateFiles(files: File[], msg: Dict["files"]): { ok: File[]; errors: string[] } {
   const ok: File[] = [];
   const errors: string[] = [];
   for (const f of files) {
     const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!ALLOWED_EXT.includes(ext)) errors.push(`«${f.name}»: недопустимый формат`);
-    else if (f.size > MAX_MB * 1024 * 1024) errors.push(`«${f.name}»: больше ${MAX_MB} МБ`);
-    else if (f.size === 0) errors.push(`«${f.name}»: пустой файл`);
+    if (!ALLOWED_EXT.includes(ext)) errors.push(msg.badType(f.name));
+    else if (f.size > MAX_MB * 1024 * 1024) errors.push(msg.tooBig(f.name, MAX_MB));
+    else if (f.size === 0) errors.push(msg.empty(f.name));
     else ok.push(f);
   }
   return { ok, errors };
@@ -52,7 +53,7 @@ export function FileDropzone({
 
   async function handle(list: FileList | null) {
     if (!list?.length) return;
-    const { ok, errors } = validateFiles(Array.from(list));
+    const { ok, errors } = validateFiles(Array.from(list), t.files);
     errors.forEach((e) => toast.error(e));
     if (!ok.length) return;
     setProgress(0);

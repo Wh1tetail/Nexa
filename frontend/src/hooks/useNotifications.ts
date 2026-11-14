@@ -31,6 +31,27 @@ export function useUnreadCount() {
   });
 }
 
+/** Unread notifications per app section: counters in the side menu. */
+export function useSectionCounts(enabled = true) {
+  return useQuery({
+    queryKey: ["notifications", "sections"],
+    queryFn: notificationsApi.bySection,
+    refetchInterval: usePollInterval(),
+    enabled,
+  });
+}
+
+/** Opening a section counts its notifications as seen. */
+export function useMarkSectionSeen() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: notificationsApi.readSection,
+    onSuccess: (r) => {
+      if (r.count > 0) qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
 export function useNotificationsList(unreadOnly = false) {
   return useQuery({
     queryKey: ["notifications", "list", unreadOnly],

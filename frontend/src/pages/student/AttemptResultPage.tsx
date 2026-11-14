@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Hourglass } from "lucide-react";
+import { ArrowLeft, EyeOff, Hourglass } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import { ErrorState, PageSkeleton } from "@/components/common";
 import { AttemptBadge } from "@/components/common/StatusBadges";
 import { QuestionView } from "@/components/tests/QuestionView";
+import { TestMaterials } from "@/components/tests/TestMedia";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
@@ -55,7 +57,14 @@ export default function AttemptResultPage() {
           </div>
         </div>
         <div className="min-w-0">
-          <AttemptBadge status={a.status} />
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+            <AttemptBadge status={a.status} />
+            {a.passed !== null && (
+              <Badge variant={a.passed ? "success" : "danger"}>
+                {a.passed ? t.tests.passed : t.tests.notPassed} · {t.tests.passingAt(a.passing_percent ?? 0)}
+              </Badge>
+            )}
+          </div>
           <h1 className="mt-2 text-xl font-semibold">{a.test_title}</h1>
           {a.score !== null && (
             <p className="tabular mt-1 text-sm text-muted-foreground">
@@ -64,15 +73,23 @@ export default function AttemptResultPage() {
           )}
           <p className="mt-1 text-sm text-muted-foreground">{fmtDateTime(a.submitted_at, locale)}</p>
           {a.status === "pending_review" && <p className="mt-3 text-sm text-primary">{t.tests.awaitingReview}</p>}
+          {a.status === "graded" && !a.show_correct_answers && (
+            <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+              <EyeOff className="size-4" />
+              {t.tests.answersHidden}
+            </p>
+          )}
         </div>
       </Card>
 
       <div className="mt-6 grid gap-4">
+        <TestMaterials files={a.files} usedIds={a.questions.flatMap((x) => x.attachment_ids)} />
         {a.questions.map((qq, i) => (
           <QuestionView
             key={qq.id}
             index={i}
             question={qq}
+            files={a.files}
             value={byQ[qq.id]?.answer ?? []}
             result={a.status === "graded" ? byQ[qq.id] : undefined}
           />

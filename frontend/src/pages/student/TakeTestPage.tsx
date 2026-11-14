@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { ErrorState, PageSkeleton } from "@/components/common";
 import { QuestionView } from "@/components/tests/QuestionView";
+import { TestMaterials } from "@/components/tests/TestMedia";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -147,11 +148,13 @@ export default function TakeTestPage() {
       </div>
 
       <div className="mt-6 grid gap-4">
+        <TestMaterials files={attempt.files} usedIds={attempt.questions.flatMap((q) => q.attachment_ids)} />
         {attempt.questions.map((q, i) => (
           <QuestionView
             key={q.id}
             index={i}
             question={q}
+            files={attempt.files}
             value={answers[q.id] ?? []}
             onChange={(v) => {
               dirty.current = true;

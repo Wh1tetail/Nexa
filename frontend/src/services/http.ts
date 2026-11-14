@@ -96,11 +96,17 @@ http.interceptors.response.use(
 );
 
 /** Human-readable message from any API error. */
-export function errorMessage(err: unknown, fallback = "Что-то пошло не так"): string {
+/** Set by I18nProvider so messages created outside React follow the interface language. */
+const fallbackText = { generic: "Что-то пошло не так", offline: "Нет соединения с сервером" };
+export function setHttpMessages(m: { generic: string; offline: string }) {
+  Object.assign(fallbackText, m);
+}
+
+export function errorMessage(err: unknown, fallback = fallbackText.generic): string {
   if (axios.isAxiosError(err)) {
     const body = err.response?.data as ApiErrorBody | undefined;
     if (body && typeof body.detail === "string") return body.detail;
-    if (!err.response) return "Нет соединения с сервером";
+    if (!err.response) return fallbackText.offline;
   }
   return fallback;
 }

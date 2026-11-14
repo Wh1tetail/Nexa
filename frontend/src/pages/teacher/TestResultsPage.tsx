@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, HelpCircle, Pencil, Timer, Trash2, Users } from "lucide-react";
+import { ArrowLeft, HelpCircle, Pencil, RotateCcw, Timer, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useI18n } from "@/contexts/I18nContext";
 import { testsApi } from "@/services/api";
+import type { AttemptSummary } from "@/types/api";
 import { errorMessage } from "@/services/http";
 import { fmtDateTime } from "@/utils/format";
 import { scoreVariant } from "@/utils/status";
@@ -25,6 +26,7 @@ export default function TestResultsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [deleting, setDeleting] = useState(false);
+  const [resetting, setResetting] = useState<AttemptSummary | null>(null);
   const test = useQuery({ queryKey: ["tests", id], queryFn: () => testsApi.get(id) });
   const attempts = useQuery({ queryKey: ["tests", id, "attempts"], queryFn: () => testsApi.attempts(id) });
 
@@ -34,6 +36,16 @@ export default function TestResultsPage() {
       qc.invalidateQueries({ queryKey: ["tests"] });
       toast.success(t.common.deleted);
       navigate("/teacher/tests", { replace: true });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  const reset = useMutation({
+    mutationFn: (a: AttemptSummary) => testsApi.resetAttempt(a.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tests"] });
+      toast.success(t.tests.retakeAllowed);
+      setResetting(null);
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -104,8 +116,16 @@ export default function TestResultsPage() {
                   <TableCell><AttemptBadge status={a.status} /></TableCell>
                   <TableCell className="text-right">
                     {a.percent !== null ? <Badge variant={scoreVariant(a.percent)} className="tabular">{a.score}/{a.max_score} · {a.percent}%</Badge> : "—"}
+                    {a.passed !== null && (
+                      <span className={a.passed ? "ml-2 text-xs text-success" : "ml-2 text-xs text-danger"}>
+                        {a.passed ? t.tests.passed : t.tests.notPassed}
+                      </span>
+                    )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="whitespace-nowrap text-right">
+                    <Button size="icon-sm" variant="ghost" onClick={() => setResetting(a)} aria-label={t.tests.allowRetake} title={t.tests.allowRetake}>
+                      <RotateCcw />
+                    </Button>
                     {a.status !== "in_progress" && (
                       <Button size="sm" variant={a.status === "pending_review" ? "default" : "ghost"} asChild>
                         <Link to={`/teacher/tests/${id}/attempts/${a.id}`}>{a.status === "pending_review" ? t.tests.grade : t.common.open}</Link>
@@ -120,6 +140,18 @@ export default function TestResultsPage() {
           <EmptyState title={t.tests.attemptsEmpty} />
         )}
       </Card>
+
+      <ConfirmDialog
+        open={!!resetting}
+        onOpenChange={(o) => !o && setResetting(null)}
+        title={t.tests.allowRetake}
+        description={resetting ? t.tests.retakeText(resetting.student_name) : ""}
+        confirmLabel={t.tests.allowRetake}
+        cancelLabel={t.common.cancel}
+        destructive
+        loading={reset.isPending}
+        onConfirm={() => resetting && reset.mutate(resetting)}
+      />
 
       <ConfirmDialog
         open={deleting}

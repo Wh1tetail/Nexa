@@ -16,7 +16,8 @@ import { scoreVariant } from "@/utils/status";
 
 function TestCard({ item }: { item: StudentTestItem }) {
   const { t, locale } = useI18n();
-  const canStart = !item.attempt_id && !item.is_overdue;
+  const canStart = !item.attempt_id && !item.is_overdue && item.is_available;
+  const notYet = !item.attempt_id && !item.is_available;
   const inProgress = item.attempt_status === "in_progress";
   return (
     <Card className="flex flex-col p-5">
@@ -24,7 +25,12 @@ function TestCard({ item }: { item: StudentTestItem }) {
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
           <BookOpenCheck className="size-5" />
         </span>
-        {item.is_overdue ? <Badge variant="danger">{t.tests.overdueClosed}</Badge> : <AttemptBadge status={item.attempt_status} />}
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {item.passed !== null && (
+            <Badge variant={item.passed ? "success" : "danger"}>{item.passed ? t.tests.passed : t.tests.notPassed}</Badge>
+          )}
+          {item.is_overdue ? <Badge variant="danger">{t.tests.overdueClosed}</Badge> : <AttemptBadge status={item.attempt_status} />}
+        </div>
       </div>
       <h3 className="mt-4 font-semibold">{item.title}</h3>
       {item.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>}
@@ -55,6 +61,10 @@ function TestCard({ item }: { item: StudentTestItem }) {
             {t.tests.viewResult}
             {item.percent !== null && <span className="tabular ml-1 font-semibold">· {item.percent}%</span>}
           </Link>
+        </Button>
+      ) : notYet ? (
+        <Button variant="outline" disabled className="w-full">
+          {t.tests.opensAt(fmtDateTime(item.available_from, locale))}
         </Button>
       ) : (
         <Button variant="outline" disabled className="w-full">

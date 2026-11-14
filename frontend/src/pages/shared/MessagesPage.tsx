@@ -224,7 +224,7 @@ function Conversation({ thread }: { thread: ChatThread }) {
 
   function addFiles(list: FileList | null) {
     if (!list?.length) return;
-    const { ok, errors } = validateFiles(Array.from(list));
+    const { ok, errors } = validateFiles(Array.from(list), t.files);
     errors.forEach((e) => toast.error(e));
     const next = [...files, ...ok];
     if (next.length > MAX_FILES) toast.error(t.messages.maxFiles(MAX_FILES));

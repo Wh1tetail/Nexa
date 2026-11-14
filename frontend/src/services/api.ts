@@ -39,6 +39,7 @@ import type {
   TeacherDashboard,
   TestDetail,
   TestListItem,
+  TestSettings,
   TokenPair,
 } from "@/types/api";
 
@@ -219,7 +220,7 @@ export const homeworkApi = {
     post<Submission>(`/homework/submissions/${submissionId}/review`, data),
 };
 
-export interface TestInput {
+export interface TestInput extends Partial<TestSettings> {
   title: string;
   description?: string | null;
   time_limit_minutes?: number | null;
@@ -228,6 +229,8 @@ export interface TestInput {
   student_ids: number[];
   group_ids: number[];
 }
+
+export type NotificationSection = "homework" | "tests" | "lessons" | "subscription";
 
 export const testsApi = {
   list: () => get<TestListItem[]>("/tests"),
@@ -243,6 +246,11 @@ export const testsApi = {
   attempt: (attemptId: number) => get<AttemptDetail>(`/tests/attempts/${attemptId}`),
   grade: (attemptId: number, answers: { answer_id: number; points_awarded: number; teacher_comment?: string | null }[]) =>
     post<AttemptDetail>(`/tests/attempts/${attemptId}/grade`, { answers }),
+  /** Lets the student take the test again (the attempt is deleted). */
+  resetAttempt: (attemptId: number) => post(`/tests/attempts/${attemptId}/reset`),
+  uploadFiles: (id: number, files: File[], onProgress?: (p: number) => void) =>
+    upload(`/tests/${id}/files`, files, onProgress),
+  deleteFile: (id: number, fileId: number) => del(`/tests/${id}/files/${fileId}`),
 };
 
 export type AnswerMap = Record<number, string[]>;
@@ -275,6 +283,9 @@ export const notificationsApi = {
   unreadCount: () => get<{ count: number }>("/notifications/unread-count"),
   read: (id: number) => post<Notification>(`/notifications/${id}/read`),
   readAll: () => post("/notifications/read-all"),
+  /** Unread counts for the side menu. */
+  bySection: () => get<Record<NotificationSection, number>>("/notifications/unread-by-section"),
+  readSection: (section: NotificationSection) => post<{ count: number }>("/notifications/read-section", { section }),
 };
 
 /** Messages per history page (the API allows up to 100). */

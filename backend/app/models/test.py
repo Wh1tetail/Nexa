@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     CheckConstraint,
@@ -19,6 +19,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base, TimestampMixin
 from app.models.enums import AttemptStatus, QuestionType, str_enum
 from app.models.user import StudentProfile, TeacherProfile
+
+if TYPE_CHECKING:
+    from app.models.file import Attachment
 
 test_assignments = Table(
     "test_assignments",
@@ -40,6 +43,9 @@ class Test(Base, TimestampMixin):
         CheckConstraint(
             "time_limit_minutes IS NULL OR time_limit_minutes > 0", name="time_limit_positive"
         ),
+        CheckConstraint(
+            "passing_percent IS NULL OR passing_percent BETWEEN 1 AND 100", name="passing_percent_range"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -50,6 +56,13 @@ class Test(Base, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text)
     time_limit_minutes: Mapped[int | None] = mapped_column(Integer)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # --- settings ---
+    available_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # can't start before
+    shuffle_questions: Mapped[bool] = mapped_column(default=False, server_default="false")
+    shuffle_options: Mapped[bool] = mapped_column(default=False, server_default="false")
+    # after grading the student sees correct answers and explanations (score is always shown)
+    show_correct_answers: Mapped[bool] = mapped_column(default=True, server_default="true")
+    passing_percent: Mapped[int | None] = mapped_column(Integer)  # None = no pass/fail
 
     teacher: Mapped[TeacherProfile] = relationship()
     questions: Mapped[list["TestQuestion"]] = relationship(
@@ -58,6 +71,13 @@ class Test(Base, TimestampMixin):
     students: Mapped[list[StudentProfile]] = relationship(secondary=test_assignments)
     attempts: Mapped[list["TestAttempt"]] = relationship(
         back_populates="test", cascade="all, delete-orphan"
+    )
+    # materials (reading texts, audio for listening, pictures); questions refer to them by id
+    files: Mapped[list["Attachment"]] = relationship(
+        primaryjoin="Test.id == Attachment.test_id",
+        order_by="Attachment.id",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
 
@@ -79,6 +99,9 @@ class TestQuestion(Base):
     options: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     correct_answer: Mapped[list[str]] = mapped_column(JSONB, default=list)
     points: Mapped[int] = mapped_column(Integer, default=1)
+    explanation: Mapped[str | None] = mapped_column(Text)  # shown with the results
+    # ids of the test's files shown with this question (picture, audio)
+    attachment_ids: Mapped[list[int]] = mapped_column(JSONB, default=list, server_default="[]")
 
     test: Mapped[Test] = relationship(back_populates="questions")
 

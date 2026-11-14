@@ -1,14 +1,14 @@
 """Teacher-side test management."""
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, File, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import DB, CurrentTeacher, get_owned_student, resolve_recipients
 from app.core.exceptions import BadRequest, NotFound
-from app.models import StudentProfile, TeacherProfile, Test, TestAttempt
-from app.models.enums import AttemptStatus
+from app.models import Attachment, StudentProfile, TeacherProfile, Test, TestAttempt
+from app.models.enums import AttemptStatus, NotificationType
 from app.schemas.test import (
     AssignRequest,
     AttemptDetail,
@@ -19,7 +19,13 @@ from app.schemas.test import (
     TestListItem,
     TestUpdate,
 )
+from app.schemas.homework import AttachmentOut
+from app.services import file_service
 from app.services import test_service as svc
+from app.services.notification_service import notify
+from app.utils.files import validate_upload
+
+MAX_TEST_FILES = 20
 
 router = APIRouter(prefix="/tests", tags=["tests (teacher)"])
 
@@ -46,6 +52,8 @@ def _detail(test: Test) -> TestDetail:
         questions=[svc.question_out(q, reveal=True) for q in test.questions],
         student_ids=[s.id for s in test.students],
         has_attempts=bool(test.attempts),
+        files=[AttachmentOut.model_validate(f) for f in test.files],
+        **svc.settings_of(test),
     )
 
 
@@ -72,6 +80,8 @@ def list_tests(teacher: CurrentTeacher, db: DB) -> list[TestListItem]:
             time_limit_minutes=t.time_limit_minutes,
             due_at=t.due_at,
             created_at=t.created_at,
+            files_count=len(t.files),
+            **svc.settings_of(t),
             questions_count=len(t.questions),
             assigned_count=len(t.students),
             completed_count=sum(1 for a in t.attempts if a.status != AttemptStatus.IN_PROGRESS),
@@ -91,6 +101,7 @@ def create_test(data: TestCreate, teacher: CurrentTeacher, db: DB) -> TestDetail
         time_limit_minutes=data.time_limit_minutes,
         due_at=data.due_at,
     )
+    svc.apply_settings(test, data)
     db.add(test)
     svc.build_questions(test, data.questions)
     db.flush()
@@ -167,10 +178,16 @@ def update_test(test_id: int, data: TestUpdate, teacher: CurrentTeacher, db: DB)
     test.description = data.description
     test.time_limit_minutes = data.time_limit_minutes
     test.due_at = data.due_at
+    svc.apply_settings(test, data)  # settings may change any time
     if test.attempts:
         # Questions are locked once someone started the test (results must stay consistent).
-        existing = [(q.type, q.text, q.options, q.correct_answer, q.points) for q in test.questions]
-        incoming = [(q.type, q.text, [o.model_dump() for o in q.options], q.correct_answer, q.points) for q in data.questions]
+        def shape(type_, text, options, correct, points, explanation, files):
+            return (type_, text, options, correct, points, explanation or None, list(files or []))
+
+        existing = [shape(q.type, q.text, q.options, q.correct_answer, q.points, q.explanation, q.attachment_ids)
+                    for q in test.questions]
+        incoming = [shape(q.type, q.text, [o.model_dump() for o in q.options], q.correct_answer, q.points,
+                          q.explanation, q.attachment_ids) for q in data.questions]
         if existing != incoming:
             raise BadRequest("Вопросы нельзя изменить: тест уже начали проходить")
     else:
@@ -191,6 +208,53 @@ def assign_test(test_id: int, data: AssignRequest, teacher: CurrentTeacher, db: 
 @router.delete("/{test_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_test(test_id: int, teacher: CurrentTeacher, db: DB) -> Response:
     db.delete(_load(db, teacher, test_id))
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- materials ----------
+
+@router.post("/{test_id}/files", response_model=list[AttachmentOut], status_code=status.HTTP_201_CREATED)
+async def upload_test_files(
+    test_id: int, teacher: CurrentTeacher, db: DB, files: list[UploadFile] = File(...)
+) -> list[AttachmentOut]:
+    """Reading texts, audio for listening, pictures. Same rules as homework files."""
+    test = _load(db, teacher, test_id)
+    if test.attempts:
+        raise BadRequest("Материалы нельзя изменить: тест уже начали проходить")
+    if len(test.files) + len(files) > MAX_TEST_FILES:
+        raise BadRequest(f"Не более {MAX_TEST_FILES} файлов в тесте")
+    validated = [await validate_upload(f) for f in files]  # nothing is stored if any file is rejected
+    saved = [file_service.store_validated(db, vf, teacher.user, test_id=test.id) for vf in validated]
+    db.commit()
+    return [AttachmentOut.model_validate(a) for a in saved]
+
+
+@router.delete("/{test_id}/files/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_test_file(test_id: int, file_id: int, teacher: CurrentTeacher, db: DB) -> Response:
+    test = _load(db, teacher, test_id)
+    att = db.get(Attachment, file_id)
+    if att is None or att.test_id != test.id:
+        raise NotFound("Файл не найден")
+    if test.attempts:
+        raise BadRequest("Материалы нельзя изменить: тест уже начали проходить")
+    for q in test.questions:  # questions stop showing it
+        if file_id in (q.attachment_ids or []):
+            q.attachment_ids = [i for i in q.attachment_ids if i != file_id]
+    test.files.remove(att)
+    file_service.delete_attachment(db, att)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/attempts/{attempt_id}/reset", status_code=status.HTTP_204_NO_CONTENT)
+def reset_attempt(attempt_id: int, teacher: CurrentTeacher, db: DB) -> Response:
+    """Let the student take the test again: the attempt and its answers are deleted."""
+    attempt = _load_attempt(db, teacher, attempt_id)
+    test, student = attempt.test, attempt.student
+    db.delete(attempt)
+    notify(db, [student.user_id], NotificationType.TEST_ASSIGNED, "Тест можно пройти ещё раз", test.title,
+           "/student/tests")
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

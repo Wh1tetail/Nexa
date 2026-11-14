@@ -305,6 +305,10 @@ export interface Question {
   options: QuestionOption[];
   correct_answer: string[] | null;
   points: number;
+  /** Same visibility as correct_answer. */
+  explanation: string | null;
+  /** Ids of the test's files shown with this question. */
+  attachment_ids: number[];
 }
 
 export interface QuestionInput {
@@ -313,22 +317,34 @@ export interface QuestionInput {
   options: QuestionOption[];
   correct_answer: string[];
   points: number;
+  explanation?: string | null;
+  attachment_ids?: number[];
 }
 
-export interface TestListItem {
+/** Teacher-controlled test settings. */
+export interface TestSettings {
+  available_from: string | null;
+  shuffle_questions: boolean;
+  shuffle_options: boolean;
+  show_correct_answers: boolean;
+  passing_percent: number | null;
+}
+
+export interface TestListItem extends TestSettings {
   id: number;
   title: string;
   description: string | null;
   time_limit_minutes: number | null;
   due_at: string | null;
   created_at: string;
+  files_count: number;
   questions_count: number;
   assigned_count: number;
   completed_count: number;
   pending_review_count: number;
 }
 
-export interface TestDetail {
+export interface TestDetail extends TestSettings {
   id: number;
   title: string;
   description: string | null;
@@ -338,6 +354,7 @@ export interface TestDetail {
   questions: Question[];
   student_ids: number[];
   has_attempts: boolean;
+  files: Attachment[];
 }
 
 export interface Answer {
@@ -361,13 +378,19 @@ export interface AttemptSummary {
   score: number | null;
   max_score: number;
   percent: number | null;
+  /** null: not graded yet or the test has no passing score. */
+  passed: boolean | null;
 }
 
 export interface AttemptDetail extends AttemptSummary {
   time_limit_minutes: number | null;
   deadline_at: string | null;
+  passing_percent: number | null;
+  show_correct_answers: boolean;
+  /** In the order the student sees them (may be shuffled). */
   questions: Question[];
   answers: Answer[];
+  files: Attachment[];
 }
 
 export interface StudentTestItem {
@@ -376,6 +399,11 @@ export interface StudentTestItem {
   description: string | null;
   time_limit_minutes: number | null;
   due_at: string | null;
+  available_from: string | null;
+  /** false until available_from. */
+  is_available: boolean;
+  passing_percent: number | null;
+  passed: boolean | null;
   questions_count: number;
   is_overdue: boolean;
   attempt_id: number | null;

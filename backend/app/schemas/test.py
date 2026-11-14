@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
 from app.models.enums import AttemptStatus, QuestionType
+from app.schemas.homework import AttachmentOut
 
 
 class OptionIn(BaseModel):
@@ -16,6 +17,9 @@ class QuestionIn(BaseModel):
     options: list[OptionIn] = []
     correct_answer: list[str] = []
     points: int = Field(default=1, gt=0, le=100)
+    explanation: str | None = Field(default=None, max_length=5000)
+    # ids of the test's files shown with this question (picture, audio)
+    attachment_ids: list[int] = Field(default_factory=list, max_length=10)
 
     @model_validator(mode="after")
     def _validate(self):
@@ -38,10 +42,20 @@ class QuestionIn(BaseModel):
         elif t == QuestionType.SHORT_ANSWER:
             self.options = []
             self.correct_answer = [a.strip() for a in self.correct_answer if a.strip()]
+        self.explanation = (self.explanation or "").strip() or None
+        self.attachment_ids = list(dict.fromkeys(self.attachment_ids))
         return self
 
 
-class TestCreate(BaseModel):
+class TestSettings(BaseModel):
+    available_from: datetime | None = None
+    shuffle_questions: bool = False
+    shuffle_options: bool = False
+    show_correct_answers: bool = True
+    passing_percent: int | None = Field(default=None, ge=1, le=100)
+
+
+class TestCreate(TestSettings):
     title: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=5000)
     time_limit_minutes: int | None = Field(default=None, gt=0, le=600)
@@ -49,6 +63,12 @@ class TestCreate(BaseModel):
     questions: list[QuestionIn] = Field(min_length=1, max_length=200)
     student_ids: list[int] = []
     group_ids: list[int] = []
+
+    @model_validator(mode="after")
+    def _dates(self):
+        if self.available_from and self.due_at and self.available_from >= self.due_at:
+            raise ValueError("Дата открытия теста должна быть раньше срока сдачи")
+        return self
 
 
 class TestUpdate(TestCreate):
@@ -68,22 +88,25 @@ class QuestionOut(BaseModel):
     options: list[OptionIn]
     correct_answer: list[str] | None = None  # hidden for students before grading
     points: int
+    explanation: str | None = None  # same visibility as correct_answer
+    attachment_ids: list[int] = []
 
 
-class TestListItem(BaseModel):
+class TestListItem(TestSettings):
     id: int
     title: str
     description: str | None
     time_limit_minutes: int | None
     due_at: datetime | None
     created_at: datetime
+    files_count: int = 0
     questions_count: int
     assigned_count: int
     completed_count: int
     pending_review_count: int
 
 
-class TestDetail(BaseModel):
+class TestDetail(TestSettings):
     id: int
     title: str
     description: str | None
@@ -93,6 +116,7 @@ class TestDetail(BaseModel):
     questions: list[QuestionOut]
     student_ids: list[int]
     has_attempts: bool
+    files: list[AttachmentOut] = []
 
 
 class AnswerOut(BaseModel):
@@ -116,13 +140,18 @@ class AttemptSummary(BaseModel):
     score: float | None
     max_score: float
     percent: int | None
+    passed: bool | None = None  # None: not graded yet or no passing score set
 
 
 class AttemptDetail(AttemptSummary):
     time_limit_minutes: int | None
     deadline_at: datetime | None
+    passing_percent: int | None = None
+    show_correct_answers: bool = True
+    # questions come in the order the student sees them (may be shuffled)
     questions: list[QuestionOut]
     answers: list[AnswerOut]
+    files: list[AttachmentOut] = []
 
 
 class AnswerIn(BaseModel):
@@ -154,6 +183,10 @@ class StudentTestItem(BaseModel):
     description: str | None
     time_limit_minutes: int | None
     due_at: datetime | None
+    available_from: datetime | None = None
+    is_available: bool = True  # False until available_from
+    passing_percent: int | None = None
+    passed: bool | None = None
     questions_count: int
     is_overdue: bool
     attempt_id: int | None

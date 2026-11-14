@@ -187,6 +187,8 @@ def start_test(test_id: int, student: CurrentStudent, db: DB) -> AttemptDetail:
         select(TestAttempt).where(TestAttempt.test_id == test.id, TestAttempt.student_id == student.id)
     )
     if attempt is None:
+        if not test_svc.is_available(test):
+            raise BadRequest("Тест ещё не открыт")
         if test.due_at and test.due_at < datetime.now(UTC):
             raise BadRequest("Срок сдачи теста истёк")
         attempt = TestAttempt(

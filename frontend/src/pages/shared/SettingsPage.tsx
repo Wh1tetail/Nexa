@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-import { useI18n, type Locale } from "@/contexts/I18nContext";
+import { LOCALES, useI18n, type Locale } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
 import { authApi } from "@/services/api";
 import { errorMessage, tokenStore } from "@/services/http";
@@ -84,10 +84,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="inline-flex rounded-xl bg-secondary p-1">
-            {([
-              ["ru", "Русский"],
-              ["en", "English"],
-            ] as const).map(([code, label]) => (
+            {LOCALES.map(({ code, name: label }) => (
               <button
                 key={code}
                 onClick={() => changeLocale(code)}

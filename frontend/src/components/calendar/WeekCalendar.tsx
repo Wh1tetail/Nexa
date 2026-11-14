@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
-import { dayKey, fmtTime } from "@/utils/format";
+import { dayKey, fmtTime, formatInstant } from "@/utils/format";
 
 export type CalendarTone = "scheduled" | "completed" | "cancelled" | "present" | "late" | "absent" | "excused";
 
@@ -65,7 +65,6 @@ interface Props {
 
 export function WeekCalendar({ weekStart, onWeekChange, events, loading, onEventClick }: Props) {
   const { t, locale } = useI18n();
-  const tag = locale === "ru" ? "ru-RU" : "en-GB";
   const today = dayKey(new Date());
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => shiftDays(weekStart, i)), [weekStart]);
 
@@ -76,8 +75,7 @@ export function WeekCalendar({ weekStart, onWeekChange, events, loading, onEvent
     return map;
   }, [events]);
 
-  const fmtDay = (key: string, opts: Intl.DateTimeFormatOptions) =>
-    toUtc(key).toLocaleDateString(tag, { ...opts, timeZone: "UTC" });
+  const fmtDay = (key: string, opts: Intl.DateTimeFormatOptions) => formatInstant(toUtc(key), locale, opts, "UTC");
   const range = `${fmtDay(days[0], { day: "numeric", month: "short" })} — ${fmtDay(days[6], { day: "numeric", month: "short", year: "numeric" })}`;
   const inWeek = events.some((e) => days.includes(dayKey(e.startsAt)));
 
