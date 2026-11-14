@@ -35,6 +35,7 @@ export interface Me {
   role: Role;
   is_active: boolean;
   locale: string;
+  timezone: string | null;
   created_at: string;
   student_id: number | null;
   teacher_id: number | null;

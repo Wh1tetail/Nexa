@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { groupsApi, lessonsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
 import type { AttendanceStatus, Lesson } from "@/types/api";
-import { fmtDateTime, localInputToIso, toDateTimeInput } from "@/utils/format";
+import { fmtDateTime, localInputToIso, toDateTimeInput, wallClockInput } from "@/utils/format";
 
 function useInvalidate() {
   const qc = useQueryClient();
@@ -46,12 +46,10 @@ export function LessonFormDialog({ open, onOpenChange, lesson }: { open: boolean
 
   useEffect(() => {
     if (!open) return;
-    const next = new Date();
-    next.setDate(next.getDate() + 1);
-    next.setHours(18, 0, 0, 0);
     setTitle(lesson?.title ?? "");
     setTopic(lesson?.topic ?? "");
-    setStartsAt(lesson ? toDateTimeInput(new Date(lesson.starts_at)) : toDateTimeInput(next));
+    // default: tomorrow 18:00 on the user's (profile) clock
+    setStartsAt(lesson ? toDateTimeInput(new Date(lesson.starts_at)) : wallClockInput(1, 18));
     setDuration(lesson?.duration_minutes ?? 60);
     setUrl(lesson?.meeting_url ?? "");
     setGroupId(lesson?.group_id ?? "");

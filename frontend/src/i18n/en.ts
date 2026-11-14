@@ -66,6 +66,7 @@ const en: Dict = {
     students: "Students",
     groups: "Groups",
     lessons: "Schedule",
+    schedule: "Schedule",
     notifications: "Notifications",
     settings: "Settings",
     logout: "Log out",
@@ -387,6 +388,7 @@ const en: Dict = {
     deleteTitle: "Delete lesson?",
     deleteText: "Attendance marks will be removed and charged lessons returned to subscriptions.",
     tabLessons: "Lessons",
+    tabCalendar: "Calendar",
     tabTable: "Attendance table",
     tabStats: "Statistics",
     upcoming: "Upcoming",
@@ -429,6 +431,15 @@ const en: Dict = {
     cancelFollowing: "Cancel this and following",
   },
 
+  calendar: {
+    title: "Schedule",
+    subtitle: "Your lessons week by week",
+    today: "Today",
+    prevWeek: "Previous week",
+    nextWeek: "Next week",
+    emptyWeek: "No lessons this week",
+    noLessonsDay: "No lessons",
+  },
   attendance: {
     title: "Attendance",
     subtitle: "Your lessons and attendance stats",
@@ -625,6 +636,13 @@ const en: Dict = {
     changePassword: "Change password",
     passwordChanged: "Password changed",
     languageHint: "Interface language",
+    timezone: "Time zone",
+    timezoneHint: "Lesson times, deadlines and notifications are shown in it. Lesson series repeat at the same local time.",
+    timezonePopular: "Russia",
+    timezoneAll: "All time zones",
+    timezoneDetect: "Detect automatically",
+    timezoneSaved: "Time zone changed",
+    timezoneNow: "Current time in this zone",
   },
 };
 

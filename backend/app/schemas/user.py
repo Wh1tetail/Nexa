@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
+from app.core.timezones import is_valid_timezone
 from app.models.enums import EnglishLevel, SubscriptionStatus, UserRole
 from app.schemas.auth import validate_password
 from app.schemas.common import ORMModel
@@ -25,6 +26,7 @@ class UserOut(ORMModel):
     role: UserRole
     is_active: bool
     locale: str
+    timezone: str | None = None  # IANA name; None = not chosen yet
     created_at: datetime
 
 
@@ -39,6 +41,14 @@ class UpdateMeRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=200)
     phone: str | None = Field(default=None, max_length=32)
     locale: str | None = Field(default=None, pattern="^(ru|en)$")
+    timezone: str | None = Field(default=None, max_length=64)
+
+    @field_validator("timezone")
+    @classmethod
+    def _tz(cls, v: str | None) -> str | None:
+        if v is not None and not is_valid_timezone(v):
+            raise ValueError("Неизвестный часовой пояс")
+        return v
 
 
 class GroupBrief(ORMModel):

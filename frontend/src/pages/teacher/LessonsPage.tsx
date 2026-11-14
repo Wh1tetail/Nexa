@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { CardListSkeleton, EmptyState, ErrorState, PageHeader } from "@/components/common";
 import { AttendanceBadge, LessonBadge } from "@/components/common/StatusBadges";
+import { currentMonday, shiftDays, WeekCalendar, type CalendarEvent } from "@/components/calendar/WeekCalendar";
 import { AttendanceDialog, ExtendSeriesDialog, LessonFormDialog } from "@/components/attendance/LessonDialogs";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -151,6 +152,32 @@ export default function LessonsPage() {
 
   const filter = { date_from: from, date_to: to, student_id: studentId };
   const lessons = useQuery({ queryKey: ["lessons", filter], queryFn: () => lessonsApi.list(filter), placeholderData: (p) => p });
+  // Calendar tab: its own week window (one extra day each side covers time zone edges)
+  const [week, setWeek] = useState(currentMonday());
+  const weekFilter = { date_from: shiftDays(week, -1), date_to: shiftDays(week, 7), student_id: studentId };
+  const weekLessons = useQuery({
+    queryKey: ["lessons", "week", weekFilter],
+    queryFn: () => lessonsApi.list(weekFilter),
+    placeholderData: (p) => p,
+  });
+  const weekEvents: CalendarEvent[] = (weekLessons.data ?? []).map((l) => ({
+    id: l.id,
+    title: l.title,
+    subtitle: [l.topic, t.common.studentsCount(l.attendance.length)].filter(Boolean).join(" · "),
+    startsAt: l.starts_at,
+    durationMinutes: l.duration_minutes,
+    tone: l.status,
+    meetingUrl: l.meeting_url,
+  }));
+  const openFromCalendar = (id: number) => {
+    const l = weekLessons.data?.find((x) => x.id === id);
+    if (!l) return;
+    if (l.status !== "cancelled" && new Date(l.starts_at).getTime() <= Date.now()) setMarking(l);
+    else {
+      setEditing(l);
+      setCreating(true);
+    }
+  };
   const records = useQuery({ queryKey: ["attendance", "records", filter], queryFn: () => lessonsApi.records(filter), placeholderData: (p) => p });
   const stats = useQuery({ queryKey: ["attendance", "stats", filter], queryFn: () => lessonsApi.stats(filter), placeholderData: (p) => p });
   const students = useQuery({ queryKey: ["students", "picker"], queryFn: () => studentsApi.list({ active: true }) });
@@ -237,9 +264,20 @@ export default function LessonsPage() {
       <Tabs defaultValue="lessons">
         <TabsList>
           <TabsTrigger value="lessons">{t.lessons.tabLessons}</TabsTrigger>
+          <TabsTrigger value="calendar">{t.lessons.tabCalendar}</TabsTrigger>
           <TabsTrigger value="table">{t.lessons.tabTable}</TabsTrigger>
           <TabsTrigger value="stats">{t.lessons.tabStats}</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="calendar">
+          <WeekCalendar
+            weekStart={week}
+            onWeekChange={setWeek}
+            events={weekEvents}
+            loading={weekLessons.isLoading}
+            onEventClick={openFromCalendar}
+          />
+        </TabsContent>
 
         <TabsContent value="lessons" className="space-y-6">
           {lessons.isLoading ? (

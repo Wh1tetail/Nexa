@@ -30,6 +30,8 @@ class User(Base, TimestampMixin):
     # Incremented on logout / password change -> invalidates all issued tokens.
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     locale: Mapped[str] = mapped_column(String(5), default="ru", server_default="ru")
+    # IANA time zone, e.g. "Europe/Moscow"; NULL = not chosen yet (settings.DEFAULT_TIMEZONE)
+    timezone: Mapped[str | None] = mapped_column(String(64))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     student_profile: Mapped["StudentProfile | None"] = relationship(

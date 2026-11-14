@@ -20,6 +20,7 @@ const StudentTests = lazy(() => import("@/pages/student/StudentTests"));
 const TakeTestPage = lazy(() => import("@/pages/student/TakeTestPage"));
 const AttemptResultPage = lazy(() => import("@/pages/student/AttemptResultPage"));
 const StudentAttendance = lazy(() => import("@/pages/student/StudentAttendance"));
+const StudentSchedule = lazy(() => import("@/pages/student/StudentSchedule"));
 const StudentSubscription = lazy(() => import("@/pages/student/StudentSubscription"));
 
 const TeacherDashboard = lazy(() => import("@/pages/teacher/TeacherDashboard"));
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="tests" element={<StudentTests />} />
             <Route path="tests/:testId/take" element={<TakeTestPage />} />
             <Route path="tests/attempts/:attemptId" element={<AttemptResultPage />} />
+            <Route path="schedule" element={<StudentSchedule />} />
             <Route path="attendance" element={<StudentAttendance />} />
             <Route path="subscription" element={<StudentSubscription />} />
             <Route path="notifications" element={<NotificationsPage />} />

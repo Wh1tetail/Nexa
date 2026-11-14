@@ -66,7 +66,7 @@ export const authApi = {
   login: (email: string, password: string) => post<TokenPair>("/auth/login", { email, password }),
   logout: () => post("/auth/logout"),
   me: () => get<Me>("/auth/me"),
-  updateMe: (data: Partial<Pick<Me, "full_name" | "phone" | "locale">>) => patch<Me>("/auth/me", data),
+  updateMe: (data: Partial<Pick<Me, "full_name" | "phone" | "locale" | "timezone">>) => patch<Me>("/auth/me", data),
   changePassword: (current_password: string, new_password: string) =>
     post<TokenPair>("/auth/change-password", { current_password, new_password }),
   forgot: (email: string) =>

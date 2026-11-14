@@ -6,6 +6,7 @@ import { useI18n } from "@/contexts/I18nContext";
 import { authApi } from "@/services/api";
 import { setSessionExpiredHandler, tokenStore } from "@/services/http";
 import { wasRecentlyRevoked } from "@/services/realtime";
+import { browserTimeZone, setDisplayTimeZone } from "@/utils/format";
 import type { Me, Role } from "@/types/api";
 
 interface AuthValue {
@@ -25,11 +26,26 @@ export function homePath(role: Role) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<Me | null>(null);
+  const [user, setUserState] = useState<Me | null>(null);
+  // Apply the profile time zone synchronously, before anything renders with it.
+  const setUser = useCallback((value: Me | null | ((prev: Me | null) => Me | null)) => {
+    setUserState((prev) => {
+      const next = typeof value === "function" ? value(prev) : value;
+      setDisplayTimeZone(next?.timezone);
+      return next;
+    });
+  }, []);
   const [loading, setLoading] = useState(true);
   const loggingOut = useRef(false);
   const qc = useQueryClient();
   const { t, setLocale } = useI18n();
+
+  // First sign-in: the profile has no time zone yet — take the browser's.
+  useEffect(() => {
+    if (user && !user.timezone) {
+      authApi.updateMe({ timezone: browserTimeZone() }).then(setUser).catch(() => undefined);
+    }
+  }, [user, setUser]);
 
   const loadUser = useCallback(async () => {
     if (!tokenStore.access && !tokenStore.refresh) {
@@ -42,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tokenStore.clear();
       setUser(null);
     }
-  }, []);
+  }, [setUser]);
 
   useEffect(() => {
     loadUser().finally(() => setLoading(false));
@@ -57,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       qc.clear();
     });
-  }, [qc, t]);
+  }, [qc, t, setUser]);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -69,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (me.locale === "ru" || me.locale === "en") setLocale(me.locale);
       return me;
     },
-    [qc, setLocale],
+    [qc, setLocale, setUser],
   );
 
   const logout = useCallback(async () => {
@@ -83,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     qc.clear();
     setUser(null);
     loggingOut.current = false;
-  }, [qc]);
+  }, [qc, setUser]);
 
   const value = useMemo(
     () => ({ user, loading, login, logout, refreshUser: loadUser, setUser }),

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { Field, PageHeader } from "@/components/common";
+import { TimezoneCard } from "@/components/common/TimezoneCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,8 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <TimezoneCard />
 
       <Card>
         <CardHeader>

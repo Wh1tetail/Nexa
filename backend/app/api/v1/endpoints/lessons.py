@@ -16,7 +16,8 @@ from app.api.deps import (
     get_owned_students,
 )
 from app.core.exceptions import BadRequest, NotFound
-from app.models import Attendance, Lesson, StudentProfile, TeacherProfile
+from app.core.timezones import add_weeks_local, fmt_local, get_zone, shift_wall_clock, to_local, wall_clock_delta
+from app.models import Attendance, Lesson, StudentProfile, TeacherProfile, User
 from app.models.enums import LessonStatus, NotificationType
 from app.repositories import student_repository as repo
 from app.schemas.lesson import (
@@ -167,6 +168,7 @@ def create_lesson(data: LessonCreate, teacher: CurrentTeacher, db: DB) -> Lesson
     if not students:
         raise BadRequest("Добавьте учеников или группу")
     series_id = uuid.uuid4().hex if data.repeat_weeks else None
+    tz = get_zone(teacher.user.timezone)
     first: Lesson | None = None
     for week in range(data.repeat_weeks + 1):
         lesson = Lesson(
@@ -174,7 +176,7 @@ def create_lesson(data: LessonCreate, teacher: CurrentTeacher, db: DB) -> Lesson
             group_id=data.group_id,
             title=data.title,
             topic=data.topic,
-            starts_at=data.starts_at + timedelta(weeks=week),
+            starts_at=add_weeks_local(data.starts_at, week, tz),  # same local time every week, DST-safe
             duration_minutes=data.duration_minutes,
             meeting_url=data.meeting_url,
             series_id=series_id,
@@ -213,6 +215,31 @@ def _following_in_series(db: Session, teacher: TeacherProfile, lesson: Lesson) -
     )
 
 
+def _notify_schedule_change(db: Session, lesson: Lesson, rescheduled: list[Lesson]) -> None:
+    """One notification per affected student, with times in that student's time zone."""
+    db.flush()
+    student_ids = {a.student_id for t in rescheduled for a in t.attendance}
+    rows = db.execute(
+        select(User.id, User.timezone)
+        .join(StudentProfile, StudentProfile.user_id == User.id)
+        .where(StudentProfile.id.in_(student_ids))
+    ).all()
+    by_zone: dict[str, set[int]] = {}
+    for user_id, tz_name in rows:
+        by_zone.setdefault(get_zone(tz_name).key, set()).add(user_id)
+    cancelled = lesson.status == LessonStatus.CANCELLED
+    for zone_name, user_ids in by_zone.items():
+        tz = get_zone(zone_name)
+        if len(rescheduled) == 1:
+            title = "Занятие отменено" if cancelled else "Занятие изменено"
+            body = f"«{lesson.title}» — {fmt_local(lesson.starts_at, tz)}"
+        else:
+            title = "Занятия отменены" if cancelled else "Занятия изменены"
+            first_day = to_local(lesson.starts_at, tz).strftime("%d.%m.%Y")
+            body = f"«{lesson.title}»: {len(rescheduled)} занятий начиная с {first_day}"
+        notify(db, user_ids, NotificationType.LESSON_CHANGED, title, body, "/student/attendance")
+
+
 @router.patch("/lessons/{lesson_id}", response_model=LessonOut)
 def update_lesson(
     lesson_id: int,
@@ -223,13 +250,15 @@ def update_lesson(
 ) -> LessonOut:
     """scope=following applies the change to this lesson and every later
     *scheduled* lesson of its series. A new start time is applied as a shift
-    (e.g. 18:00 -> 19:30 moves every following lesson by +1h30, keeping weekdays);
+    on the teacher's local clock (18:00 -> 19:30 moves every following lesson
+    to 19:30 local time, keeping weekdays, also across DST changes);
     completed and cancelled lessons of the series are left untouched."""
     lesson = _get_owned_lesson(db, teacher, lesson_id)
     payload = data.model_dump(exclude_unset=True)
     student_ids = payload.pop("student_ids", None)
     students = get_owned_students(db, teacher, student_ids) if student_ids is not None else None
-    shift = payload["starts_at"] - lesson.starts_at if payload.get("starts_at") else None
+    tz = get_zone(teacher.user.timezone)
+    shift = wall_clock_delta(lesson.starts_at, payload["starts_at"], tz) if payload.get("starts_at") else None
 
     targets = [lesson] + (_following_in_series(db, teacher, lesson) if scope == "following" else [])
     rescheduled: list[Lesson] = []
@@ -238,7 +267,7 @@ def update_lesson(
         for k, v in payload.items():
             if k == "starts_at":
                 if v is not None:
-                    changes[k] = v if target is lesson else target.starts_at + shift
+                    changes[k] = v if target is lesson else shift_wall_clock(target.starts_at, shift, tz)
             elif v is not None or k in ("topic", "meeting_url"):
                 changes[k] = v
         if any(k in changes and changes[k] != getattr(target, k) for k in ("starts_at", "status", "meeting_url")):
@@ -249,17 +278,7 @@ def update_lesson(
             _sync_participants(db, target, students)
 
     if rescheduled:
-        db.flush()
-        student_ids = {a.student_id for t in rescheduled for a in t.attendance}
-        users = set(db.scalars(select(StudentProfile.user_id).where(StudentProfile.id.in_(student_ids))))
-        if len(rescheduled) == 1:
-            what = "отменено" if lesson.status == LessonStatus.CANCELLED else "изменено"
-            title, body = f"Занятие {what}", f"«{lesson.title}» — {lesson.starts_at:%d.%m.%Y %H:%M} UTC"
-        else:
-            what = "отменены" if lesson.status == LessonStatus.CANCELLED else "изменены"
-            title = f"Занятия {what}"
-            body = f"«{lesson.title}»: {len(rescheduled)} занятий начиная с {lesson.starts_at:%d.%m.%Y}"
-        notify(db, users, NotificationType.LESSON_CHANGED, title, body, "/student/attendance")
+        _notify_schedule_change(db, lesson, rescheduled)
     db.commit()
     return _one(db, _get_owned_lesson(db, teacher, lesson_id))
 
@@ -281,13 +300,14 @@ def extend_series(lesson_id: int, data: SeriesExtend, teacher: CurrentTeacher, d
             .limit(1)
         ).one()
     participants = [a.student for a in last.attendance]
+    tz = get_zone(teacher.user.timezone)
     for week in range(1, data.weeks + 1):
         copy = Lesson(
             teacher_id=teacher.id,
             group_id=last.group_id,
             title=last.title,
             topic=last.topic,
-            starts_at=last.starts_at + timedelta(weeks=week),
+            starts_at=add_weeks_local(last.starts_at, week, tz),
             duration_minutes=last.duration_minutes,
             meeting_url=last.meeting_url,
             series_id=lesson.series_id,
@@ -395,9 +415,10 @@ def export_attendance(
     q = att_svc.records_query(teacher.id, student_id, _day_start(date_from), _day_end(date_to))
     buf = io.StringIO()
     writer = csv.writer(buf, delimiter=";")
-    writer.writerow(["Дата (UTC)", "Время (UTC)", "Ученик", "Занятие", "Статус занятия", "Посещаемость", "Комментарий"])
+    tz = get_zone(teacher.user.timezone)
+    writer.writerow([f"Дата ({tz.key})", f"Время ({tz.key})", "Ученик", "Занятие", "Статус занятия", "Посещаемость", "Комментарий"])
     for a in db.scalars(q).unique().all():
-        st = a.lesson.starts_at.astimezone(UTC)
+        st = to_local(a.lesson.starts_at, tz)
         writer.writerow([
             st.strftime("%d.%m.%Y"),
             st.strftime("%H:%M"),

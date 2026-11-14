@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { useI18n } from "@/contexts/I18nContext";
 import { homeworkApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
-import { fmtDateTime, localInputToIso, toDateTimeInput, addDays } from "@/utils/format";
+import { fmtDateTime, localInputToIso, wallClockInput } from "@/utils/format";
 
 function CreateHomeworkDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useI18n();
@@ -30,11 +30,9 @@ function CreateHomeworkDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
   useEffect(() => {
     if (open) {
-      const d = addDays(new Date(), 7);
-      d.setHours(23, 59, 0, 0);
       setTitle("");
       setDescription("");
-      setDue(toDateTimeInput(d));
+      setDue(wallClockInput(7, 23, 59)); // in a week, 23:59 on the user's clock
       setMaxGrade(10);
       setRecipients({ studentIds: [], groupIds: [] });
       setErrors({});

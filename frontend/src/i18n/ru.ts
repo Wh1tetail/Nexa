@@ -67,6 +67,7 @@ const ru = {
     students: "Ученики",
     groups: "Группы",
     lessons: "Расписание",
+    schedule: "Расписание",
     notifications: "Уведомления",
     settings: "Настройки",
     logout: "Выйти",
@@ -388,6 +389,7 @@ const ru = {
     deleteTitle: "Удалить занятие?",
     deleteText: "Отметки посещаемости будут удалены, списанные занятия вернутся в абонементы.",
     tabLessons: "Занятия",
+    tabCalendar: "Календарь",
     tabTable: "Таблица посещаемости",
     tabStats: "Статистика",
     upcoming: "Предстоящие",
@@ -430,6 +432,15 @@ const ru = {
     cancelFollowing: "Отменить это и следующие",
   },
 
+  calendar: {
+    title: "Расписание",
+    subtitle: "Ваши занятия по неделям",
+    today: "Сегодня",
+    prevWeek: "Предыдущая неделя",
+    nextWeek: "Следующая неделя",
+    emptyWeek: "На этой неделе занятий нет",
+    noLessonsDay: "Занятий нет",
+  },
   attendance: {
     title: "Посещаемость",
     subtitle: "Ваши занятия и статистика посещений",
@@ -626,6 +637,13 @@ const ru = {
     changePassword: "Сменить пароль",
     passwordChanged: "Пароль изменён",
     languageHint: "Язык интерфейса",
+    timezone: "Часовой пояс",
+    timezoneHint: "В нём показывается время занятий, сроков и уведомлений. Серии занятий повторяются в одно и то же местное время.",
+    timezonePopular: "Россия",
+    timezoneAll: "Все часовые пояса",
+    timezoneDetect: "Определить автоматически",
+    timezoneSaved: "Часовой пояс изменён",
+    timezoneNow: "Сейчас по этому поясу",
   },
 };
 

@@ -1,6 +1,7 @@
 import {
   BookOpenCheck,
   CalendarCheck,
+  CalendarDays,
   ClipboardList,
   CreditCard,
   LayoutDashboard,
@@ -51,6 +52,7 @@ function useNav(): NavItem[] {
       { to: "/student", label: t.nav.dashboard, icon: LayoutDashboard, end: true },
       { to: "/student/homework", label: t.nav.homework, icon: ClipboardList },
       { to: "/student/tests", label: t.nav.tests, icon: BookOpenCheck },
+      { to: "/student/schedule", label: t.nav.schedule, icon: CalendarDays },
       { to: "/student/attendance", label: t.nav.attendance, icon: CalendarCheck },
       { to: "/student/subscription", label: t.nav.subscription, icon: CreditCard },
     ];
@@ -197,7 +199,7 @@ export function DashboardLayout() {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main key={location.pathname} className="mx-auto w-full max-w-6xl animate-fade-in px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <main key={location.pathname + "|" + (user?.timezone ?? "")} className="mx-auto w-full max-w-6xl animate-fade-in px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <Outlet />
         </main>
       </div>

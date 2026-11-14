@@ -24,6 +24,7 @@ Online English school LMS. Russian UI by default (English supported). Full docs:
 - Schema changes go through an Alembic migration (see the `create-migration` skill); never edit applied migrations.
 - E-mail is sent only via `BackgroundTasks` + `services/email_service.py`.
 - Bumping `users.token_version` revokes all sessions and closes open SSE streams (`services/realtime.py`).
+- Time: store UTC; anything "wall clock" (weekly series, texts for people, CSV) goes through `app/core/timezones.py` with the user's `users.timezone`. Frontend formats only via `utils/format.ts` (profile time zone), never raw `toLocaleString`/`setHours`.
 - Main data lives in PostgreSQL; `localStorage` only holds the refresh token and UI preferences.
 - No horizontal scroll at 375px; dialogs are bottom sheets on mobile.
 - Never edit `backend/.env` (use `.env.example`) or lock files by hand — a hook blocks it.

@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY_ID: str | None = None
     S3_SECRET_ACCESS_KEY: str | None = None
 
+    # Time zone for users who have not chosen one (IANA name)
+    DEFAULT_TIMEZONE: str = "Europe/Moscow"
+
     # Real-time notifications (PostgreSQL LISTEN/NOTIFY -> Server-Sent Events)
     REALTIME_ENABLED: bool = True
 
