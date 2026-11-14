@@ -2,7 +2,7 @@
 import logging
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
@@ -13,6 +13,9 @@ from app.schemas.subscription import SubscriptionOut
 from app.services.notification_service import notify
 
 log = logging.getLogger(__name__)
+
+# Arbitrary constant identifying the expiry check in pg_try_advisory_xact_lock
+EXPIRY_CHECK_LOCK = 724_001
 
 
 def today() -> date:
@@ -114,7 +117,14 @@ def use_lessons(sub: Subscription, count: int) -> None:
 
 def check_expirations(db: Session) -> int:
     """Notify teachers (and students) about subscriptions that are expiring soon
-    or have expired. Idempotent thanks to *_notified_at columns."""
+    or have expired. Idempotent thanks to *_notified_at columns.
+
+    Every uvicorn worker runs this periodically; a transaction-level advisory
+    lock makes concurrent runs skip instead of sending duplicate notifications."""
+    if not db.scalar(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": EXPIRY_CHECK_LOCK}):
+        log.info("Subscription check already running in another worker, skipping")
+        db.rollback()
+        return 0
     ref = today()
     soon = ref + timedelta(days=settings.SUBSCRIPTION_EXPIRING_DAYS)
     now = datetime.now(UTC)

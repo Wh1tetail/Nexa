@@ -22,8 +22,3 @@ bcrypt==4.2.1
 # Files
 filetype==1.2.0
 boto3==1.35.81
-
-# Testing / lint
-pytest==8.3.4
-httpx==0.28.1
-pyflakes==4.1.0

@@ -1,0 +1,6 @@
+# Development and CI: runtime dependencies + tests and lint
+-r requirements.txt
+
+pytest==8.3.4
+httpx==0.28.1
+pyflakes==4.1.0

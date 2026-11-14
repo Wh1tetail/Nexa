@@ -1,5 +1,7 @@
 # NEXA — LMS для онлайн-школы английского
 
+[![CI](https://github.com/Wh1tetail/Nexa/actions/workflows/ci.yml/badge.svg)](https://github.com/Wh1tetail/Nexa/actions/workflows/ci.yml)
+
 Полноценная платформа: публичный сайт, авторизация, кабинеты **ученика** и **преподавателя**, домашние задания с файлами, тесты с автопроверкой, посещаемость, абонементы и уведомления. Все данные хранятся в PostgreSQL.
 
 ```
@@ -44,7 +46,7 @@ python -m venv .venv
 ```
 
 ```bash
-.venv/Scripts/pip install -r requirements.txt     # Linux/macOS: .venv/bin/pip
+.venv/Scripts/pip install -r requirements-dev.txt  # для разработки: + pytest, httpx, pyflakes; Linux/macOS: .venv/bin/pip
 ```
 
 ```bash
@@ -253,9 +255,58 @@ GET /api/v1/notifications/stream (text/event-stream, Authorization: Bearer)
 - Новая зависимость `tzdata`: на Windows нет встроенной базы часовых поясов.
 - Тесты (`tests/test_timezones.py`) проверяют реальный переход Европы на летнее время 28.03.2027: в UTC занятия сдвигаются на час, а по местному времени остаются в 18:00.
 
+## Этап 7 — CI и запуск в Docker
+
+### Непрерывная интеграция (GitHub Actions)
+`.github/workflows/ci.yml` запускается на каждый push в любую ветку и на pull request:
+
+| Job | Что проверяет |
+|---|---|
+| **backend** | PostgreSQL 18 как сервис; `pyflakes`; миграции туда-обратно (`upgrade head → downgrade base → upgrade head`); все тесты |
+| **frontend** | `npm ci`, проверка типов, production-сборка |
+| **docker** | собирает и поднимает весь `docker-compose.yml`, затем smoke-тест через nginx: health, SPA-маршруты, JSON-ошибки API, демо-данные и вход, поток уведомлений через прокси (без буферизации) |
+
+### Запуск в продакшене (Docker Compose)
+
+```bash
+cp .env.production.example .env      # заполните POSTGRES_PASSWORD и SECRET_KEY (команды генерации внутри)
+```
+```bash
+docker compose up -d --build
+```
+
+Сайт откроется на http://localhost:8080 (порт задаёт `HTTP_PORT`). Внутри стека три сервиса:
+
+- `db` — PostgreSQL 18. Данные хранятся в томе `pgdata`, наружу порт не открыт.
+- `backend` — FastAPI.
+  - При старте сам применяет миграции, работает в нескольких процессах (`WEB_CONCURRENCY`) от непривилегированного пользователя.
+  - Загруженные файлы хранятся в томе `uploads`.
+  - Наружу порт не открыт.
+- `web` — nginx:
+  - раздаёт собранный фронтенд и проксирует `/api`;
+  - для `/api/v1/notifications/stream` отключена буферизация, а таймаут увеличен;
+  - у файлов с хешем в имени — кэш на год, у `index.html` — `no-cache`.
+
+Полезные команды:
+
+```bash
+docker compose exec backend python -m scripts.seed     # демо-данные (только для демо-стенда!)
+```
+```bash
+docker compose logs -f backend                        # логи, в том числе письма при EMAIL_BACKEND=console
+```
+
+Перед публикацией в интернете поставьте перед стеком HTTPS (например, Caddy, Traefik или nginx с Let's Encrypt) и укажите `PUBLIC_URL=https://ваш-домен`.
+
+Разное:
+- **Зависимости разделены:** `backend/requirements.txt` — только то, что нужно для работы (идёт в образ), `requirements-dev.txt` — плюс тесты и линтер.
+- **Проверка абонементов в несколько процессов.** Фоновая проверка окончания абонементов идёт в каждом процессе backend, но защищена advisory-блокировкой PostgreSQL, поэтому уведомления не дублируются (`tests/test_ops.py`).
+- **Окончания строк.** `.gitattributes` хранит скрипты и конфиги контейнеров с окончаниями LF, иначе на Windows `docker-entrypoint.sh` сломался бы из-за CRLF.
+
 ## Что осталось / ограничения (честно)
 
 - S3-хранилище реализовано (`STORAGE_BACKEND=s3`), но проверено только локальное.
 - SMTP-отправка написана, но в этой среде проверялся только режим `console` — реального почтового сервера не было.
-- Ограничитель попыток входа хранится в памяти процесса — для нескольких инстансов нужен Redis.
+- Ограничитель попыток входа хранится в памяти каждого процесса: при `WEB_CONCURRENCY=2` лимит фактически вдвое мягче, а для нескольких серверов нужен Redis.
+- Docker-образы и compose проверяются только в CI на GitHub: на этом компьютере Docker не установлен.
 - Файлы при переводе ученика к другому преподавателю остаются привязаны к заданиям прежнего преподавателя (это ожидаемое поведение, но отдельного переноса истории нет).

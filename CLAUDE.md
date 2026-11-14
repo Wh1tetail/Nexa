@@ -14,6 +14,8 @@ Online English school LMS. Russian UI by default (English supported). Full docs:
 - Frontend: `cd frontend && npm run dev` (Vite proxies `/api` to :8000)
 - Tests (real PostgreSQL, ~4 min; wipe the `<db>_test` database each run): `cd backend && .venv/Scripts/python -m pytest -q`
 - Lint: `cd backend && .venv/Scripts/python -m pyflakes app tests scripts`
+- Dependencies: `backend/requirements.txt` = runtime only (goes into the Docker image); dev/CI tools in `requirements-dev.txt`
+- CI: `.github/workflows/ci.yml` (backend tests on PostgreSQL 18, frontend build, docker compose smoke test). Production: `docker-compose.yml` + `.env` from `.env.production.example`. Docker is not installed locally — the compose stack is verified only in CI.
 - Types/build: `cd frontend && npx tsc -b --noEmit` / `npm run build`
 - Demo data: `cd backend && .venv/Scripts/python -m scripts.seed --reset` (password `Demo12345` for all demo users)
 

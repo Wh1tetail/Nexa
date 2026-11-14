@@ -1,0 +1,7 @@
+# Normalize text files; keep LF for anything executed or parsed inside Linux containers.
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.conf text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
