@@ -9,10 +9,10 @@ user-invocable: false
 ## Backend (FastAPI)
 - **Auth & roles**: use the dependencies in `app/api/deps.py` — `CurrentUser`, `CurrentTeacher`, `CurrentStudent`, `AdminUser`. Never trust ids from the client.
 - **Ownership**: load teacher-scoped objects with `get_owned_student`, `get_owned_students`, `get_owned_group`, `resolve_recipients` or a `_load`/`_get_owned_*` helper that checks `teacher_id`. Foreign objects raise `NotFound` (404) so their existence is not revealed. Student endpoints (`/me/...`) filter by `student.id`.
-- **Errors**: raise `BadRequest` / `NotFound` / `Forbidden` / `Conflict` from `app/core/exceptions.py` with a short Russian message — the frontend shows `detail` directly.
-- **Validation**: in Pydantic schemas (`app/schemas/`), messages in Russian (`ValueError("...")`).
+- **Errors**: raise `BadRequest` / `NotFound` / `Forbidden` / `Conflict` from `app/core/exceptions.py` with a short Russian message (the message id) — values as params, never f-strings: `BadRequest("Не более {n} файлов", n=5)`. Add the kk/en translation to `CATALOG` in `app/core/i18n.py` (a test checks it); the response is translated into the request's language (Accept-Language).
+- **Validation**: in Pydantic schemas (`app/schemas/`), messages in Russian (`ValueError("...")`), with kk/en in `CATALOG`.
 - **Business logic** goes into `app/services/`, reusable queries into `app/repositories/`. Endpoints stay thin.
-- **Notifications**: `services.notification_service.notify(db, user_ids, NotificationType.X, title, body, link)` inside the transaction; real-time delivery happens automatically on commit (pg_notify hook).
+- **Notifications**: `services.notification_service.notify(db, user_ids, NotificationType.X, M("Заголовок"), body, link)` inside the transaction — `M(template, **params)` texts are rendered in each recipient's language, plain strings (titles, names) stay as they are; real-time delivery happens automatically on commit (pg_notify hook).
 - **E-mail**: build the link (e.g. `account_service.invite_link`), commit, then `background.add_task(email_service.<template>, ...)`. In DEBUG return the link as `dev_*_url`.
 - **Sessions**: incrementing `user.token_version` signs the user out everywhere and closes their SSE streams.
 - **Schema change** → migration via the `create-migration` skill.

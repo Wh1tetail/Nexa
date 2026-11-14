@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from app.api.deps import DB, CurrentUser
 from app.core.config import settings
 from app.core.exceptions import BadRequest, Unauthorized
+from app.core.i18n import tr
 from app.core.security import (
     create_token,
     decode_token,
@@ -91,7 +92,7 @@ def logout(user: CurrentUser, db: DB) -> Message:
     # Invalidate every issued access/refresh token for this user.
     user.token_version += 1
     db.commit()
-    return Message(detail="Вы вышли из аккаунта")
+    return Message(detail=tr("Вы вышли из аккаунта"))
 
 
 @router.get("/me", response_model=MeOut)
@@ -126,13 +127,13 @@ def change_password(data: ChangePasswordRequest, user: CurrentUser, db: DB) -> T
 def forgot_password(data: ForgotPasswordRequest, db: DB, background: BackgroundTasks) -> ForgotPasswordResponse:
     login_limiter.check("reset:" + data.email.lower())
     login_limiter.hit("reset:" + data.email.lower())
-    generic = "Если аккаунт с таким email существует, мы отправили инструкцию по восстановлению"
+    generic = tr("Если аккаунт с таким email существует, мы отправили инструкцию по восстановлению")
     user = db.scalar(select(User).where(func.lower(User.email) == data.email.lower()))
     if not user or not user.is_active:
         return ForgotPasswordResponse(detail=generic)
     url = account_service.reset_link(db, user)
     db.commit()
-    background.add_task(email_service.password_reset, user.email, user.full_name, url)
+    background.add_task(email_service.password_reset, user.email, user.full_name, url, user.locale)
     # In DEBUG the link is also returned so the flow works without a mail server.
     return ForgotPasswordResponse(detail=generic, dev_reset_url=url if settings.DEBUG else None)
 
@@ -149,4 +150,4 @@ def reset_password(data: ResetPasswordRequest, db: DB) -> Message:
     user.token_version += 1
     token.used_at = datetime.now(UTC)
     db.commit()
-    return Message(detail="Пароль изменён. Войдите с новым паролем")
+    return Message(detail=tr("Пароль изменён. Войдите с новым паролем"))

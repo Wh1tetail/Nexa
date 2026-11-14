@@ -1,8 +1,10 @@
 from collections.abc import Iterable
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Notification
+from app.models import Notification, User
+from app.core.i18n import Msg, render
 from app.models.enums import NotificationType
 
 # Which part of the app a notification belongs to. Used for the counters in the
@@ -29,10 +31,17 @@ def notify(
     db: Session,
     user_ids: Iterable[int],
     type_: NotificationType,
-    title: str,
-    body: str | None = None,
+    title: str | Msg,
+    body: str | Msg | None = None,
     link: str | None = None,
 ) -> None:
-    """Queue notifications in the current transaction (caller commits)."""
-    for uid in set(user_ids):
-        db.add(Notification(user_id=uid, type=type_, title=title, body=body, link=link))
+    """Queue notifications in the current transaction (caller commits).
+    Msg texts are rendered in each recipient's language (users.locale);
+    plain strings are user content (titles, names) and are stored as is."""
+    ids = set(user_ids)
+    if not ids:
+        return
+    langs = dict(db.execute(select(User.id, User.locale).where(User.id.in_(ids))).all())
+    for uid in ids:
+        lang = langs.get(uid)
+        db.add(Notification(user_id=uid, type=type_, title=render(title, lang), body=render(body, lang), link=link))

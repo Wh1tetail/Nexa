@@ -2,8 +2,12 @@
 - console: messages are written to the log (development, tests)
 - smtp:    sent via any SMTP server (SMTP_* settings)
 
-Messages are sent from FastAPI BackgroundTasks so requests never wait for SMTP.
-`outbox` keeps the last messages in memory — used by tests and the dev console.
+Messages are sent from FastAPI BackgroundTasks (or the e-mail outbox worker),
+so requests never wait for SMTP. `outbox` keeps the last messages in memory —
+used by tests and the dev console.
+
+Every template takes `lang` ("ru" | "kk" | "en"): the recipient's language
+(users.locale). Texts live in TEXTS below.
 """
 import logging
 import smtplib
@@ -14,6 +18,7 @@ from email.message import EmailMessage
 from html import escape
 
 from app.core.config import settings
+from app.core.i18n import norm_lang
 
 log = logging.getLogger(__name__)
 
@@ -28,9 +33,85 @@ class OutgoingEmail:
 
 outbox: deque[OutgoingEmail] = deque(maxlen=50)
 
+TEXTS: dict[str, dict[str, str]] = {
+    "footer": {
+        "ru": "Это автоматическое письмо онлайн-школы NEXA.",
+        "kk": "Бұл NEXA онлайн-мектебінің автоматты хаты.",
+        "en": "This is an automatic e-mail from the NEXA online school.",
+    },
+    "settings_link": {"ru": "Настроить уведомления", "kk": "Хабарландыруларды баптау", "en": "Notification settings"},
+    "hello": {"ru": "Здравствуйте, {name}!", "kk": "Сәлеметсіз бе, {name}!", "en": "Hello, {name}!"},
+    # password reset
+    "reset_subject": {"ru": "Восстановление пароля — NEXA", "kk": "Құпиясөзді қалпына келтіру — NEXA", "en": "Password reset — NEXA"},
+    "reset_title": {"ru": "Восстановление пароля", "kk": "Құпиясөзді қалпына келтіру", "en": "Password reset"},
+    "reset_text": {
+        "ru": "Чтобы задать новый пароль, перейдите по ссылке:",
+        "kk": "Жаңа құпиясөз қою үшін сілтемеге өтіңіз:",
+        "en": "To set a new password, follow this link:",
+    },
+    "reset_html": {
+        "ru": "Мы получили запрос на смену пароля. Ссылка действует {minutes} минут.",
+        "kk": "Біз құпиясөзді өзгерту туралы сұрау алдық. Сілтеме {minutes} минут жарамды.",
+        "en": "We received a request to change your password. The link is valid for {minutes} minutes.",
+    },
+    "reset_valid": {
+        "ru": "Ссылка действует {minutes} минут. Если вы не запрашивали восстановление, просто проигнорируйте письмо.",
+        "kk": "Сілтеме {minutes} минут жарамды. Егер сіз қалпына келтіруді сұрамаған болсаңыз, хатты елемеңіз.",
+        "en": "The link is valid for {minutes} minutes. If you didn't ask for a reset, just ignore this e-mail.",
+    },
+    "reset_ignore": {
+        "ru": "Если вы не запрашивали восстановление, просто проигнорируйте письмо.",
+        "kk": "Егер сіз қалпына келтіруді сұрамаған болсаңыз, хатты елемеңіз.",
+        "en": "If you didn't ask for a reset, just ignore this e-mail.",
+    },
+    "reset_button": {"ru": "Задать новый пароль", "kk": "Жаңа құпиясөз қою", "en": "Set a new password"},
+    # invitation
+    "invite_subject": {"ru": "Ваш аккаунт в NEXA", "kk": "Сіздің NEXA аккаунтыңыз", "en": "Your NEXA account"},
+    "invite_title": {"ru": "Добро пожаловать в NEXA!", "kk": "NEXA-ға қош келдіңіз!", "en": "Welcome to NEXA!"},
+    "invite_created": {
+        "ru": "Для вас создан аккаунт в онлайн-школе NEXA.",
+        "kk": "Сізге NEXA онлайн-мектебінде аккаунт ашылды.",
+        "en": "An account has been created for you at the NEXA online school.",
+    },
+    "invite_created_html": {"ru": "Для вас создан личный кабинет.", "kk": "Сізге жеке кабинет ашылды.", "en": "Your personal account is ready."},
+    "invite_teacher": {"ru": " Ваш преподаватель — {teacher}.", "kk": " Сіздің оқытушыңыз — {teacher}.", "en": " Your teacher is {teacher}."},
+    "invite_link": {
+        "ru": "Задайте пароль по ссылке (действует {hours} ч):",
+        "kk": "Құпиясөзді сілтеме арқылы қойыңыз ({hours} сағ жарамды):",
+        "en": "Set your password using this link (valid for {hours} h):",
+    },
+    "invite_login": {"ru": "Ваш логин: {email}", "kk": "Сіздің логиніңіз: {email}", "en": "Your login: {email}"},
+    "invite_signin": {"ru": "Вход: {url}", "kk": "Кіру: {url}", "en": "Sign in: {url}"},
+    "invite_html_button_hint": {
+        "ru": "Задайте пароль по кнопке ниже — ссылка действует {hours} ч.",
+        "kk": "Құпиясөзді төмендегі батырма арқылы қойыңыз — сілтеме {hours} сағ жарамды.",
+        "en": "Set your password with the button below — the link is valid for {hours} h.",
+    },
+    "invite_button": {"ru": "Задать пароль", "kk": "Құпиясөз қою", "en": "Set a password"},
+    # notifications digest
+    "digest_title": {"ru": "Новые события", "kk": "Жаңа оқиғалар", "en": "New events"},
+    "digest_intro": {"ru": "Новые события в NEXA:", "kk": "NEXA-дағы жаңа оқиғалар:", "en": "New events in NEXA:"},
+    "digest_subject": {"ru": "Новые события ({n}) — NEXA", "kk": "Жаңа оқиғалар ({n}) — NEXA", "en": "New events ({n}) — NEXA"},
+    "and_more": {"ru": "…и ещё {n}", "kk": "…және тағы {n}", "en": "…and {n} more"},
+    "open": {"ru": "Открыть", "kk": "Ашу", "en": "Open"},
+    "open_nexa": {"ru": "Открыть NEXA", "kk": "NEXA-ны ашу", "en": "Open NEXA"},
+    # unread chat messages
+    "chat_title": {"ru": "Непрочитанные сообщения", "kk": "Оқылмаған хабарламалар", "en": "Unread messages"},
+    "chat_intro": {"ru": "У вас непрочитанные сообщения ({n}):", "kk": "Сізде оқылмаған хабарламалар бар ({n}):", "en": "You have unread messages ({n}):"},
+    "chat_subject_one": {"ru": "Новое сообщение от {name} — NEXA", "kk": "{name} жіберген жаңа хабарлама — NEXA", "en": "New message from {name} — NEXA"},
+    "chat_subject_many": {"ru": "Непрочитанные сообщения ({n}) — NEXA", "kk": "Оқылмаған хабарламалар ({n}) — NEXA", "en": "Unread messages ({n}) — NEXA"},
+    "reply": {"ru": "Ответить", "kk": "Жауап беру", "en": "Reply"},
+    "settings_line": {"ru": "Настроить уведомления: {url}", "kk": "Хабарландыруларды баптау: {url}", "en": "Notification settings: {url}"},
+}
+
+
+def _t(key: str, lang: str, **params) -> str:
+    text = TEXTS[key][norm_lang(lang)]
+    return text.format(**params) if params else text
+
 
 def _layout(
-    title: str, body_html: str, button: tuple[str, str] | None = None, settings_url: str | None = None
+    title: str, body_html: str, lang: str, button: tuple[str, str] | None = None, settings_url: str | None = None
 ) -> str:
     btn = ""
     if button:
@@ -40,20 +121,17 @@ def _layout(
             'style="background:#3563F5;color:#fff;text-decoration:none;padding:12px 22px;'
             f'border-radius:10px;font-weight:600;display:inline-block">{escape(label)}</a></p>'
         )
-    return f"""<!doctype html><html><body style="margin:0;background:#F5F7FB;font-family:Inter,Segoe UI,Arial,sans-serif;color:#14213D">
+    note = ""
+    if settings_url:
+        note = f' <a href="{escape(settings_url)}" style="color:#6b7280">{escape(_t("settings_link", lang))}</a>'
+    return f"""<!doctype html><html lang="{norm_lang(lang)}"><body style="margin:0;background:#F5F7FB;font-family:Inter,Segoe UI,Arial,sans-serif;color:#14213D">
 <div style="max-width:520px;margin:32px auto;background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:32px">
 <p style="margin:0 0 24px;font-size:18px;font-weight:700;letter-spacing:0.16em;color:#14213D">
 <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:8px;background:#14213D;color:#fff;text-align:center;letter-spacing:0;margin-right:10px;vertical-align:middle">N</span><span style="vertical-align:middle">NEXA</span></p>
 <h1 style="font-size:20px;margin:0 0 12px">{escape(title)}</h1>
 {body_html}{btn}
-<p style="color:#6b7280;font-size:12px;margin-top:32px">Это автоматическое письмо онлайн-школы NEXA.{_settings_note(settings_url)}</p>
+<p style="color:#6b7280;font-size:12px;margin-top:32px">{escape(_t("footer", lang))}{note}</p>
 </div></body></html>"""
-
-
-def _settings_note(url: str | None) -> str:
-    if not url:
-        return ""
-    return f' <a href="{escape(url)}" style="color:#6b7280">Настроить уведомления</a>'
 
 
 def send(to: str, subject: str, text: str, html: str) -> None:
@@ -91,50 +169,55 @@ def _send_smtp(m: OutgoingEmail) -> None:
         server.send_message(em)
 
 
-# ---------- templates ----------
+# ---------------------------------------------------------------------------
+# Templates
+# ---------------------------------------------------------------------------
 
-def password_reset(to: str, name: str, url: str) -> None:
+def password_reset(to: str, name: str, url: str, lang: str = "ru") -> None:
     minutes = settings.PASSWORD_RESET_EXPIRE_MINUTES
     text = (
-        f"Здравствуйте, {name}!\n\nЧтобы задать новый пароль, перейдите по ссылке:\n{url}\n\n"
-        f"Ссылка действует {minutes} минут. Если вы не запрашивали восстановление, просто проигнорируйте письмо."
+        f"{_t('hello', lang, name=name)}\n\n{_t('reset_text', lang)}\n{url}\n\n"
+        f"{_t('reset_valid', lang, minutes=minutes)}"
     )
     html = _layout(
-        "Восстановление пароля",
-        f"<p>Здравствуйте, {escape(name)}!</p><p>Мы получили запрос на смену пароля. "
-        f"Ссылка действует {minutes} минут.</p>"
-        "<p style='color:#6b7280;font-size:14px'>Если вы не запрашивали восстановление, просто проигнорируйте письмо.</p>",
-        ("Задать новый пароль", url),
+        _t("reset_title", lang),
+        f"<p>{escape(_t('hello', lang, name=name))}</p><p>{escape(_t('reset_html', lang, minutes=minutes))}</p>"
+        f"<p style='color:#6b7280;font-size:14px'>{escape(_t('reset_ignore', lang))}</p>",
+        lang,
+        (_t("reset_button", lang), url),
     )
-    send(to, "Восстановление пароля — NEXA", text, html)
+    send(to, _t("reset_subject", lang), text, html)
 
 
-def invitation(to: str, name: str, url: str, teacher_name: str | None) -> None:
+def invitation(to: str, name: str, url: str, teacher_name: str | None, lang: str = "ru") -> None:
     hours = settings.INVITE_EXPIRE_HOURS
-    who = f" Ваш преподаватель — {teacher_name}." if teacher_name else ""
+    who = _t("invite_teacher", lang, teacher=teacher_name) if teacher_name else ""
     text = (
-        f"Здравствуйте, {name}!\n\nДля вас создан аккаунт в онлайн-школе NEXA.{who}\n"
-        f"Задайте пароль по ссылке (действует {hours} ч):\n{url}\n\n"
-        f"Ваш логин: {to}\nВход: {settings.FRONTEND_URL}/login"
+        f"{_t('hello', lang, name=name)}\n\n{_t('invite_created', lang)}{who}\n"
+        f"{_t('invite_link', lang, hours=hours)}\n{url}\n\n"
+        f"{_t('invite_login', lang, email=to)}\n{_t('invite_signin', lang, url=settings.FRONTEND_URL + '/login')}"
     )
     html = _layout(
-        "Добро пожаловать в NEXA!",
-        f"<p>Здравствуйте, {escape(name)}!</p><p>Для вас создан личный кабинет.{escape(who)}</p>"
-        f"<p>Ваш логин: <b>{escape(to)}</b><br>Задайте пароль по кнопке ниже — ссылка действует {hours} ч.</p>",
-        ("Задать пароль", url),
+        _t("invite_title", lang),
+        f"<p>{escape(_t('hello', lang, name=name))}</p><p>{escape(_t('invite_created_html', lang))}{escape(who)}</p>"
+        f"<p>{escape(_t('invite_login', lang, email=to))}<br>{escape(_t('invite_html_button_hint', lang, hours=hours))}</p>",
+        lang,
+        (_t("invite_button", lang), url),
     )
-    send(to, "Ваш аккаунт в NEXA", text, html)
+    send(to, _t("invite_subject", lang), text, html)
 
 
-def notifications_digest(to: str, name: str, items: list[tuple[str, str | None]], url: str, settings_url: str) -> None:
-    """Unread notifications: [(title, body)], newest last."""
+def notifications_digest(
+    to: str, name: str, items: list[tuple[str, str | None]], url: str, settings_url: str, lang: str = "ru"
+) -> None:
+    """Unread notifications: [(title, body)], newest last (already in the recipient's language)."""
     shown = items[-10:]
     more = len(items) - len(shown)
     lines = "\n".join(f"• {t}" + (f" — {b}" if b else "") for t, b in shown)
     text = (
-        f"Здравствуйте, {name}!\n\nНовые события в NEXA:\n{lines}"
-        + (f"\n…и ещё {more}" if more else "")
-        + f"\n\nОткрыть: {url}\nНастроить уведомления: {settings_url}"
+        f"{_t('hello', lang, name=name)}\n\n{_t('digest_intro', lang)}\n{lines}"
+        + (f"\n{_t('and_more', lang, n=more)}" if more else "")
+        + f"\n\n{_t('open', lang)}: {url}\n{_t('settings_line', lang, url=settings_url)}"
     )
     rows = "".join(
         f"<li style='margin:0 0 10px'><b>{escape(t)}</b>"
@@ -142,24 +225,27 @@ def notifications_digest(to: str, name: str, items: list[tuple[str, str | None]]
         + "</li>"
         for t, b in shown
     )
-    tail = f"<p style='color:#6b7280'>…и ещё {more}</p>" if more else ""
-    subject = shown[-1][0] if len(items) == 1 else f"Новые события ({len(items)}) — NEXA"
+    tail = f"<p style='color:#6b7280'>{escape(_t('and_more', lang, n=more))}</p>" if more else ""
+    subject = shown[-1][0] if len(items) == 1 else _t("digest_subject", lang, n=len(items))
     html = _layout(
-        "Новые события",
-        f"<p>Здравствуйте, {escape(name)}!</p><ul style='padding-left:18px'>{rows}</ul>{tail}",
-        ("Открыть NEXA", url),
+        _t("digest_title", lang),
+        f"<p>{escape(_t('hello', lang, name=name))}</p><ul style='padding-left:18px'>{rows}</ul>{tail}",
+        lang,
+        (_t("open_nexa", lang), url),
         settings_url,
     )
     send(to, subject, text, html)
 
 
-def unread_messages(to: str, name: str, threads: list[tuple[str, int, str]], url: str, settings_url: str) -> None:
+def unread_messages(
+    to: str, name: str, threads: list[tuple[str, int, str]], url: str, settings_url: str, lang: str = "ru"
+) -> None:
     """Unread chat messages: [(sender name, count, last preview)]."""
     total = sum(n for _, n, _ in threads)
     lines = "\n".join(f"• {who}: {n} — «{p}»" for who, n, p in threads)
     text = (
-        f"Здравствуйте, {name}!\n\nУ вас непрочитанные сообщения ({total}):\n{lines}"
-        f"\n\nОтветить: {url}\nНастроить уведомления: {settings_url}"
+        f"{_t('hello', lang, name=name)}\n\n{_t('chat_intro', lang, n=total)}\n{lines}"
+        f"\n\n{_t('reply', lang)}: {url}\n{_t('settings_line', lang, url=settings_url)}"
     )
     rows = "".join(
         f"<li style='margin:0 0 10px'><b>{escape(who)}</b> · {n}<br>"
@@ -167,11 +253,14 @@ def unread_messages(to: str, name: str, threads: list[tuple[str, int, str]], url
         for who, n, p in threads
     )
     who = threads[0][0] if len(threads) == 1 else None
-    subject = f"Новое сообщение от {who} — NEXA" if who and total == 1 else f"Непрочитанные сообщения ({total}) — NEXA"
+    subject = (
+        _t("chat_subject_one", lang, name=who) if who and total == 1 else _t("chat_subject_many", lang, n=total)
+    )
     html = _layout(
-        "Непрочитанные сообщения",
-        f"<p>Здравствуйте, {escape(name)}!</p><ul style='padding-left:18px'>{rows}</ul>",
-        ("Ответить", url),
+        _t("chat_title", lang),
+        f"<p>{escape(_t('hello', lang, name=name))}</p><ul style='padding-left:18px'>{rows}</ul>",
+        lang,
+        (_t("reply", lang), url),
         settings_url,
     )
     send(to, subject, text, html)

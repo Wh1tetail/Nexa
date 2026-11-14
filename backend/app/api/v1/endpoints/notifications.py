@@ -11,6 +11,7 @@ from sqlalchemy import func, select, update
 
 from app.api.deps import DB, CurrentUser, bearer
 from app.core.exceptions import NotFound
+from app.core.i18n import tr
 from app.core.security import decode_token
 from app.models import Notification
 from app.schemas.common import Message
@@ -158,4 +159,4 @@ def mark_all_read(user: CurrentUser, db: DB) -> Message:
         .values(is_read=True)
     )
     db.commit()
-    return Message(detail="Все уведомления прочитаны")
+    return Message(detail=tr("Все уведомления прочитаны"))

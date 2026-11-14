@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import Conflict
+from app.core.i18n import request_lang
 from app.core.security import hash_password
 from app.models import StudentProfile, Subscription, TeacherProfile, User
 from app.models.enums import UserRole
@@ -68,6 +69,8 @@ def create_student(db: Session, data: StudentCreate, teacher: TeacherProfile | N
         full_name=data.full_name.strip(),
         phone=data.phone,
         role=UserRole.STUDENT,
+        # a new user starts in the language of whoever creates them (also used for the invitation)
+        locale=request_lang.get(),
     )
     profile = StudentProfile(
         user=user,
@@ -82,5 +85,5 @@ def create_student(db: Session, data: StudentCreate, teacher: TeacherProfile | N
 def send_invitation(db: Session, user: User, teacher_name: str | None, background: BackgroundTasks) -> str:
     """Issue a set-password link and e-mail it in the background. Caller commits."""
     url = account_service.invite_link(db, user)
-    background.add_task(email_service.invitation, user.email, user.full_name, url, teacher_name)
+    background.add_task(email_service.invitation, user.email, user.full_name, url, teacher_name, user.locale)
     return url

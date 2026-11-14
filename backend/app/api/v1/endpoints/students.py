@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, status
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
+from app.core.i18n import tr
 from app.core.config import settings
 from app.api.deps import DB, CurrentTeacher, get_owned_group, get_owned_student
 from app.models import StudentProfile, Subscription
@@ -56,7 +57,7 @@ def resend_invite(student_id: int, teacher: CurrentTeacher, db: DB, background: 
     url = student_service.send_invitation(db, student.user, teacher.user.full_name, background)
     db.commit()
     return InviteResponse(
-        detail=f"Приглашение отправлено на {student.user.email}",
+        detail=tr("Приглашение отправлено на {email}", email=student.user.email),
         dev_invite_url=url if settings.DEBUG else None,
     )
 

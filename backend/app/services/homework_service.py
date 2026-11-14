@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
+from app.core.i18n import M
 from app.models import Homework, HomeworkSubmission, StudentProfile
 from app.models.enums import NotificationType, SubmissionStatus
 from app.schemas.homework import (
@@ -27,7 +28,7 @@ def assign(db: Session, hw: Homework, students: list[StudentProfile]) -> int:
             db,
             [s.user_id],
             NotificationType.HOMEWORK_ASSIGNED,
-            "Новое домашнее задание",
+            M("Новое домашнее задание"),
             hw.title,
             f"/student/homework/{by_student[s.id]}",
         )

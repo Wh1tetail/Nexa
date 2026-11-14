@@ -20,6 +20,7 @@ from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import BadRequest, Forbidden, NotFound
+from app.core.i18n import tr
 from app.models import Message, StudentProfile, TeacherProfile, User
 from app.models.enums import UserRole
 from app.models.message import MAX_MESSAGE_LENGTH
@@ -83,15 +84,16 @@ def _check_can_send(thread: Thread) -> None:
         raise BadRequest("Пользователь деактивирован — отправка сообщений недоступна")
 
 
-def preview(msg: Message) -> str:
+def preview(msg: Message, lang: str | None = None) -> str:
     """Short text for toasts and e-mails: the text, or the attached file names."""
     if msg.body:
         return msg.body[:PREVIEW_LENGTH]
     names = [a.original_name for a in msg.attachments]
     if not names:
         return ""
-    more = f" и ещё {len(names) - 1}" if len(names) > 1 else ""
-    return f"📎 {names[0]}{more}"[:PREVIEW_LENGTH]
+    if len(names) > 1:
+        return tr("📎 {name} и ещё {n}", lang, name=names[0], n=len(names) - 1)[:PREVIEW_LENGTH]
+    return tr("📎 {name}", lang, name=names[0])[:PREVIEW_LENGTH]
 
 
 def _new_message(db: Session, thread: Thread, body: str) -> Message:
@@ -110,7 +112,7 @@ def _publish_and_commit(db: Session, thread: Thread, msg: Message) -> Message:
     _push(db, thread, {
         "type": "message", "student_id": thread.student.id, "teacher_id": thread.teacher.id,
         "message_id": msg.id, "sender_user_id": thread.me.id, "sender_name": thread.me.full_name,
-        "preview": preview(msg),
+        "preview": preview(msg, thread.partner.locale),  # the toast is shown to the partner
     })
     db.commit()
     db.refresh(msg)
@@ -127,12 +129,12 @@ async def send_files(db: Session, thread: Thread, body: str, uploads: list[Uploa
     _check_can_send(thread)
     body = body.strip()
     if len(body) > MAX_MESSAGE_LENGTH:
-        raise BadRequest(f"Сообщение не может быть длиннее {MAX_MESSAGE_LENGTH} символов")
+        raise BadRequest("Сообщение не может быть длиннее {n} символов", n=MAX_MESSAGE_LENGTH)
     uploads = [u for u in uploads if u.filename]
     if not uploads:
         raise BadRequest("Выберите файл")
     if len(uploads) > MAX_FILES_PER_MESSAGE:
-        raise BadRequest(f"Не более {MAX_FILES_PER_MESSAGE} файлов в одном сообщении")
+        raise BadRequest("Не более {n} файлов в одном сообщении", n=MAX_FILES_PER_MESSAGE)
     # validate everything first: nothing is stored if any file is rejected
     validated = [await validate_upload(u) for u in uploads]
     msg = _new_message(db, thread, body)

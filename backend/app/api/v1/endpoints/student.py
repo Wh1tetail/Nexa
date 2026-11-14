@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import DB, CurrentStudent
 from app.core.exceptions import BadRequest, NotFound
+from app.core.i18n import M
 from app.models import Attachment, Homework, HomeworkSubmission, StudentProfile, Subscription, Test, TestAttempt
 from app.models.enums import AttemptStatus, NotificationType, SubmissionStatus
 from app.models.test import test_assignments
@@ -98,7 +99,7 @@ async def upload_files(
     if sub.status not in EDITABLE:
         raise BadRequest("Работа уже отправлена на проверку")
     if len(sub.files) + len(files) > file_service.MAX_FILES_PER_OWNER:
-        raise BadRequest(f"Не более {file_service.MAX_FILES_PER_OWNER} файлов")
+        raise BadRequest("Не более {n} файлов", n=file_service.MAX_FILES_PER_OWNER)
     saved = [await file_service.store_upload(db, f, student.user, submission_id=sub.id) for f in files]
     if sub.status == SubmissionStatus.NEW:
         sub.status = SubmissionStatus.IN_PROGRESS
@@ -135,7 +136,7 @@ def submit_homework(
         db,
         [sub.homework.teacher.user_id],
         NotificationType.HOMEWORK_SUBMITTED,
-        "Сдано домашнее задание",
+        M("Сдано домашнее задание"),
         f"{student.user.full_name}: «{sub.homework.title}»",
         f"/teacher/homework/{sub.homework_id}?submission={sub.id}",
     )

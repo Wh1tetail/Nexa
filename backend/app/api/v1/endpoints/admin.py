@@ -9,6 +9,7 @@ from sqlalchemy.orm import joinedload
 from app.api.deps import DB, AdminUser
 from app.core.config import settings
 from app.core.exceptions import BadRequest, Conflict, NotFound
+from app.core.i18n import request_lang, tr
 from app.core.security import hash_password
 from app.models import Lesson, StudentProfile, Subscription, TeacherProfile, User
 from app.models.enums import UserRole
@@ -145,12 +146,12 @@ def set_password(
         user.password_hash = hash_password(data.password)
         user.token_version += 1
         db.commit()
-        return InviteResponse(detail="Пароль изменён")
+        return InviteResponse(detail=tr("Пароль изменён"))
     url = account_service.reset_link(db, user)
     db.commit()
-    background.add_task(email_service.password_reset, user.email, user.full_name, url)
+    background.add_task(email_service.password_reset, user.email, user.full_name, url, user.locale)
     return InviteResponse(
-        detail=f"Ссылка для смены пароля отправлена на {user.email}",
+        detail=tr("Ссылка для смены пароля отправлена на {email}", email=user.email),
         dev_invite_url=url if settings.DEBUG else None,
     )
 
@@ -177,6 +178,8 @@ def create_teacher(data: TeacherCreate, _: AdminUser, db: DB, background: Backgr
         full_name=data.full_name.strip(),
         phone=data.phone,
         role=UserRole.TEACHER,
+        # a new user starts in the language of whoever creates them (also used for the invitation)
+        locale=request_lang.get(),
     )
     profile = TeacherProfile(user=user, bio=data.bio)
     db.add_all([user, profile])

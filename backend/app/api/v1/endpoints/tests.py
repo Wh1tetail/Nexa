@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import DB, CurrentTeacher, get_owned_student, resolve_recipients
 from app.core.exceptions import BadRequest, NotFound
+from app.core.i18n import M
 from app.models import Attachment, StudentProfile, TeacherProfile, Test, TestAttempt
 from app.models.enums import AttemptStatus, NotificationType
 from app.schemas.test import (
@@ -150,7 +151,7 @@ def grade_attempt(attempt_id: int, data: GradeRequest, teacher: CurrentTeacher, 
             raise BadRequest("Ответ не относится к этой попытке")
         q = questions[ans.question_id]
         if g.points_awarded > q.points:
-            raise BadRequest(f"Максимум за вопрос — {q.points} балл(ов)")
+            raise BadRequest("Максимум за вопрос — {points} балл(ов)", points=q.points)
         ans.points_awarded = g.points_awarded
         ans.is_correct = g.points_awarded >= q.points
         ans.teacher_comment = g.teacher_comment
@@ -223,7 +224,7 @@ async def upload_test_files(
     if test.attempts:
         raise BadRequest("Материалы нельзя изменить: тест уже начали проходить")
     if len(test.files) + len(files) > MAX_TEST_FILES:
-        raise BadRequest(f"Не более {MAX_TEST_FILES} файлов в тесте")
+        raise BadRequest("Не более {n} файлов в тесте", n=MAX_TEST_FILES)
     validated = [await validate_upload(f) for f in files]  # nothing is stored if any file is rejected
     saved = [file_service.store_validated(db, vf, teacher.user, test_id=test.id) for vf in validated]
     db.commit()
@@ -253,7 +254,7 @@ def reset_attempt(attempt_id: int, teacher: CurrentTeacher, db: DB) -> Response:
     attempt = _load_attempt(db, teacher, attempt_id)
     test, student = attempt.test, attempt.student
     db.delete(attempt)
-    notify(db, [student.user_id], NotificationType.TEST_ASSIGNED, "Тест можно пройти ещё раз", test.title,
+    notify(db, [student.user_id], NotificationType.TEST_ASSIGNED, M("Тест можно пройти ещё раз"), test.title,
            "/student/tests")
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

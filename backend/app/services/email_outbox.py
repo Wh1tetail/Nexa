@@ -109,7 +109,7 @@ def _collect_messages(db: Session, cutoff: datetime, now: datetime) -> list[_Cha
         d = digests.setdefault(recipient.id, _ChatDigest(recipient))
         entry = d.threads.setdefault(m.student_id, [sender.full_name, 0, ""])
         entry[1] += 1
-        entry[2] = preview(m)  # rows are in id order: keeps the newest
+        entry[2] = preview(m, recipient.locale)  # rows are in id order: keeps the newest
     return list(digests.values())
 
 
@@ -131,7 +131,8 @@ def process_email_outbox(db: Session, now: datetime | None = None) -> int:
         link = d.items[0].link if len(d.items) == 1 and d.items[0].link else f"{_base(u)}/notifications"
         outgoing.append((
             email_service.notifications_digest,
-            (u.email, u.full_name, [(n.title, n.body) for n in d.items], _url(link), _url(f"{_base(u)}/settings")),
+            (u.email, u.full_name, [(n.title, n.body) for n in d.items], _url(link), _url(f"{_base(u)}/settings"),
+             u.locale),
         ))
     for d in chats:
         u = d.user
@@ -142,7 +143,7 @@ def process_email_outbox(db: Session, now: datetime | None = None) -> int:
         threads = [(who, n, p) for who, n, p in d.threads.values()]
         outgoing.append((
             email_service.unread_messages,
-            (u.email, u.full_name, threads, _url(link), _url(f"{_base(u)}/settings")),
+            (u.email, u.full_name, threads, _url(link), _url(f"{_base(u)}/settings"), u.locale),
         ))
     db.commit()
 

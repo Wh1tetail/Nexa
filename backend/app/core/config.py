@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     EMAIL_NOTIFICATIONS_ENABLED: bool = True
     EMAIL_NOTIFY_DELAY_MINUTES: int = 10
     EMAIL_OUTBOX_INTERVAL_SECONDS: int = 60
+    # Deletes stored files no database row refers to (0 = off). Only files older
+    # than STORAGE_SWEEP_GRACE_HOURS are touched (uploads not yet committed are safe).
+    STORAGE_SWEEP_INTERVAL_HOURS: int = 24
+    STORAGE_SWEEP_GRACE_HOURS: int = 24
 
     @field_validator("LOCAL_STORAGE_PATH")
     @classmethod

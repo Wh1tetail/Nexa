@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import DB, CurrentTeacher, get_owned_student, resolve_recipients
 from app.core.exceptions import BadRequest, NotFound
+from app.core.i18n import M
 from app.models import Attachment, Homework, HomeworkSubmission, StudentProfile, TeacherProfile, User
 from app.models.enums import NotificationType, SubmissionStatus
 from app.schemas.homework import (
@@ -167,7 +168,7 @@ async def upload_attachments(
 ) -> list[AttachmentOut]:
     hw = _load(db, teacher, hw_id)
     if len(hw.attachments) + len(files) > file_service.MAX_FILES_PER_OWNER:
-        raise BadRequest(f"Не более {file_service.MAX_FILES_PER_OWNER} файлов на задание")
+        raise BadRequest("Не более {n} файлов на задание", n=file_service.MAX_FILES_PER_OWNER)
     saved = [await file_service.store_upload(db, f, teacher.user, homework_id=hw.id) for f in files]
     db.commit()
     return [AttachmentOut.model_validate(a) for a in saved]
@@ -192,18 +193,22 @@ def review_submission(
     if sub is None or sub.homework.teacher_id != teacher.id:
         raise NotFound("Работа не найдена")
     if data.grade is not None and data.grade > sub.homework.max_grade:
-        raise BadRequest(f"Оценка не может быть больше {sub.homework.max_grade}")
+        raise BadRequest("Оценка не может быть больше {max}", max=sub.homework.max_grade)
     sub.status = data.status
     sub.grade = data.grade
     sub.teacher_comment = data.teacher_comment
     if data.status in (SubmissionStatus.REVIEWED, SubmissionStatus.NEEDS_REVISION):
         sub.reviewed_at = datetime.now(UTC)
-        title = (
+        title = M(
             "Домашнее задание проверено"
             if data.status == SubmissionStatus.REVIEWED
             else "Домашнее задание требует исправления"
         )
-        body = sub.homework.title + (f" — оценка {sub.grade}/{sub.homework.max_grade}" if sub.grade is not None else "")
+        body = (
+            M("{title} — оценка {grade}/{max}", title=sub.homework.title, grade=sub.grade, max=sub.homework.max_grade)
+            if sub.grade is not None
+            else sub.homework.title
+        )
         notify(db, [sub.student.user_id], NotificationType.HOMEWORK_REVIEWED, title, body,
                f"/student/homework/{sub.id}")
     db.commit()

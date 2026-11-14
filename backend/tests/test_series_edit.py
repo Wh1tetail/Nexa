@@ -52,7 +52,7 @@ def test_edit_following_shifts_time_and_updates_fields(client, school):
     # one aggregated notification per student, not one per lesson
     notes = client.get(f"{API}/notifications", headers=school["h1"]).json()
     changed = [n for n in notes if n["type"] == "lesson_changed"]
-    assert len(changed) == 1 and "3 занятий" in changed[0]["body"]
+    assert len(changed) == 1 and "занятий — 3" in changed[0]["body"]
     assert any(n["type"] == "lesson_changed" for n in client.get(f"{API}/notifications", headers=school["h2"]).json())
 
 

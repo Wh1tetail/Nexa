@@ -69,7 +69,8 @@ async def validate_upload(upload: UploadFile) -> ValidatedFile:
     ext = original.rsplit(".", 1)[-1].lower() if "." in original else ""
     if ext not in ALLOWED:
         raise BadRequest(
-            f"Недопустимый формат файла «{original}». Разрешены: {', '.join(ALLOWED_EXTENSIONS)}"
+            "Недопустимый формат файла «{name}». Разрешены: {allowed}",
+            name=original, allowed=", ".join(ALLOWED_EXTENSIONS),
         )
 
     limit = settings.max_upload_bytes
@@ -78,26 +79,24 @@ async def validate_upload(upload: UploadFile) -> ValidatedFile:
     while chunk := await upload.read(1024 * 1024):
         size += len(chunk)
         if size > limit:
-            raise BadRequest(
-                f"Файл «{original}» превышает {settings.MAX_UPLOAD_SIZE_MB} МБ"
-            )
+            raise BadRequest("Файл «{name}» превышает {mb} МБ", name=original, mb=settings.MAX_UPLOAD_SIZE_MB)
         chunks.append(chunk)
     data = b"".join(chunks)
     if size == 0:
-        raise BadRequest(f"Файл «{original}» пустой")
+        raise BadRequest("Файл «{name}» пустой", name=original)
 
     canonical, accepted = ALLOWED[ext]
     if accepted is None:
         # text file: must decode as UTF-8 and must not be a known binary format
         if filetype.guess(data) is not None:
-            raise BadRequest(f"Содержимое файла «{original}» не соответствует расширению")
+            raise BadRequest("Содержимое файла «{name}» не соответствует расширению", name=original)
         try:
             data.decode("utf-8")
         except UnicodeDecodeError:
-            raise BadRequest(f"Файл «{original}» должен быть в кодировке UTF-8") from None
+            raise BadRequest("Файл «{name}» должен быть в кодировке UTF-8", name=original) from None
     else:
         kind = filetype.guess(data)
         if kind is None or kind.mime not in accepted:
-            raise BadRequest(f"Содержимое файла «{original}» не соответствует расширению .{ext}")
+            raise BadRequest("Содержимое файла «{name}» не соответствует расширению .{ext}", name=original, ext=ext)
 
     return ValidatedFile(data=data, original_name=original, extension=ext, mime_type=canonical)

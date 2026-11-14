@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models import StudentProfile, Test, TestAnswer, TestAttempt, TestQuestion
 from app.core.exceptions import BadRequest
+from app.core.i18n import M
 from app.models.enums import AttemptStatus, NotificationType, QuestionType
 from app.schemas.test import (
     AnswerOut,
@@ -148,9 +149,12 @@ def finalize(db: Session, attempt: TestAttempt, answers: dict[int, list[str]]) -
         db,
         [attempt.test.teacher.user_id],
         NotificationType.TEST_COMPLETED,
-        "Тест пройден",
-        f"{student.user.full_name} завершил(а) тест «{attempt.test.title}»"
-        + (" — требуется проверка" if needs_review else ""),
+        M("Тест пройден"),
+        M(
+            "{name} завершил(а) тест «{title}» — требуется проверка" if needs_review
+            else "{name} завершил(а) тест «{title}»",
+            name=student.user.full_name, title=attempt.test.title,
+        ),
         f"/teacher/tests/{attempt.test_id}/attempts/{attempt.id}",
     )
     if not needs_review:
@@ -167,7 +171,7 @@ def notify_graded(db: Session, attempt: TestAttempt) -> None:
         db,
         [attempt.student.user_id],
         NotificationType.TEST_GRADED,
-        "Результаты теста",
+        M("Результаты теста"),
         f"«{attempt.test.title}»: {pct}%",
         f"/student/tests/attempts/{attempt.id}",
     )
@@ -307,7 +311,7 @@ def assign_students(db: Session, test: Test, students: list[StudentProfile]) -> 
             db,
             [s.user_id],
             NotificationType.TEST_ASSIGNED,
-            "Новый тест",
+            M("Новый тест"),
             test.title,
             "/student/tests",
         )

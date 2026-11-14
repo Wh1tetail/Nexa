@@ -16,6 +16,7 @@ from app.api.deps import (
     get_owned_students,
 )
 from app.core.exceptions import BadRequest, NotFound
+from app.core.i18n import M, tr
 from app.core.timezones import add_weeks_local, fmt_local, get_zone, shift_wall_clock, to_local, wall_clock_delta
 from app.models import Attendance, Lesson, StudentProfile, TeacherProfile, User
 from app.models.enums import LessonStatus, NotificationType
@@ -231,12 +232,12 @@ def _notify_schedule_change(db: Session, lesson: Lesson, rescheduled: list[Lesso
     for zone_name, user_ids in by_zone.items():
         tz = get_zone(zone_name)
         if len(rescheduled) == 1:
-            title = "Занятие отменено" if cancelled else "Занятие изменено"
+            title = M("Занятие отменено" if cancelled else "Занятие изменено")
             body = f"«{lesson.title}» — {fmt_local(lesson.starts_at, tz)}"
         else:
-            title = "Занятия отменены" if cancelled else "Занятия изменены"
+            title = M("Занятия отменены" if cancelled else "Занятия изменены")
             first_day = to_local(lesson.starts_at, tz).strftime("%d.%m.%Y")
-            body = f"«{lesson.title}»: {len(rescheduled)} занятий начиная с {first_day}"
+            body = M("«{title}»: занятий — {n}, начиная с {day}", title=lesson.title, n=len(rescheduled), day=first_day)
         notify(db, user_ids, NotificationType.LESSON_CHANGED, title, body, "/student/attendance")
 
 
@@ -398,7 +399,8 @@ def attendance_stats(
     return [att_svc.build_stats(s, by_student.get(s.id, [])) for s in students]
 
 
-_STATUS_RU = {"present": "Присутствовал", "absent": "Отсутствовал", "late": "Опоздал", "excused": "Уважительная причина"}
+_ATTENDANCE = {"present": "Присутствовал", "absent": "Отсутствовал", "late": "Опоздал", "excused": "Уважительная причина"}
+_LESSON_STATUS = {"scheduled": "Запланировано", "completed": "Проведено", "cancelled": "Отменено"}
 
 
 @router.get("/attendance/export")
@@ -416,7 +418,9 @@ def export_attendance(
     buf = io.StringIO()
     writer = csv.writer(buf, delimiter=";")
     tz = get_zone(teacher.user.timezone)
-    writer.writerow([f"Дата ({tz.key})", f"Время ({tz.key})", "Ученик", "Занятие", "Статус занятия", "Посещаемость", "Комментарий"])
+    # texts in the language of the request (the teacher's interface language)
+    writer.writerow([tr("Дата ({tz})", tz=tz.key), tr("Время ({tz})", tz=tz.key), tr("Ученик"), tr("Занятие"),
+                     tr("Статус занятия"), tr("Посещаемость"), tr("Комментарий")])
     for a in db.scalars(q).unique().all():
         st = to_local(a.lesson.starts_at, tz)
         writer.writerow([
@@ -424,8 +428,8 @@ def export_attendance(
             st.strftime("%H:%M"),
             a.student.user.full_name,
             a.lesson.title,
-            {"scheduled": "Запланировано", "completed": "Проведено", "cancelled": "Отменено"}[a.lesson.status.value],
-            _STATUS_RU.get(a.status.value, "") if a.status else "Не отмечено",
+            tr(_LESSON_STATUS[a.lesson.status.value]),
+            tr(_ATTENDANCE[a.status.value]) if a.status and a.status.value in _ATTENDANCE else tr("Не отмечено"),
             a.comment or "",
         ])
     name = f"attendance_{date_from or 'all'}_{date_to or 'all'}.csv"

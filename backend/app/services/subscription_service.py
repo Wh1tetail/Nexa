@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.i18n import M
 from app.core.config import settings
 from app.core.exceptions import BadRequest
 from app.models import StudentProfile, Subscription
@@ -157,19 +158,19 @@ def check_expirations(db: Session) -> int:
         link = f"/teacher/students/{sub.student_id}"
         if sub.end_date < ref and sub.expired_notified_at is None:
             notify(db, [sub.teacher.user_id], NotificationType.SUBSCRIPTION_EXPIRED,
-                   "Абонемент закончился", f"У ученика {name} закончился абонемент.", link)
+                   M("Абонемент закончился"), M("У ученика {name} закончился абонемент.", name=name), link)
             notify(db, [sub.student.user_id], NotificationType.SUBSCRIPTION_EXPIRED,
-                   "Ваш абонемент закончился", "Обратитесь к преподавателю для продления.", "/student")
+                   M("Ваш абонемент закончился"), M("Обратитесь к преподавателю для продления."), "/student")
             sub.expired_notified_at = now
             sub.expiring_notified_at = sub.expiring_notified_at or now
             sent += 1
         elif sub.end_date >= ref and sub.expiring_notified_at is None:
             left = (sub.end_date - ref).days
             notify(db, [sub.teacher.user_id], NotificationType.SUBSCRIPTION_EXPIRING,
-                   "Абонемент скоро закончится",
-                   f"У ученика {name} абонемент заканчивается через {left} дн.", link)
+                   M("Абонемент скоро закончится"),
+                   M("У ученика {name} абонемент заканчивается через {n} дн.", name=name, n=left), link)
             notify(db, [sub.student.user_id], NotificationType.SUBSCRIPTION_EXPIRING,
-                   "Абонемент скоро закончится", f"Осталось дней: {left}.", "/student")
+                   M("Абонемент скоро закончится"), M("Осталось дней: {n}.", n=left), "/student")
             sub.expiring_notified_at = now
             sent += 1
     db.commit()

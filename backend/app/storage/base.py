@@ -2,6 +2,7 @@
 S3-compatible provider (AWS, MinIO, Yandex Object Storage, ...)."""
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 
@@ -17,6 +18,10 @@ class Storage(ABC):
 
     @abstractmethod
     def delete(self, key: str) -> None: ...
+
+    @abstractmethod
+    def list_keys(self) -> Iterator[tuple[str, datetime]]:
+        """Every stored object as (key, last modified, UTC) — for the orphan sweep."""
 
 
 class LocalStorage(Storage):
@@ -45,6 +50,12 @@ class LocalStorage(Storage):
     def delete(self, key: str) -> None:
         self._path(key).unlink(missing_ok=True)
 
+    def list_keys(self) -> Iterator[tuple[str, datetime]]:
+        for path in self.root.rglob("*"):
+            if path.is_file():
+                key = path.relative_to(self.root).as_posix()
+                yield key, datetime.fromtimestamp(path.stat().st_mtime, UTC)
+
 
 class S3Storage(Storage):
     def __init__(self) -> None:
@@ -70,6 +81,11 @@ class S3Storage(Storage):
 
     def delete(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
+
+    def list_keys(self) -> Iterator[tuple[str, datetime]]:
+        for page in self.client.get_paginator("list_objects_v2").paginate(Bucket=self.bucket):
+            for obj in page.get("Contents", []):
+                yield obj["Key"], obj["LastModified"]
 
 
 @lru_cache

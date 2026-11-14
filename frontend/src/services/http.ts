@@ -42,9 +42,21 @@ export const tokenStore = {
 
 export const http = axios.create({ baseURL: API_BASE, timeout: 30000 });
 
+/** Interface language sent with every request: the server answers (errors,
+ *  CSV, texts) in it. Read from storage at start so even the very first
+ *  requests carry it; kept current by I18nProvider. */
+let requestLanguage = (() => {
+  try {
+    return localStorage.getItem("nexa.locale") || "ru";
+  } catch {
+    return "ru";
+  }
+})();
+
 http.interceptors.request.use((config) => {
   const token = tokenStore.access;
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  config.headers["Accept-Language"] = requestLanguage;
   return config;
 });
 
@@ -98,8 +110,10 @@ http.interceptors.response.use(
 /** Human-readable message from any API error. */
 /** Set by I18nProvider so messages created outside React follow the interface language. */
 const fallbackText = { generic: "Что-то пошло не так", offline: "Нет соединения с сервером" };
-export function setHttpMessages(m: { generic: string; offline: string }) {
-  Object.assign(fallbackText, m);
+export function setHttpMessages(m: { generic: string; offline: string; lang: string }) {
+  fallbackText.generic = m.generic;
+  fallbackText.offline = m.offline;
+  requestLanguage = m.lang;
 }
 
 export function errorMessage(err: unknown, fallback = fallbackText.generic): string {
