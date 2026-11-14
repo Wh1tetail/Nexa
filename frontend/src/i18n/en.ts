@@ -591,6 +591,9 @@ const en: Dict = {
   },
 
   messages: {
+    attach: "Attach files",
+    attached: "Attached files",
+    maxFiles: (n: number) => `No more than ${n} files per message`,
     write: "Send a message",
     title: "Messages",
     subtitleTeacher: "Conversations with your students",
@@ -659,6 +662,17 @@ const en: Dict = {
   },
 
   settings: {
+    emailTitle: "E-mail notifications",
+    emailHint: (email: string) =>
+      `We e-mail ${email} only when an event stays unread in NEXA for a few minutes.`,
+    emailSaved: "Notification settings saved",
+    emailCategories: {
+      messages: { title: "Messages", text: "New chat messages" },
+      homework: { title: "Homework", text: "New assignments, submitted work and reviews" },
+      tests: { title: "Tests", text: "Assigned, completed and graded tests" },
+      lessons: { title: "Lessons", text: "Schedule changes and cancellations" },
+      subscription: { title: "Subscription", text: "Expiring dates and lessons" },
+    },
     title: "Settings",
     subtitle: "Profile and security",
     profile: "Profile",

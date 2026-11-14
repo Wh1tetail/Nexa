@@ -31,6 +31,8 @@ class UserOut(ORMModel):
 
 
 class MeOut(UserOut):
+    # effective e-mail notification settings: {"messages": true, "homework": true, ...}
+    email_prefs: dict[str, bool] = {}
     student_id: int | None = None
     teacher_id: int | None = None
     english_level: EnglishLevel | None = None
@@ -42,6 +44,17 @@ class UpdateMeRequest(BaseModel):
     phone: str | None = Field(default=None, max_length=32)
     locale: str | None = Field(default=None, pattern="^(ru|en)$")
     timezone: str | None = Field(default=None, max_length=64)
+    # partial update: only the categories sent are changed
+    email_prefs: dict[str, bool] | None = None
+
+    @field_validator("email_prefs")
+    @classmethod
+    def known_categories(cls, v: dict[str, bool] | None) -> dict[str, bool] | None:
+        from app.services.email_outbox import CATEGORIES
+
+        if v is not None and not set(v) <= set(CATEGORIES):
+            raise ValueError("Неизвестный тип уведомлений")
+        return v
 
     @field_validator("timezone")
     @classmethod

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, File, Form, Query, UploadFile, status
 
 from app.api.deps import DB, CurrentUser
 from app.models import Message
@@ -34,6 +34,19 @@ def list_messages(
 def send_message(student_id: int, data: MessageCreate, user: CurrentUser, db: DB) -> Message:
     thread = message_service.get_thread(db, user, student_id)
     return message_service.send_message(db, thread, data.body)
+
+
+@router.post("/threads/{student_id}/files", response_model=MessageOut, status_code=status.HTTP_201_CREATED)
+async def send_files(
+    student_id: int,
+    user: CurrentUser,
+    db: DB,
+    files: list[UploadFile] = File(...),
+    body: str = Form(""),
+) -> Message:
+    """Multipart: 1-5 files (same rules as homework files) and an optional caption."""
+    thread = message_service.get_thread(db, user, student_id)
+    return await message_service.send_files(db, thread, body, files)
 
 
 @router.post("/threads/{student_id}/read", response_model=ReadResult)

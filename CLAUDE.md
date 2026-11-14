@@ -24,7 +24,7 @@ Online English school LMS. Russian UI by default (English supported). Full docs:
 - Every API change touches four places: Pydantic schema → `frontend/src/types/api.ts` → `frontend/src/services/api.ts` → a test in `backend/tests/`.
 - Every UI string goes into both `frontend/src/i18n/ru.ts` and `en.ts` (the `Dict` type enforces matching keys).
 - Schema changes go through an Alembic migration (see the `create-migration` skill); never edit applied migrations.
-- E-mail is sent only via `BackgroundTasks` + `services/email_service.py`.
+- E-mail is sent only through `services/email_service.py`: from requests via `BackgroundTasks`; copies of notifications/chat messages only via the outbox worker (`services/email_outbox.py`) — never send those from a request.
 - Bumping `users.token_version` revokes all sessions and closes open SSE streams (`services/realtime.py`). Other live events go through `realtime.publish(db, ...)` inside the transaction (delivered on commit), e.g. chat in `services/message_service.py`.
 - Chat threads are keyed by `student_id` and exist only between a student and their CURRENT teacher; anything else is 404.
 - Time: store UTC; anything "wall clock" (weekly series, texts for people, CSV) goes through `app/core/timezones.py` with the user's `users.timezone`. Frontend formats only via `utils/format.ts` (profile time zone), never raw `toLocaleString`/`setHours`.

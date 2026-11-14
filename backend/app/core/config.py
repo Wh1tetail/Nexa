@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     # Subscriptions
     SUBSCRIPTION_EXPIRING_DAYS: int = 7
     SUBSCRIPTION_CHECK_INTERVAL_MINUTES: int = 60
+    # E-mail copies of notifications / chat messages that are still unread after the delay
+    EMAIL_NOTIFICATIONS_ENABLED: bool = True
+    EMAIL_NOTIFY_DELAY_MINUTES: int = 10
+    EMAIL_OUTBOX_INTERVAL_SECONDS: int = 60
 
     @field_validator("DATABASE_URL")
     @classmethod

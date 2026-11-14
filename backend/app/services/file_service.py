@@ -8,7 +8,7 @@ from app.core.exceptions import Forbidden, NotFound
 from app.models import Attachment, HomeworkSubmission, User
 from app.models.enums import UserRole
 from app.storage.base import get_storage
-from app.utils.files import validate_upload
+from app.utils.files import ValidatedFile, validate_upload
 
 MAX_FILES_PER_OWNER = 10
 
@@ -22,6 +22,19 @@ async def store_upload(
     submission_id: int | None = None,
 ) -> Attachment:
     vf = await validate_upload(upload)
+    return store_validated(db, vf, uploader, homework_id=homework_id, submission_id=submission_id)
+
+
+def store_validated(
+    db: Session,
+    vf: ValidatedFile,
+    uploader: User,
+    *,
+    homework_id: int | None = None,
+    submission_id: int | None = None,
+    message_id: int | None = None,
+) -> Attachment:
+    """Save an already validated file and add its row to the session (caller commits)."""
     now = datetime.now(UTC)
     # random key: original names never touch the filesystem
     key = f"{now:%Y/%m}/{uuid.uuid4().hex}.{vf.extension}"
@@ -30,6 +43,7 @@ async def store_upload(
         uploaded_by_id=uploader.id,
         homework_id=homework_id,
         submission_id=submission_id,
+        message_id=message_id,
         original_name=vf.original_name,
         storage_key=key,
         mime_type=vf.mime_type,
@@ -50,10 +64,17 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
     """Access rules:
     - teacher: files of their own homework and of submissions to it
     - student: materials of homework assigned to them, and their own submission files
-    - admin: everything
+    - chat files: only the two participants of the conversation (not even admins)
+    - admin: everything else
     """
     att = db.get(Attachment, attachment_id)
     if att is None:
+        raise NotFound("Файл не найден")
+    if att.message_id is not None:
+        from app.services.message_service import can_access_message
+
+        if can_access_message(db, user, att.message_id):
+            return att
         raise NotFound("Файл не найден")
     if user.role == UserRole.ADMIN:
         return att

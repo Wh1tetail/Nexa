@@ -29,7 +29,9 @@ class OutgoingEmail:
 outbox: deque[OutgoingEmail] = deque(maxlen=50)
 
 
-def _layout(title: str, body_html: str, button: tuple[str, str] | None = None) -> str:
+def _layout(
+    title: str, body_html: str, button: tuple[str, str] | None = None, settings_url: str | None = None
+) -> str:
     btn = ""
     if button:
         label, url = button
@@ -44,8 +46,14 @@ def _layout(title: str, body_html: str, button: tuple[str, str] | None = None) -
 <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:8px;background:#14213D;color:#fff;text-align:center;letter-spacing:0;margin-right:10px;vertical-align:middle">N</span><span style="vertical-align:middle">NEXA</span></p>
 <h1 style="font-size:20px;margin:0 0 12px">{escape(title)}</h1>
 {body_html}{btn}
-<p style="color:#6b7280;font-size:12px;margin-top:32px">Это автоматическое письмо онлайн-школы NEXA.</p>
+<p style="color:#6b7280;font-size:12px;margin-top:32px">Это автоматическое письмо онлайн-школы NEXA.{_settings_note(settings_url)}</p>
 </div></body></html>"""
+
+
+def _settings_note(url: str | None) -> str:
+    if not url:
+        return ""
+    return f' <a href="{escape(url)}" style="color:#6b7280">Настроить уведомления</a>'
 
 
 def send(to: str, subject: str, text: str, html: str) -> None:
@@ -116,3 +124,54 @@ def invitation(to: str, name: str, url: str, teacher_name: str | None) -> None:
         ("Задать пароль", url),
     )
     send(to, "Ваш аккаунт в NEXA", text, html)
+
+
+def notifications_digest(to: str, name: str, items: list[tuple[str, str | None]], url: str, settings_url: str) -> None:
+    """Unread notifications: [(title, body)], newest last."""
+    shown = items[-10:]
+    more = len(items) - len(shown)
+    lines = "\n".join(f"• {t}" + (f" — {b}" if b else "") for t, b in shown)
+    text = (
+        f"Здравствуйте, {name}!\n\nНовые события в NEXA:\n{lines}"
+        + (f"\n…и ещё {more}" if more else "")
+        + f"\n\nОткрыть: {url}\nНастроить уведомления: {settings_url}"
+    )
+    rows = "".join(
+        f"<li style='margin:0 0 10px'><b>{escape(t)}</b>"
+        + (f"<br><span style='color:#6b7280'>{escape(b)}</span>" if b else "")
+        + "</li>"
+        for t, b in shown
+    )
+    tail = f"<p style='color:#6b7280'>…и ещё {more}</p>" if more else ""
+    subject = shown[-1][0] if len(items) == 1 else f"Новые события ({len(items)}) — NEXA"
+    html = _layout(
+        "Новые события",
+        f"<p>Здравствуйте, {escape(name)}!</p><ul style='padding-left:18px'>{rows}</ul>{tail}",
+        ("Открыть NEXA", url),
+        settings_url,
+    )
+    send(to, subject, text, html)
+
+
+def unread_messages(to: str, name: str, threads: list[tuple[str, int, str]], url: str, settings_url: str) -> None:
+    """Unread chat messages: [(sender name, count, last preview)]."""
+    total = sum(n for _, n, _ in threads)
+    lines = "\n".join(f"• {who}: {n} — «{p}»" for who, n, p in threads)
+    text = (
+        f"Здравствуйте, {name}!\n\nУ вас непрочитанные сообщения ({total}):\n{lines}"
+        f"\n\nОтветить: {url}\nНастроить уведомления: {settings_url}"
+    )
+    rows = "".join(
+        f"<li style='margin:0 0 10px'><b>{escape(who)}</b> · {n}<br>"
+        f"<span style='color:#6b7280'>«{escape(p)}»</span></li>"
+        for who, n, p in threads
+    )
+    who = threads[0][0] if len(threads) == 1 else None
+    subject = f"Новое сообщение от {who} — NEXA" if who and total == 1 else f"Непрочитанные сообщения ({total}) — NEXA"
+    html = _layout(
+        "Непрочитанные сообщения",
+        f"<p>Здравствуйте, {escape(name)}!</p><ul style='padding-left:18px'>{rows}</ul>",
+        ("Ответить", url),
+        settings_url,
+    )
+    send(to, subject, text, html)

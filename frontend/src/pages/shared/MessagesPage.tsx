@@ -1,9 +1,10 @@
-import { ArrowLeft, Check, CheckCheck, MessageSquare, Search, SendHorizontal, UserRound } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, Download, MessageSquare, Paperclip, Search, SendHorizontal, UserRound, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { EmptyState, ErrorState, PageHeader } from "@/components/common";
+import { ACCEPT, validateFiles } from "@/components/common/Files";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,12 +14,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
 import { useChatHistory, useChatThreads, useMarkThreadRead, useSendMessage } from "@/hooks/useMessages";
 import { cn } from "@/lib/utils";
+import { filesApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
 import { activeChat } from "@/services/realtime";
-import type { ChatMessage, ChatThread } from "@/types/api";
-import { dayKey, fmtDate, fmtShortDate, fmtTime } from "@/utils/format";
+import type { Attachment, ChatMessage, ChatThread } from "@/types/api";
+import { dayKey, fmtDate, fmtShortDate, fmtSize, fmtTime } from "@/utils/format";
 
 const MAX_LENGTH = 4000;
+const MAX_FILES = 5;
 /** Chat card fills the viewport below the header and page title. */
 const PANE_HEIGHT = "h-[calc(100dvh-12.5rem)] min-h-[420px] sm:h-[calc(100dvh-14rem)]";
 
@@ -128,7 +131,7 @@ function ThreadList({ threads, loading, activeId }: { threads?: ChatThread[]; lo
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-xs text-muted-foreground">
-                      {last ? (last.sender_user_id === user?.id ? `${t.messages.you}: ` : "") + last.body : t.messages.noMessagesYet}
+                      {last ? (last.sender_user_id === user?.id ? `${t.messages.you}: ` : "") + lastText(last) : t.messages.noMessagesYet}
                     </span>
                     {x.unread_count > 0 && (
                       <span className="tabular shrink-0 rounded-full bg-accent px-1.5 text-[11px] font-medium text-white">{x.unread_count}</span>
@@ -142,6 +145,13 @@ function ThreadList({ threads, loading, activeId }: { threads?: ChatThread[]; lo
       </div>
     </>
   );
+}
+
+/** Text for previews: the message, or its file names. */
+function lastText(m: ChatMessage) {
+  if (m.body) return m.body;
+  const [first, ...rest] = m.attachments;
+  return first ? `📎 ${first.original_name}${rest.length ? ` +${rest.length}` : ""}` : "";
 }
 
 function ConversationSkeleton() {
@@ -165,6 +175,8 @@ function Conversation({ thread }: { thread: ChatThread }) {
   const send = useSendMessage(sid);
   const markRead = useMarkThreadRead(sid);
   const [text, setText] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInput = useRef<HTMLInputElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
@@ -208,14 +220,25 @@ function Conversation({ thread }: { thread: ChatThread }) {
 
   const body = text.trim();
   const tooLong = text.length > MAX_LENGTH;
-  const canSend = thread.partner.is_active && body.length > 0 && !tooLong && !send.isPending;
+  const canSend = thread.partner.is_active && (body.length > 0 || files.length > 0) && !tooLong && !send.isPending;
+
+  function addFiles(list: FileList | null) {
+    if (!list?.length) return;
+    const { ok, errors } = validateFiles(Array.from(list));
+    errors.forEach((e) => toast.error(e));
+    const next = [...files, ...ok];
+    if (next.length > MAX_FILES) toast.error(t.messages.maxFiles(MAX_FILES));
+    setFiles(next.slice(0, MAX_FILES));
+    if (fileInput.current) fileInput.current.value = "";
+  }
 
   function submit() {
     if (!canSend) return;
     stickToBottom.current = true;
-    send.mutate(body, {
+    send.mutate({ body, files }, {
       onSuccess: () => {
         setText("");
+        setFiles([]);
         textarea.current?.focus();
       },
       onError: (e) => toast.error(errorMessage(e)),
@@ -311,7 +334,39 @@ function Conversation({ thread }: { thread: ChatThread }) {
           submit();
         }}
       >
+        {files.length > 0 && (
+          <ul className="mb-2 flex flex-wrap gap-1.5" aria-label={t.messages.attached}>
+            {files.map((f, i) => (
+              <li key={`${f.name}-${i}`} className="flex max-w-full items-center gap-1.5 rounded-lg border bg-secondary/60 py-1 pl-2.5 pr-1 text-xs">
+                <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="max-w-[180px] truncate font-medium text-primary">{f.name}</span>
+                <span className="shrink-0 text-muted-foreground">{fmtSize(f.size)}</span>
+                <button
+                  type="button"
+                  onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-background hover:text-danger"
+                  aria-label={`${t.common.delete}: ${f.name}`}
+                >
+                  <X className="size-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="flex items-end gap-2">
+          <input ref={fileInput} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => addFiles(e.target.files)} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-10 shrink-0 text-muted-foreground"
+            onClick={() => fileInput.current?.click()}
+            disabled={!thread.partner.is_active || files.length >= MAX_FILES || send.isPending}
+            aria-label={t.messages.attach}
+            title={t.messages.attach}
+          >
+            <Paperclip className="!size-5" />
+          </Button>
           <Textarea
             ref={textarea}
             rows={1}
@@ -352,7 +407,14 @@ function MessageRow({ m, mine, dayHeader, time }: { m: ChatMessage; mine: boolea
             mine ? "rounded-br-md bg-accent text-white" : "rounded-bl-md bg-background text-primary",
           )}
         >
-          <p className="whitespace-pre-wrap break-words">{m.body}</p>
+          {m.attachments.length > 0 && (
+            <div className={cn("grid gap-1.5", m.body && "mb-1.5")}>
+              {m.attachments.map((a) => (
+                <ChatFile key={a.id} file={a} mine={mine} />
+              ))}
+            </div>
+          )}
+          {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
           <div className={cn("mt-0.5 flex items-center justify-end gap-1 text-[10px]", mine ? "text-white/75" : "text-muted-foreground")}>
             <span>{time}</span>
             {mine &&
@@ -365,5 +427,39 @@ function MessageRow({ m, mine, dayHeader, time }: { m: ChatMessage; mine: boolea
         </div>
       </div>
     </>
+  );
+}
+
+function ChatFile({ file, mine }: { file: Attachment; mine: boolean }) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await filesApi.download(file);
+        } catch (e) {
+          toast.error(errorMessage(e));
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className={cn(
+        "flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors disabled:opacity-60",
+        mine ? "bg-white/15 hover:bg-white/25" : "bg-secondary hover:bg-secondary/70",
+      )}
+      aria-label={`${t.common.download}: ${file.original_name}`}
+    >
+      <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", mine ? "bg-white/20" : "bg-accent-soft text-accent")}>
+        {busy ? <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Download className="size-4" />}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate font-medium">{file.original_name}</span>
+        <span className={cn("block text-[11px]", mine ? "text-white/75" : "text-muted-foreground")}>{fmtSize(file.size_bytes)}</span>
+      </span>
+    </button>
   );
 }

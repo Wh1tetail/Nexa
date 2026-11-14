@@ -27,6 +27,10 @@ export interface TokenPair {
   refresh_token: string;
 }
 
+/** Categories of e-mail notifications the user can switch off. */
+export const EMAIL_CATEGORIES = ["messages", "homework", "tests", "lessons", "subscription"] as const;
+export type EmailCategory = (typeof EMAIL_CATEGORIES)[number];
+
 export interface Me {
   id: number;
   email: string;
@@ -37,6 +41,8 @@ export interface Me {
   locale: string;
   timezone: string | null;
   created_at: string;
+  /** Effective e-mail settings per category (all on by default). */
+  email_prefs: Record<EmailCategory, boolean>;
   student_id: number | null;
   teacher_id: number | null;
   english_level: EnglishLevel | null;
@@ -398,6 +404,7 @@ export interface ChatMessage {
   body: string;
   created_at: string;
   read_at: string | null;
+  attachments: Attachment[];
 }
 
 /** A teacher <-> student conversation; `student_id` is the thread key for both sides. */

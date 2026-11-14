@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.models.message import MAX_MESSAGE_LENGTH
 from app.schemas.common import ORMModel
+from app.schemas.homework import AttachmentOut
 
 
 class MessageCreate(BaseModel):
@@ -26,6 +27,7 @@ class MessageOut(ORMModel):
     body: str
     created_at: datetime
     read_at: datetime | None
+    attachments: list[AttachmentOut] = []
 
 
 class ChatPartner(BaseModel):

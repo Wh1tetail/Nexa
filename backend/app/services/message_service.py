@@ -15,16 +15,21 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from fastapi import UploadFile
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import BadRequest, Forbidden, NotFound
 from app.models import Message, StudentProfile, TeacherProfile, User
 from app.models.enums import UserRole
+from app.models.message import MAX_MESSAGE_LENGTH
+from app.services import file_service
 from app.services.realtime import publish
+from app.utils.files import validate_upload
 
 PREVIEW_LENGTH = 200
 MAX_PAGE = 100
+MAX_FILES_PER_MESSAGE = 5
 ONLY_PARTICIPANTS = "Сообщения доступны только преподавателям и ученикам"
 
 
@@ -73,23 +78,79 @@ def _push(db: Session, thread: Thread, event: dict[str, Any]) -> None:
     publish(db, [{"user_id": uid, "chat": event} for uid in thread.user_ids])
 
 
-def send_message(db: Session, thread: Thread, body: str) -> Message:
+def _check_can_send(thread: Thread) -> None:
     if not thread.partner.is_active:
         raise BadRequest("Пользователь деактивирован — отправка сообщений недоступна")
+
+
+def preview(msg: Message) -> str:
+    """Short text for toasts and e-mails: the text, or the attached file names."""
+    if msg.body:
+        return msg.body[:PREVIEW_LENGTH]
+    names = [a.original_name for a in msg.attachments]
+    if not names:
+        return ""
+    more = f" и ещё {len(names) - 1}" if len(names) > 1 else ""
+    return f"📎 {names[0]}{more}"[:PREVIEW_LENGTH]
+
+
+def _new_message(db: Session, thread: Thread, body: str) -> Message:
     msg = Message(
         teacher_id=thread.teacher.id, student_id=thread.student.id,
         sender_user_id=thread.me.id, body=body,
     )
     db.add(msg)
     db.flush()
+    return msg
+
+
+def _publish_and_commit(db: Session, thread: Thread, msg: Message) -> Message:
+    db.flush()
+    db.refresh(msg, ["attachments"])
     _push(db, thread, {
         "type": "message", "student_id": thread.student.id, "teacher_id": thread.teacher.id,
         "message_id": msg.id, "sender_user_id": thread.me.id, "sender_name": thread.me.full_name,
-        "preview": body[:PREVIEW_LENGTH],
+        "preview": preview(msg),
     })
     db.commit()
     db.refresh(msg)
     return msg
+
+
+def send_message(db: Session, thread: Thread, body: str) -> Message:
+    _check_can_send(thread)
+    return _publish_and_commit(db, thread, _new_message(db, thread, body))
+
+
+async def send_files(db: Session, thread: Thread, body: str, uploads: list[UploadFile]) -> Message:
+    """A message with 1..5 files and an optional caption."""
+    _check_can_send(thread)
+    body = body.strip()
+    if len(body) > MAX_MESSAGE_LENGTH:
+        raise BadRequest(f"Сообщение не может быть длиннее {MAX_MESSAGE_LENGTH} символов")
+    uploads = [u for u in uploads if u.filename]
+    if not uploads:
+        raise BadRequest("Выберите файл")
+    if len(uploads) > MAX_FILES_PER_MESSAGE:
+        raise BadRequest(f"Не более {MAX_FILES_PER_MESSAGE} файлов в одном сообщении")
+    # validate everything first: nothing is stored if any file is rejected
+    validated = [await validate_upload(u) for u in uploads]
+    msg = _new_message(db, thread, body)
+    for vf in validated:
+        file_service.store_validated(db, vf, thread.me, message_id=msg.id)
+    return _publish_and_commit(db, thread, msg)
+
+
+def can_access_message(db: Session, user: User, message_id: int) -> bool:
+    """True only for the two participants (student and their current teacher)."""
+    msg = db.get(Message, message_id)
+    if msg is None:
+        return False
+    try:
+        thread = get_thread(db, user, msg.student_id)
+    except (NotFound, Forbidden):
+        return False
+    return thread.teacher.id == msg.teacher_id
 
 
 def mark_read(db: Session, thread: Thread) -> int:

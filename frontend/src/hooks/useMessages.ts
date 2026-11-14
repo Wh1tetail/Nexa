@@ -63,7 +63,8 @@ export function useChatHistory(studentId: number | null) {
 export function useSendMessage(studentId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: string) => messagesApi.send(studentId, body),
+    mutationFn: ({ body, files }: { body: string; files: File[] }) =>
+      files.length ? messagesApi.sendFiles(studentId, files, body) : messagesApi.send(studentId, body),
     onSuccess: (msg) => {
       qc.setQueryData<History>(["messages", "thread", studentId], (old) => {
         if (!old?.pages.length || old.pages[0].some((m) => m.id === msg.id)) return old;

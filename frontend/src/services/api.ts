@@ -12,6 +12,7 @@ import type {
   AttendanceStatus,
   ChatMessage,
   ChatThread,
+  EmailCategory,
   EnglishLevel,
   Group,
   HomeworkDetail,
@@ -68,7 +69,11 @@ export const authApi = {
   login: (email: string, password: string) => post<TokenPair>("/auth/login", { email, password }),
   logout: () => post("/auth/logout"),
   me: () => get<Me>("/auth/me"),
-  updateMe: (data: Partial<Pick<Me, "full_name" | "phone" | "locale" | "timezone">>) => patch<Me>("/auth/me", data),
+  updateMe: (
+    data: Partial<Pick<Me, "full_name" | "phone" | "locale" | "timezone">> & {
+      email_prefs?: Partial<Record<EmailCategory, boolean>>;
+    },
+  ) => patch<Me>("/auth/me", data),
   changePassword: (current_password: string, new_password: string) =>
     post<TokenPair>("/auth/change-password", { current_password, new_password }),
   forgot: (email: string) =>
@@ -281,6 +286,16 @@ export const messagesApi = {
   history: (studentId: number, beforeId?: number) =>
     get<ChatMessage[]>(`/messages/threads/${studentId}`, clean({ before_id: beforeId, limit: MESSAGES_PAGE })),
   send: (studentId: number, body: string) => post<ChatMessage>(`/messages/threads/${studentId}`, { body }),
+  /** Up to 5 files (same rules as homework files) with an optional caption. */
+  async sendFiles(studentId: number, files: File[], body: string, onProgress?: (pct: number) => void) {
+    const form = new FormData();
+    files.forEach((f) => form.append("files", f));
+    form.append("body", body);
+    const { data } = await http.post<ChatMessage>(`/messages/threads/${studentId}/files`, form, {
+      onUploadProgress: (e) => e.total && onProgress?.(Math.round((e.loaded * 100) / e.total)),
+    });
+    return data;
+  },
   read: (studentId: number) => post<{ count: number }>(`/messages/threads/${studentId}/read`),
 };
 

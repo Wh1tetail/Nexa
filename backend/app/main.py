@@ -14,6 +14,7 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.database import SessionLocal, engine
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.services.email_outbox import process_email_outbox
 from app.services.realtime import broker, listener
 from app.services.subscription_service import check_expirations
 
@@ -37,18 +38,29 @@ async def _subscription_watcher() -> None:
         await asyncio.sleep(settings.SUBSCRIPTION_CHECK_INTERVAL_MINUTES * 60)
 
 
+async def _email_outbox_worker() -> None:
+    """E-mail copies of notifications / chat messages still unread after a delay."""
+    while True:
+        try:
+            with SessionLocal() as db:
+                await asyncio.to_thread(process_email_outbox, db)
+        except Exception:  # pragma: no cover - keep the loop alive
+            log.exception("E-mail outbox failed")
+        await asyncio.sleep(settings.EMAIL_OUTBOX_INTERVAL_SECONDS)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     broker.bind_loop(asyncio.get_running_loop())
     if settings.REALTIME_ENABLED:
         listener.start()
-    task = None
+    tasks = []
     if settings.ENVIRONMENT != "test":
-        task = asyncio.create_task(_subscription_watcher())
+        tasks = [asyncio.create_task(_subscription_watcher()), asyncio.create_task(_email_outbox_worker())]
     yield
     if settings.REALTIME_ENABLED:
         await asyncio.to_thread(listener.stop)
-    if task:
+    for task in tasks:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task

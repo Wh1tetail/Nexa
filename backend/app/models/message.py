@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.file import Attachment
 
 MAX_MESSAGE_LENGTH = 4000
 
@@ -17,7 +23,8 @@ class Message(Base, TimestampMixin):
         # fast unread counters: only unread rows are indexed
         Index("ix_messages_unread", "teacher_id", "student_id", "sender_user_id",
               postgresql_where="read_at IS NULL"),
-        CheckConstraint(f"char_length(body) BETWEEN 1 AND {MAX_MESSAGE_LENGTH}", name="body_length"),
+        CheckConstraint(f"char_length(body) <= {MAX_MESSAGE_LENGTH}", name="body_length"),
+        Index("ix_messages_email_pending", "id", postgresql_where="email_processed_at IS NULL"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -26,6 +33,12 @@ class Message(Base, TimestampMixin):
     sender_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     body: Mapped[str] = mapped_column(Text)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # set once the e-mail outbox has handled it (sent, skipped, or read in time)
+    email_processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    attachments: Mapped[list[Attachment]] = relationship(
+        lazy="selectin", order_by="Attachment.id", cascade="all, delete-orphan"
+    )
 
 
 class AuthAttempt(Base):

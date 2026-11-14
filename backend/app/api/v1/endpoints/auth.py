@@ -16,6 +16,7 @@ from app.core.security import (
     verify_password,
 )
 from app.middleware.rate_limit import login_limiter
+from app.services.email_outbox import effective_prefs
 from app.models import PasswordResetToken, User
 from app.models.enums import UserRole
 from app.schemas.auth import (
@@ -44,6 +45,7 @@ def _tokens(user: User) -> TokenPair:
 
 def me_out(user: User) -> MeOut:
     out = MeOut.model_validate(user)
+    out.email_prefs = effective_prefs(user)
     if user.role == UserRole.STUDENT and user.student_profile:
         sp = user.student_profile
         out.student_id = sp.id
@@ -99,9 +101,13 @@ def me(user: CurrentUser) -> MeOut:
 
 @router.patch("/me", response_model=MeOut)
 def update_me(data: UpdateMeRequest, user: CurrentUser, db: DB) -> MeOut:
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    prefs = changes.pop("email_prefs", None)
+    for field, value in changes.items():
         if value is not None:
             setattr(user, field, value)
+    if prefs is not None:
+        user.email_prefs = {**effective_prefs(user), **prefs}  # new dict: JSONB change is tracked
     db.commit()
     return me_out(user)
 

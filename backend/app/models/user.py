@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
@@ -33,6 +34,9 @@ class User(Base, TimestampMixin):
     # IANA time zone, e.g. "Europe/Moscow"; NULL = not chosen yet (settings.DEFAULT_TIMEZONE)
     timezone: Mapped[str | None] = mapped_column(String(64))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # e-mail notification categories switched OFF/ON by the user, e.g. {"tests": false};
+    # missing keys use the defaults in app/services/email_outbox.py
+    email_prefs: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
 
     student_profile: Mapped["StudentProfile | None"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
