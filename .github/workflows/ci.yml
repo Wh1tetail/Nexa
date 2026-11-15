@@ -129,7 +129,9 @@ jobs:
           for i in $(seq 1 30); do ls backups/db-*.dump >/dev/null 2>&1 && break; sleep 2; done
           ls -l backups
           ls backups/db-*.dump backups/files-*.tar.gz
-          docker compose exec -T db pg_restore --list < "$(ls backups/db-*.dump | head -1)" | grep -q "TABLE public users"
+          # (to a file first: with pipefail, grep -q stopping early would fail the pipe)
+          docker compose exec -T db pg_restore --list < "$(ls backups/db-*.dump | head -1)" > /tmp/toc.txt
+          grep -q "TABLE public users" /tmp/toc.txt
           echo "Smoke test passed"
       - name: Logs on failure
         if: failure()
