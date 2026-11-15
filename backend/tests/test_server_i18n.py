@@ -105,7 +105,7 @@ def test_emails_use_the_recipients_language(client, school):
 
 def test_new_users_start_in_their_creators_language(client, school):
     email_service.outbox.clear()
-    r = client.post(f"{API}/students", headers=_h(school["ha"], KK),
+    r = client.post(f"{API}/students", headers=_h(school["aa"], KK),
                     json={"email": "kid@test.io", "full_name": "Айгерім", "send_invite": True})
     assert r.status_code == 201, r.text
     assert email_service.outbox[-1].subject == "Сіздің NEXA аккаунтыңыз"  # invitation in Kazakh

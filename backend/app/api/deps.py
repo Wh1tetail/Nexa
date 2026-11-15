@@ -2,13 +2,13 @@
 from typing import Annotated
 
 import jwt
-from fastapi import Depends
+from fastapi import Depends, Header, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.exceptions import Forbidden, NotFound, Unauthorized
+from app.core.exceptions import BadRequest, Forbidden, NotFound, Unauthorized
 from app.core.security import decode_token
 from app.models import Group, StudentProfile, TeacherProfile, User
 from app.models.enums import UserRole
@@ -66,7 +66,59 @@ def get_current_student(
 
 
 CurrentTeacher = Annotated[TeacherProfile, Depends(get_current_teacher)]
+
+
+def get_acting_teacher(
+    user: CurrentUser,
+    db: DB,
+    teacher_id: int | None = Query(None, description="admin only: whose students, groups and lessons"),
+    x_teacher_id: int | None = Header(None, description="admin only: same as ?teacher_id="),
+) -> TeacherProfile:
+    """A teacher works with their own data; an administrator works with a chosen
+    teacher's data (?teacher_id=). Everything below still checks ownership
+    against the returned profile, so a teacher can never reach another one."""
+    if user.role == UserRole.TEACHER and user.teacher_profile is not None:
+        return user.teacher_profile
+    if user.role == UserRole.ADMIN:
+        teacher_id = teacher_id if teacher_id is not None else x_teacher_id
+        if teacher_id is None:
+            raise BadRequest("Выберите преподавателя")
+        profile = db.get(TeacherProfile, teacher_id)
+        if profile is None:
+            raise NotFound("Преподаватель не найден")
+        return profile
+    raise Forbidden()
+
+
+def get_admin_acting_teacher(
+    user: Annotated[User, Depends(require_roles(UserRole.ADMIN))],
+    db: DB,
+    teacher_id: int | None = Query(None, description="whose students, groups and lessons"),
+    x_teacher_id: int | None = Header(None, description="same as ?teacher_id="),
+) -> TeacherProfile:
+    """Creating students and groups, scheduling, rescheduling and deleting
+    lessons are administrator-only; the admin acts for a chosen teacher."""
+    return get_acting_teacher(user, db, teacher_id, x_teacher_id)
+
+
+# teacher (own data) or admin (?teacher_id=)
+ActingTeacher = Annotated[TeacherProfile, Depends(get_acting_teacher)]
+# admin only (?teacher_id=)
+AdminForTeacher = Annotated[TeacherProfile, Depends(get_admin_acting_teacher)]
 CurrentStudent = Annotated[StudentProfile, Depends(get_current_student)]
+
+
+def get_student_with_access(student: CurrentStudent, db: DB) -> StudentProfile:
+    """A student whose subscription is active: lessons, homework and tests."""
+    from app.services.subscription_service import has_access
+
+    if not has_access(db, student.id):
+        raise Forbidden("Доступ к занятиям, заданиям и тестам откроется после продления абонемента",
+                        code="subscription_required")
+    return student
+
+
+StudentWithAccess = Annotated[StudentProfile, Depends(get_student_with_access)]
 AdminUser = Annotated[User, Depends(require_roles(UserRole.ADMIN))]
 StaffUser = Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER))]
 

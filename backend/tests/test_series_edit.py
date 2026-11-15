@@ -7,7 +7,7 @@ API = "/api/v1"
 
 def _series(client, school, weeks=3, start=None):
     start = start or (datetime.now(UTC) + timedelta(days=1)).replace(hour=16, minute=0, second=0, microsecond=0)
-    r = client.post(f"{API}/lessons", headers=school["ha"], json={
+    r = client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "Club", "topic": "Intro", "starts_at": start.isoformat(),
         "student_ids": [school["s1"].id], "repeat_weeks": weeks})
     assert r.status_code == 201, r.text
@@ -37,7 +37,7 @@ def test_edit_following_shifts_time_and_updates_fields(client, school):
     lessons = _series(client, school)
     second = lessons[1]
     new_start = datetime.fromisoformat(second["starts_at"]) + timedelta(hours=1, minutes=30)
-    r = client.patch(f"{API}/lessons/{second['id']}?scope=following", headers=school["ha"], json={
+    r = client.patch(f"{API}/lessons/{second['id']}?scope=following", headers=school["aa"], json={
         "starts_at": new_start.isoformat(), "topic": "Advanced", "duration_minutes": 90,
         "student_ids": [school["s1"].id, school["s2"].id]})
     assert r.status_code == 200, r.text
@@ -62,7 +62,7 @@ def test_completed_lessons_are_protected(client, school):
     client.put(f"{API}/lessons/{lessons[1]['id']}/attendance", headers=school["ha"],
                json={"marks": [{"student_id": school["s1"].id, "status": "present"}]})
     assert _get(client, school, lessons[1]["id"])["status"] == "completed"
-    r = client.patch(f"{API}/lessons/{lessons[0]['id']}?scope=following", headers=school["ha"], json={"title": "Renamed"})
+    r = client.patch(f"{API}/lessons/{lessons[0]['id']}?scope=following", headers=school["aa"], json={"title": "Renamed"})
     assert r.status_code == 200
     titles = [_get(client, school, x["id"])["title"] for x in lessons]
     assert titles == ["Renamed", "Club", "Renamed", "Renamed"]  # completed lesson kept as is
@@ -70,30 +70,30 @@ def test_completed_lessons_are_protected(client, school):
 
 def test_cancel_following(client, school):
     lessons = _series(client, school)
-    client.patch(f"{API}/lessons/{lessons[2]['id']}?scope=following", headers=school["ha"], json={"status": "cancelled"})
+    client.patch(f"{API}/lessons/{lessons[2]['id']}?scope=following", headers=school["aa"], json={"status": "cancelled"})
     statuses = [_get(client, school, x["id"])["status"] for x in lessons]
     assert statuses == ["scheduled", "scheduled", "cancelled", "cancelled"]
     # restoring one cancelled lesson does not touch others (cancelled ones are not "scheduled" followers)
-    client.patch(f"{API}/lessons/{lessons[2]['id']}?scope=following", headers=school["ha"], json={"status": "scheduled"})
+    client.patch(f"{API}/lessons/{lessons[2]['id']}?scope=following", headers=school["aa"], json={"status": "scheduled"})
     statuses = [_get(client, school, x["id"])["status"] for x in lessons]
     assert statuses == ["scheduled", "scheduled", "scheduled", "cancelled"]
 
 
 def test_extend_series_and_single_lesson(client, school):
     lessons = _series(client, school, weeks=1)
-    r = client.post(f"{API}/lessons/{lessons[0]['id']}/series/extend", headers=school["ha"], json={"weeks": 2})
+    r = client.post(f"{API}/lessons/{lessons[0]['id']}/series/extend", headers=school["aa"], json={"weeks": 2})
     assert r.status_code == 200 and r.json()["series_total"] == 4
     all_ = sorted((x for x in client.get(f"{API}/lessons", headers=school["ha"]).json()
                    if x["series_id"] == lessons[0]["series_id"]), key=lambda x: x["starts_at"])
     gaps = {(datetime.fromisoformat(b["starts_at"]) - datetime.fromisoformat(a["starts_at"])).days for a, b in zip(all_, all_[1:])}
     assert gaps == {7}
     # a single lesson becomes a series
-    single = client.post(f"{API}/lessons", headers=school["ha"], json={
+    single = client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "One", "starts_at": datetime.now(UTC).isoformat(), "student_ids": [school["s2"].id]}).json()
     assert single["series_id"] is None
-    r = client.post(f"{API}/lessons/{single['id']}/series/extend", headers=school["ha"], json={"weeks": 3})
+    r = client.post(f"{API}/lessons/{single['id']}/series/extend", headers=school["aa"], json={"weeks": 3})
     assert r.json()["series_id"] and r.json()["series_total"] == 4
     # validation & ownership
-    assert client.post(f"{API}/lessons/{single['id']}/series/extend", headers=school["ha"], json={"weeks": 0}).status_code == 422
-    assert client.post(f"{API}/lessons/{single['id']}/series/extend", headers=school["hb"], json={"weeks": 1}).status_code == 404
+    assert client.post(f"{API}/lessons/{single['id']}/series/extend", headers=school["aa"], json={"weeks": 0}).status_code == 422
+    assert client.post(f"{API}/lessons/{single['id']}/series/extend", headers=school["ab"], json={"weeks": 1}).status_code == 404
     assert client.patch(f"{API}/lessons/{single['id']}?scope=following", headers=school["hb"], json={"title": "x"}).status_code == 404

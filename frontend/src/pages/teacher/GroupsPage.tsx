@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input, NativeSelect, Textarea } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
 import { groupsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
@@ -95,6 +96,7 @@ function GroupDialog({ open, onOpenChange, group }: { open: boolean; onOpenChang
 
 export default function GroupsPage() {
   const { t } = useI18n();
+  const isAdmin = useAuth().user?.role === "admin"; // only admins create and delete groups
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["groups"], queryFn: groupsApi.list });
   const [dialog, setDialog] = useState<{ open: boolean; group?: Group }>({ open: false });
@@ -114,7 +116,7 @@ export default function GroupsPage() {
       <PageHeader
         title={t.groups.title}
         subtitle={t.groups.subtitle}
-        actions={<Button onClick={() => setDialog({ open: true })}><Plus />{t.groups.create}</Button>}
+        actions={isAdmin && <Button onClick={() => setDialog({ open: true })}><Plus />{t.groups.create}</Button>}
       />
       {q.isLoading ? (
         <CardListSkeleton />
@@ -123,7 +125,7 @@ export default function GroupsPage() {
       ) : !q.data?.length ? (
         <Card>
           <EmptyState icon={UsersRound} title={t.groups.empty} text={t.groups.emptyHint}
-            action={<Button onClick={() => setDialog({ open: true })}><Plus />{t.groups.create}</Button>} />
+            action={isAdmin ? <Button onClick={() => setDialog({ open: true })}><Plus />{t.groups.create}</Button> : undefined} />
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -139,7 +141,7 @@ export default function GroupsPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => setDialog({ open: true, group: g })}><Pencil />{t.common.edit}</DropdownMenuItem>
-                    <DropdownMenuItem destructive onSelect={() => setToDelete(g)}><Trash2 />{t.common.delete}</DropdownMenuItem>
+                    {isAdmin && <DropdownMenuItem destructive onSelect={() => setToDelete(g)}><Trash2 />{t.common.delete}</DropdownMenuItem>}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

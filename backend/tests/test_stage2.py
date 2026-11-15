@@ -29,9 +29,9 @@ def test_forgot_password_sends_email(client):
 
 def test_invitation_flow(client, school):
     email_service.outbox.clear()
-    bad = client.post(f"{API}/students", headers=school["ha"], json={"email": "new@test.io", "full_name": "New Kid"})
+    bad = client.post(f"{API}/students", headers=school["aa"], json={"email": "new@test.io", "full_name": "New Kid"})
     assert bad.status_code == 422  # neither password nor invitation
-    r = client.post(f"{API}/students", headers=school["ha"],
+    r = client.post(f"{API}/students", headers=school["aa"],
                     json={"email": "new@test.io", "full_name": "New Kid", "send_invite": True})
     assert r.status_code == 201, r.text
     url = r.json()["dev_invite_url"]
@@ -47,7 +47,7 @@ def test_invitation_flow(client, school):
 
 def test_lesson_series_and_delete_following(client, school):
     start = datetime.now(UTC) - timedelta(days=1)
-    r = client.post(f"{API}/lessons", headers=school["ha"], json={
+    r = client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "Weekly", "starts_at": start.isoformat(), "student_ids": [school["s1"].id], "repeat_weeks": 3})
     assert r.status_code == 201, r.text
     series = r.json()["series_id"]
@@ -60,15 +60,15 @@ def test_lesson_series_and_delete_following(client, school):
     # mark the 4th lesson, then delete "this and following" from the 2nd
     client.put(f"{API}/lessons/{ordered[3]['id']}/attendance", headers=school["ha"],
                json={"marks": [{"student_id": school["s1"].id, "status": "absent"}]})
-    assert client.delete(f"{API}/lessons/{ordered[1]['id']}?scope=following", headers=school["ha"]).status_code == 204
+    assert client.delete(f"{API}/lessons/{ordered[1]['id']}?scope=following", headers=school["aa"]).status_code == 204
     left = {x["id"] for x in client.get(f"{API}/lessons", headers=school["ha"]).json()}
     assert left == {ordered[0]["id"], ordered[3]["id"]}  # marked lesson kept
-    assert client.post(f"{API}/lessons", headers=school["ha"], json={
+    assert client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "x", "starts_at": start.isoformat(), "student_ids": [school["s1"].id], "repeat_weeks": 60}).status_code == 422
 
 
 def test_attendance_csv_export(client, school):
-    r = client.post(f"{API}/lessons", headers=school["ha"], json={
+    r = client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "Grammar", "starts_at": datetime.now(UTC).isoformat(), "student_ids": [school["s1"].id]})
     client.put(f"{API}/lessons/{r.json()['id']}/attendance", headers=school["ha"],
                json={"marks": [{"student_id": school["s1"].id, "status": "late", "comment": "10 мин"}]})

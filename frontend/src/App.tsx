@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 
 import { PageSkeleton } from "@/components/common";
+import { RequireAccess } from "@/components/common/AccessGate";
 import { GuestRoute, ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
@@ -39,6 +40,10 @@ const AdminPage = lazy(() => import("@/pages/teacher/AdminPage"));
 
 const NotificationsPage = lazy(() => import("@/pages/shared/NotificationsPage"));
 const MessagesPage = lazy(() => import("@/pages/shared/MessagesPage"));
+const StudentProgressPage = lazy(() => import("@/pages/student/StudentProgressPage"));
+const AnalyticsPage = lazy(() => import("@/pages/teacher/AnalyticsPage"));
+const AdminGroupsPage = lazy(() => import("@/pages/admin/AdminGroupsPage"));
+const AdminLessonsPage = lazy(() => import("@/pages/admin/AdminLessonsPage"));
 const SettingsPage = lazy(() => import("@/pages/shared/SettingsPage"));
 
 export default function App() {
@@ -60,14 +65,15 @@ export default function App() {
         <Route element={<ProtectedRoute roles={["student"]} />}>
           <Route path="/student" element={<DashboardLayout />}>
             <Route index element={<StudentDashboard />} />
-            <Route path="homework" element={<StudentHomeworkList />} />
-            <Route path="homework/:submissionId" element={<StudentHomeworkDetail />} />
-            <Route path="tests" element={<StudentTests />} />
-            <Route path="tests/:testId/take" element={<TakeTestPage />} />
-            <Route path="tests/attempts/:attemptId" element={<AttemptResultPage />} />
-            <Route path="schedule" element={<StudentSchedule />} />
-            <Route path="attendance" element={<StudentAttendance />} />
+            <Route path="homework" element={<RequireAccess><StudentHomeworkList /></RequireAccess>} />
+            <Route path="homework/:submissionId" element={<RequireAccess><StudentHomeworkDetail /></RequireAccess>} />
+            <Route path="tests" element={<RequireAccess><StudentTests /></RequireAccess>} />
+            <Route path="tests/:testId/take" element={<RequireAccess><TakeTestPage /></RequireAccess>} />
+            <Route path="tests/attempts/:attemptId" element={<RequireAccess><AttemptResultPage /></RequireAccess>} />
+            <Route path="schedule" element={<RequireAccess><StudentSchedule /></RequireAccess>} />
+            <Route path="attendance" element={<RequireAccess><StudentAttendance /></RequireAccess>} />
             <Route path="subscription" element={<StudentSubscription />} />
+            <Route path="progress" element={<StudentProgressPage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
@@ -89,6 +95,7 @@ export default function App() {
             <Route path="tests/:testId" element={<TestResultsPage />} />
             <Route path="tests/:testId/attempts/:attemptId" element={<GradeAttemptPage />} />
             <Route path="subscriptions" element={<SubscriptionsPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="messages/:studentId" element={<MessagesPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
@@ -99,6 +106,8 @@ export default function App() {
         <Route element={<ProtectedRoute roles={["admin"]} />}>
           <Route path="/admin" element={<DashboardLayout />}>
             <Route index element={<AdminPage />} />
+            <Route path="groups" element={<AdminGroupsPage />} />
+            <Route path="lessons" element={<AdminLessonsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

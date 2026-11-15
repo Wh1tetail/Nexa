@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import jwt
 from fastapi import APIRouter, BackgroundTasks
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.api.deps import DB, CurrentUser
 from app.core.config import settings
@@ -31,7 +32,7 @@ from app.schemas.auth import (
 )
 from app.schemas.common import Message
 from app.schemas.user import MeOut, UpdateMeRequest
-from app.services import account_service, email_service
+from app.services import account_service, email_service, subscription_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 log = logging.getLogger(__name__)
@@ -44,8 +45,10 @@ def _tokens(user: User) -> TokenPair:
     )
 
 
-def me_out(user: User) -> MeOut:
+def me_out(user: User, db: Session | None = None) -> MeOut:
     out = MeOut.model_validate(user)
+    if user.role == UserRole.STUDENT and user.student_profile and db is not None:
+        out.access_active = subscription_service.has_access(db, user.student_profile.id)
     out.email_prefs = effective_prefs(user)
     if user.role == UserRole.STUDENT and user.student_profile:
         sp = user.student_profile
@@ -96,8 +99,8 @@ def logout(user: CurrentUser, db: DB) -> Message:
 
 
 @router.get("/me", response_model=MeOut)
-def me(user: CurrentUser) -> MeOut:
-    return me_out(user)
+def me(user: CurrentUser, db: DB) -> MeOut:
+    return me_out(user, db)
 
 
 @router.patch("/me", response_model=MeOut)
@@ -110,7 +113,7 @@ def update_me(data: UpdateMeRequest, user: CurrentUser, db: DB) -> MeOut:
     if prefs is not None:
         user.email_prefs = {**effective_prefs(user), **prefs}  # new dict: JSONB change is tracked
     db.commit()
-    return me_out(user)
+    return me_out(user, db)
 
 
 @router.post("/change-password", response_model=TokenPair)

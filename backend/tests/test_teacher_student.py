@@ -1,5 +1,7 @@
 from datetime import UTC, date, datetime, timedelta
 
+from conftest import clear_subscriptions
+
 API = "/api/v1"
 
 
@@ -13,17 +15,18 @@ def test_teacher_sees_only_own_students(client, school):
 
 
 def test_teacher_creates_student_and_student_logs_in(client, school):
-    r = client.post(f"{API}/students", headers=school["ha"], json={
+    r = client.post(f"{API}/students", headers=school["aa"], json={
         "email": "fresh@test.io", "full_name": "Fresh Student", "password": "Fresh1234", "english_level": "B2"})
     assert r.status_code == 201, r.text
     login = client.post(f"{API}/auth/login", json={"email": "fresh@test.io", "password": "Fresh1234"})
     assert login.status_code == 200
-    bad = client.post(f"{API}/students", headers=school["ha"], json={
+    bad = client.post(f"{API}/students", headers=school["aa"], json={
         "email": "x@test.io", "full_name": "X Y", "password": "nodigits"})
     assert bad.status_code == 422
 
 
 def test_subscription_status_and_lessons(client, school):
+    clear_subscriptions(school["s1"])  # this test creates its own
     today = datetime.now(UTC).date()
     sid = school["s1"].id
     r = client.post(f"{API}/subscriptions", headers=school["ha"], json={
@@ -56,6 +59,7 @@ def test_subscription_status_and_lessons(client, school):
 
 
 def test_expired_subscription_and_notifications(client, school):
+    clear_subscriptions(school["s2"])  # this test creates its own
     from app.core.database import SessionLocal
     from app.services.subscription_service import check_expirations
 
@@ -77,7 +81,7 @@ def test_attendance_charges_subscription(client, school):
     sub = client.post(f"{API}/subscriptions", headers=school["ha"], json={
         "student_id": school["s1"].id, "start_date": str(today - timedelta(days=5)),
         "end_date": str(today + timedelta(days=30)), "total_lessons": 8}).json()
-    lesson = client.post(f"{API}/lessons", headers=school["ha"], json={
+    lesson = client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "Lesson", "starts_at": (datetime.now(UTC) - timedelta(hours=2)).isoformat(),
         "student_ids": [school["s1"].id, school["s2"].id]})
     assert lesson.status_code == 201, lesson.text
@@ -98,17 +102,17 @@ def test_attendance_charges_subscription(client, school):
     assert mine["stats"]["absent"] == 1 and mine["lessons"][0]["comment"] == "болеет"
     # teacher B can't mark teacher A lesson; can't add foreign students
     assert client.put(f"{API}/lessons/{lid}/attendance", headers=school["hb"], json={"marks": []}).status_code == 404
-    assert client.post(f"{API}/lessons", headers=school["ha"], json={
+    assert client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "x", "starts_at": datetime.now(UTC).isoformat(),
         "student_ids": [school["s3"].id]}).status_code == 403
 
 
 def test_groups(client, school):
-    r = client.post(f"{API}/groups", headers=school["ha"],
+    r = client.post(f"{API}/groups", headers=school["aa"],
                     json={"name": "B1", "student_ids": [school["s1"].id, school["s2"].id]})
     assert r.status_code == 201 and len(r.json()["students"]) == 2
-    assert client.post(f"{API}/groups", headers=school["ha"], json={"name": "B1"}).status_code == 409
-    assert client.post(f"{API}/groups", headers=school["ha"],
+    assert client.post(f"{API}/groups", headers=school["aa"], json={"name": "B1"}).status_code == 409
+    assert client.post(f"{API}/groups", headers=school["aa"],
                        json={"name": "X", "student_ids": [school["s3"].id]}).status_code == 403
     gid = r.json()["id"]
     assert len(client.get(f"{API}/students?group_id={gid}", headers=school["ha"]).json()) == 2

@@ -65,6 +65,8 @@ const en: Dict = {
   },
 
   nav: {
+    progress: "My progress",
+    analytics: "Analytics",
     messages: "Messages",
     dashboard: "Home",
     homework: "Homework",
@@ -373,8 +375,9 @@ const en: Dict = {
   },
 
   lessons: {
+    teacherLimited: "The time, title, link and removing students are handled by an administrator.",
     title: "Schedule & attendance",
-    subtitle: "Create lessons and mark attendance",
+    subtitle: "Lessons, topics and attendance",
     create: "New lesson",
     createTitle: "Schedule a lesson",
     editTitle: "Edit lesson",
@@ -623,6 +626,67 @@ const en: Dict = {
     unread: "Unread",
     all: "All",
     recent: "Recent notifications",
+  },
+
+  analytics: {
+    title: "Analytics",
+    subtitle: "How your students are doing",
+    myTitle: "My progress",
+    mySubtitle: "Test and homework results, attendance",
+    progressTab: "Progress",
+    period: (days: number) => (days === 365 ? "Last year" : `Last ${days} days`),
+    students: "Students",
+    atRisk: (n: number) => `Need attention: ${n}`,
+    allGood: "All good",
+    avgTest: "Average test score",
+    avgHomework: "Average homework score",
+    attendance: "Attendance",
+    onTime: "Handed in on time",
+    onTimeHint: "Homework before the due date",
+    count: (n: number) => `Grades: ${n}`,
+    trend: (d: number) => `${d > 0 ? "+" : ""}${d} pts vs earlier tests`,
+    testsChart: "Tests, %",
+    homeworkChart: "Homework, %",
+    attendanceChart: "Attendance by month",
+    attendanceHint: "Share of lessons attended (present or late). Hover for details",
+    noTests: "No graded tests yet",
+    noHomework: "No graded homework yet",
+    noMarks: "No marks",
+    showTable: "Show as a table",
+    item: "Title",
+    month: "Month",
+    colTests: "Tests",
+    colHomework: "Homework",
+    colOverdue: "Overdue",
+    colActivity: "Activity",
+    colAttention: "Attention",
+    never: "Never",
+    empty: "No students",
+    rules:
+      "Needs attention: attendance below 70% (3+ marks), average test score below 60%, 2+ overdue homeworks, an expired subscription or no activity for 14 days. Scores and attendance cover the selected period.",
+    risk: {
+      low_attendance: "Attendance",
+      low_tests: "Low scores",
+      overdue_homework: "Overdue",
+      subscription_expired: "Subscription",
+      inactive: "Inactive",
+    },
+  },
+
+  access: {
+    title: "Access paused",
+    text: "Lessons, homework and tests will open again as soon as the subscription is renewed. All your results are kept.",
+    banner: "Your subscription is not active — lessons, homework and tests are closed for now. They open again after renewal.",
+    mySubscription: "My subscription",
+    writeTeacher: "Message the teacher",
+    noSubscription: "No subscription yet",
+    locked: "Closed until the subscription is renewed",
+  },
+
+  actAs: {
+    teacher: "Teacher",
+    choose: "Choose a teacher",
+    hint: "Groups and the schedule are kept per teacher and their students.",
   },
 
   messages: {

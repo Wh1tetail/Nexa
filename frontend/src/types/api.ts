@@ -41,6 +41,8 @@ export interface Me {
   locale: string;
   timezone: string | null;
   created_at: string;
+  /** Students: lessons, homework and tests are open (active subscription). */
+  access_active: boolean;
   /** Effective e-mail settings per category (all on by default). */
   email_prefs: Record<EmailCategory, boolean>;
   student_id: number | null;
@@ -458,6 +460,8 @@ export type ChatEvent =
   | { type: "read"; student_id: number; teacher_id: number; reader_user_id: number; up_to_id: number };
 
 export interface StudentDashboard {
+  /** false -> lessons, homework and tests are closed until the subscription is renewed */
+  access_active: boolean;
   full_name: string;
   english_level: EnglishLevel;
   teacher_name: string | null;
@@ -506,4 +510,73 @@ export interface TeacherDashboard {
 export interface ApiErrorBody {
   detail: string;
   field?: string | null;
+}
+
+/* ---------- analytics ---------- */
+
+/** A graded test attempt or reviewed homework, as a percentage. */
+export interface ScorePoint {
+  date: string;
+  title: string;
+  percent: number;
+  /** Tests with a passing score only. */
+  passed: boolean | null;
+}
+
+export interface AttendanceMonth {
+  /** First day of the month, "YYYY-MM-DD". */
+  month: string;
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+  /** (present + late) / marked; null when nothing was marked. */
+  rate: number | null;
+}
+
+export interface ProgressSummary {
+  avg_test: number | null;
+  avg_homework: number | null;
+  attendance_rate: number | null;
+  tests_count: number;
+  homework_count: number;
+  on_time_rate: number | null;
+  /** Average of the last 3 tests minus the 3 before them. */
+  test_trend: number | null;
+}
+
+export interface StudentProgress {
+  student_id: number;
+  full_name: string;
+  english_level: EnglishLevel;
+  summary: ProgressSummary;
+  tests: ScorePoint[];
+  homework: ScorePoint[];
+  attendance: AttendanceMonth[];
+}
+
+export type RiskReason = "low_attendance" | "low_tests" | "overdue_homework" | "subscription_expired" | "inactive";
+
+export interface StudentOverviewRow {
+  student_id: number;
+  full_name: string;
+  english_level: EnglishLevel;
+  groups: string[];
+  avg_test: number | null;
+  avg_homework: number | null;
+  attendance_rate: number | null;
+  overdue_homework: number;
+  last_activity: string | null;
+  subscription_status: SubscriptionStatus | null;
+  risks: RiskReason[];
+}
+
+export interface TeacherOverview {
+  period_days: number;
+  students: number;
+  at_risk: number;
+  avg_test: number | null;
+  avg_homework: number | null;
+  attendance_rate: number | null;
+  rows: StudentOverviewRow[];
 }

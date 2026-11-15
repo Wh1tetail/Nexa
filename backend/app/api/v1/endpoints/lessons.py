@@ -10,16 +10,18 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.api.deps import (
     DB,
-    CurrentTeacher,
+    ActingTeacher,
+    AdminForTeacher,
+    CurrentUser,
     get_owned_group,
     get_owned_student,
     get_owned_students,
 )
-from app.core.exceptions import BadRequest, NotFound
+from app.core.exceptions import BadRequest, Forbidden, NotFound
 from app.core.i18n import M, tr
 from app.core.timezones import add_weeks_local, fmt_local, get_zone, shift_wall_clock, to_local, wall_clock_delta
 from app.models import Attendance, Lesson, StudentProfile, TeacherProfile, User
-from app.models.enums import LessonStatus, NotificationType
+from app.models.enums import LessonStatus, NotificationType, UserRole
 from app.repositories import student_repository as repo
 from app.schemas.lesson import (
     AttendanceBulk,
@@ -129,7 +131,7 @@ def _sync_participants(db: Session, lesson: Lesson, students: list[StudentProfil
 
 @router.get("/lessons", response_model=list[LessonOut])
 def list_lessons(
-    teacher: CurrentTeacher,
+    teacher: ActingTeacher,
     db: DB,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -160,7 +162,7 @@ def list_lessons(
 
 
 @router.post("/lessons", response_model=LessonOut, status_code=status.HTTP_201_CREATED)
-def create_lesson(data: LessonCreate, teacher: CurrentTeacher, db: DB) -> LessonOut:
+def create_lesson(data: LessonCreate, teacher: AdminForTeacher, db: DB) -> LessonOut:
     """Create a lesson; with repeat_weeks > 0 also creates weekly copies (a series)."""
     students = {s.id: s for s in get_owned_students(db, teacher, data.student_ids)}
     if data.group_id:
@@ -190,7 +192,7 @@ def create_lesson(data: LessonCreate, teacher: CurrentTeacher, db: DB) -> Lesson
 
 
 @router.get("/lessons/{lesson_id}", response_model=LessonOut)
-def get_lesson(lesson_id: int, teacher: CurrentTeacher, db: DB) -> LessonOut:
+def get_lesson(lesson_id: int, teacher: ActingTeacher, db: DB) -> LessonOut:
     return _one(db, _get_owned_lesson(db, teacher, lesson_id))
 
 
@@ -245,7 +247,8 @@ def _notify_schedule_change(db: Session, lesson: Lesson, rescheduled: list[Lesso
 def update_lesson(
     lesson_id: int,
     data: LessonUpdate,
-    teacher: CurrentTeacher,
+    teacher: ActingTeacher,
+    user: CurrentUser,
     db: DB,
     scope: Literal["one", "following"] = "one",
 ) -> LessonOut:
@@ -257,6 +260,13 @@ def update_lesson(
     lesson = _get_owned_lesson(db, teacher, lesson_id)
     payload = data.model_dump(exclude_unset=True)
     student_ids = payload.pop("student_ids", None)
+    if user.role == UserRole.TEACHER:
+        # A teacher may change the topic and add students; time, title, link,
+        # cancelling and removing participants belong to the administrator.
+        if set(payload) - {"topic"}:
+            raise Forbidden("Изменять время, название, ссылку и статус занятия может только администратор")
+        if student_ids is not None and not {a.student_id for a in lesson.attendance} <= set(student_ids):
+            raise Forbidden("Убирать учеников из занятия может только администратор")
     students = get_owned_students(db, teacher, student_ids) if student_ids is not None else None
     tz = get_zone(teacher.user.timezone)
     shift = wall_clock_delta(lesson.starts_at, payload["starts_at"], tz) if payload.get("starts_at") else None
@@ -285,7 +295,7 @@ def update_lesson(
 
 
 @router.post("/lessons/{lesson_id}/series/extend", response_model=LessonOut)
-def extend_series(lesson_id: int, data: SeriesExtend, teacher: CurrentTeacher, db: DB) -> LessonOut:
+def extend_series(lesson_id: int, data: SeriesExtend, teacher: AdminForTeacher, db: DB) -> LessonOut:
     """Add N more weekly lessons after the last lesson of the series.
     A single lesson becomes a series."""
     lesson = _get_owned_lesson(db, teacher, lesson_id)
@@ -322,7 +332,7 @@ def extend_series(lesson_id: int, data: SeriesExtend, teacher: CurrentTeacher, d
 @router.delete("/lessons/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_lesson(
     lesson_id: int,
-    teacher: CurrentTeacher,
+    teacher: AdminForTeacher,
     db: DB,
     scope: Literal["one", "following"] = "one",
 ) -> Response:
@@ -350,7 +360,7 @@ def delete_lesson(
 
 
 @router.put("/lessons/{lesson_id}/attendance", response_model=LessonOut)
-def mark_attendance(lesson_id: int, data: AttendanceBulk, teacher: CurrentTeacher, db: DB) -> LessonOut:
+def mark_attendance(lesson_id: int, data: AttendanceBulk, teacher: ActingTeacher, db: DB) -> LessonOut:
     lesson = _get_owned_lesson(db, teacher, lesson_id)
     if lesson.status == LessonStatus.CANCELLED:
         raise BadRequest("Занятие отменено")
@@ -368,7 +378,7 @@ def mark_attendance(lesson_id: int, data: AttendanceBulk, teacher: CurrentTeache
 
 @router.get("/attendance", response_model=list[AttendanceRecord])
 def attendance_records(
-    teacher: CurrentTeacher,
+    teacher: ActingTeacher,
     db: DB,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -382,7 +392,7 @@ def attendance_records(
 
 @router.get("/attendance/stats", response_model=list[AttendanceStats])
 def attendance_stats(
-    teacher: CurrentTeacher,
+    teacher: ActingTeacher,
     db: DB,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -405,7 +415,7 @@ _LESSON_STATUS = {"scheduled": "Запланировано", "completed": "Пр�
 
 @router.get("/attendance/export")
 def export_attendance(
-    teacher: CurrentTeacher,
+    teacher: ActingTeacher,
     db: DB,
     date_from: date | None = None,
     date_to: date | None = None,

@@ -125,13 +125,16 @@ app.add_middleware(LanguageMiddleware)
 async def http_error_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
     """Errors in the request's language: our AppError carries its template and
     values; other texts (e.g. the login limiter) are looked up as they are."""
+    content: dict = {}
     if isinstance(exc, AppError):
-        detail = tr(exc.template, **exc.params)
+        content["detail"] = tr(exc.template, **exc.params)
+        if exc.code:
+            content["code"] = exc.code
     elif isinstance(exc.detail, str):
-        detail = tr(exc.detail)
+        content["detail"] = tr(exc.detail)
     else:
-        detail = exc.detail
-    return JSONResponse(status_code=exc.status_code, content={"detail": detail}, headers=getattr(exc, "headers", None))
+        content["detail"] = exc.detail
+    return JSONResponse(status_code=exc.status_code, content=content, headers=getattr(exc, "headers", None))
 
 
 @app.exception_handler(RequestValidationError)

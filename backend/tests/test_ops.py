@@ -2,12 +2,14 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from conftest import make_user
 from fastapi import HTTPException
 from sqlalchemy import text
 
 from app.core.database import SessionLocal
 from app.middleware.rate_limit import AttemptLimiter, _hash
 from app.models import AuthAttempt
+from app.models.enums import UserRole
 from app.services.subscription_service import EXPIRY_CHECK_LOCK, check_expirations
 
 API = "/api/v1"
@@ -15,8 +17,9 @@ API = "/api/v1"
 
 def test_expiry_check_skips_while_another_worker_runs_it(client, school):
     today = datetime.now(UTC).date()
+    _, newcomer = make_user(UserRole.STUDENT, "newcomer@test.io", school["ta"], "Newcomer")  # no other subscription
     client.post(f"{API}/subscriptions", headers=school["ha"], json={
-        "student_id": school["s1"].id, "start_date": str(today - timedelta(days=30)),
+        "student_id": newcomer.id, "start_date": str(today - timedelta(days=30)),
         "end_date": str(today - timedelta(days=1)), "total_lessons": 8})
 
     with SessionLocal() as other_worker:

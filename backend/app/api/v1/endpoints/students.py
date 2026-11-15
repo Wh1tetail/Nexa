@@ -4,7 +4,7 @@ from sqlalchemy.orm import joinedload
 
 from app.core.i18n import tr
 from app.core.config import settings
-from app.api.deps import DB, CurrentTeacher, get_owned_group, get_owned_student
+from app.api.deps import DB, ActingTeacher, AdminForTeacher, get_owned_group, get_owned_student
 from app.models import StudentProfile, Subscription
 from app.models.enums import EnglishLevel, SubscriptionStatus
 from app.repositories import student_repository as repo
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/students", tags=["students (teacher)"])
 
 @router.get("", response_model=list[StudentBrief])
 def list_students(
-    teacher: CurrentTeacher,
+    teacher: ActingTeacher,
     db: DB,
     search: str | None = None,
     level: EnglishLevel | None = None,
@@ -34,7 +34,7 @@ def list_students(
 
 @router.post("", response_model=StudentProfileOut, status_code=status.HTTP_201_CREATED)
 def create_student(
-    data: StudentCreate, teacher: CurrentTeacher, db: DB, background: BackgroundTasks
+    data: StudentCreate, teacher: AdminForTeacher, db: DB, background: BackgroundTasks
 ) -> StudentProfileOut:
     groups = [get_owned_group(db, teacher, gid) for gid in set(data.group_ids)]
     student = student_service.create_student(db, data, teacher)
@@ -51,7 +51,7 @@ def create_student(
 
 
 @router.post("/{student_id}/invite", response_model=InviteResponse)
-def resend_invite(student_id: int, teacher: CurrentTeacher, db: DB, background: BackgroundTasks) -> InviteResponse:
+def resend_invite(student_id: int, teacher: ActingTeacher, db: DB, background: BackgroundTasks) -> InviteResponse:
     """(Re)send an e-mail with a link to set the password."""
     student = get_owned_student(db, teacher, student_id)
     url = student_service.send_invitation(db, student.user, teacher.user.full_name, background)
@@ -63,13 +63,13 @@ def resend_invite(student_id: int, teacher: CurrentTeacher, db: DB, background: 
 
 
 @router.get("/{student_id}", response_model=StudentProfileOut)
-def get_student(student_id: int, teacher: CurrentTeacher, db: DB) -> StudentProfileOut:
+def get_student(student_id: int, teacher: ActingTeacher, db: DB) -> StudentProfileOut:
     return student_service.to_profile(db, get_owned_student(db, teacher, student_id))
 
 
 @router.patch("/{student_id}", response_model=StudentProfileOut)
 def update_student(
-    student_id: int, data: StudentUpdate, teacher: CurrentTeacher, db: DB
+    student_id: int, data: StudentUpdate, teacher: ActingTeacher, db: DB
 ) -> StudentProfileOut:
     student = get_owned_student(db, teacher, student_id)
     payload = data.model_dump(exclude_unset=True)
@@ -93,7 +93,7 @@ def update_student(
 
 
 @router.get("/{student_id}/subscriptions", response_model=list[SubscriptionOut])
-def student_subscriptions(student_id: int, teacher: CurrentTeacher, db: DB) -> list[SubscriptionOut]:
+def student_subscriptions(student_id: int, teacher: ActingTeacher, db: DB) -> list[SubscriptionOut]:
     get_owned_student(db, teacher, student_id)
     subs = db.scalars(
         select(Subscription)

@@ -21,6 +21,8 @@ Online English school LMS. Russian UI by default (English supported). Full docs:
 
 ## Rules that are easy to break
 - Ownership: teacher endpoints load students/groups/lessons via `get_owned_*` in `app/api/deps.py`; foreign objects return **404**, not 403. Students only ever see their own data.
+- Creating students, groups and lessons (and deleting groups/lessons, extending series) is admin-only: use `AdminForTeacher`; reading/editing uses `ActingTeacher` (teacher = own data, admin = teacher from `X-Teacher-Id`/`?teacher_id=`). Teachers may only change a lesson's topic, add students and mark attendance.
+- Student lessons/homework/tests/attendance (and their files) require an active subscription: use `StudentWithAccess`, not `CurrentStudent` (403 `code: "subscription_required"`); checked live, so renewal reopens access.
 - Every API change touches four places: Pydantic schema → `frontend/src/types/api.ts` → `frontend/src/services/api.ts` → a test in `backend/tests/`.
 - Server texts (errors, ValueError, notifications) are Russian templates translated via `app/core/i18n.py` CATALOG: pass values as params (`BadRequest("Не более {n} файлов", n=5)`, `M(...)` for notifications) — never f-strings; a test fails if a text has no kk/en translation. E-mail templates take the recipient's `lang`.
 - Every UI string goes into `frontend/src/i18n/ru.ts`, `en.ts` and `kk.ts` (the `Dict` type enforces matching keys). Kazakh dates are built in `utils/format.ts` (`formatInstant`) — browsers often lack Kazakh month names.

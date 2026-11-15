@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { BookOpenCheck, CalendarCheck, CheckCircle2, ClipboardList, GraduationCap, Video } from "lucide-react";
+import { BookOpenCheck, CalendarCheck, CheckCircle2, ClipboardList, GraduationCap, Lock, Video } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { EmptyState, ErrorState, PageSkeleton, StatCard } from "@/components/common";
@@ -23,6 +23,15 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-6">
+      {!d.access_active && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-4 sm:flex-row sm:items-center">
+          <Lock className="size-5 shrink-0 text-[hsl(32_95%_36%)]" />
+          <p className="flex-1 text-sm text-primary">{t.access.banner}</p>
+          <Button size="sm" asChild>
+            <Link to="/student/subscription">{t.access.mySubscription}</Link>
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="page-title">{t.dashboard.hello(d.full_name.split(" ")[0])}</h1>

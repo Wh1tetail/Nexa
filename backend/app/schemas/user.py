@@ -31,6 +31,8 @@ class UserOut(ORMModel):
 
 
 class MeOut(UserOut):
+    # students: lessons, homework and tests are open (active subscription)
+    access_active: bool = True
     # effective e-mail notification settings: {"messages": true, "homework": true, ...}
     email_prefs: dict[str, bool] = {}
     student_id: int | None = None

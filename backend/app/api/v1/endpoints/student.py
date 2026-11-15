@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import DB, CurrentStudent
+from app.api.deps import DB, CurrentStudent, StudentWithAccess
 from app.core.exceptions import BadRequest, NotFound
 from app.core.i18n import M
 from app.models import Attachment, Homework, HomeworkSubmission, StudentProfile, Subscription, Test, TestAttempt
@@ -67,7 +67,7 @@ def _own_submission(db: Session, student: StudentProfile, submission_id: int) ->
 
 @router.get("/homework", response_model=list[StudentHomework])
 def my_homework(
-    student: CurrentStudent, db: DB, status_filter: SubmissionStatus | None = None
+    student: StudentWithAccess, db: DB, status_filter: SubmissionStatus | None = None
 ) -> list[StudentHomework]:
     q = _submissions_query(student).order_by(Homework.due_at.asc().nulls_last(), Homework.created_at.desc())
     if status_filter:
@@ -76,12 +76,12 @@ def my_homework(
 
 
 @router.get("/homework/{submission_id}", response_model=StudentHomework)
-def my_homework_item(submission_id: int, student: CurrentStudent, db: DB) -> StudentHomework:
+def my_homework_item(submission_id: int, student: StudentWithAccess, db: DB) -> StudentHomework:
     return hw_svc.to_student_view(_own_submission(db, student, submission_id))
 
 
 @router.post("/homework/{submission_id}/start", response_model=StudentHomework)
-def start_homework(submission_id: int, student: CurrentStudent, db: DB) -> StudentHomework:
+def start_homework(submission_id: int, student: StudentWithAccess, db: DB) -> StudentHomework:
     sub = _own_submission(db, student, submission_id)
     if sub.status == SubmissionStatus.NEW:
         sub.status = SubmissionStatus.IN_PROGRESS
@@ -93,7 +93,7 @@ def start_homework(submission_id: int, student: CurrentStudent, db: DB) -> Stude
     "/homework/{submission_id}/files", response_model=list[AttachmentOut], status_code=status.HTTP_201_CREATED
 )
 async def upload_files(
-    submission_id: int, student: CurrentStudent, db: DB, files: list[UploadFile] = File(...)
+    submission_id: int, student: StudentWithAccess, db: DB, files: list[UploadFile] = File(...)
 ) -> list[AttachmentOut]:
     sub = _own_submission(db, student, submission_id)
     if sub.status not in EDITABLE:
@@ -108,7 +108,7 @@ async def upload_files(
 
 
 @router.delete("/homework/{submission_id}/files/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_file(submission_id: int, file_id: int, student: CurrentStudent, db: DB) -> Response:
+def delete_file(submission_id: int, file_id: int, student: StudentWithAccess, db: DB) -> Response:
     sub = _own_submission(db, student, submission_id)
     if sub.status not in EDITABLE:
         raise BadRequest("Работа уже отправлена на проверку")
@@ -122,7 +122,7 @@ def delete_file(submission_id: int, file_id: int, student: CurrentStudent, db: D
 
 @router.post("/homework/{submission_id}/submit", response_model=StudentHomework)
 def submit_homework(
-    submission_id: int, data: SubmitRequest, student: CurrentStudent, db: DB
+    submission_id: int, data: SubmitRequest, student: StudentWithAccess, db: DB
 ) -> StudentHomework:
     sub = _own_submission(db, student, submission_id)
     if sub.status not in EDITABLE:
@@ -166,7 +166,7 @@ def _own_attempt(db: Session, student: StudentProfile, attempt_id: int) -> TestA
 
 
 @router.get("/tests", response_model=list[StudentTestItem])
-def my_tests(student: CurrentStudent, db: DB) -> list[StudentTestItem]:
+def my_tests(student: StudentWithAccess, db: DB) -> list[StudentTestItem]:
     tests = db.scalars(
         select(Test)
         .join(test_assignments, test_assignments.c.test_id == Test.id)
@@ -182,7 +182,7 @@ def my_tests(student: CurrentStudent, db: DB) -> list[StudentTestItem]:
 
 
 @router.post("/tests/{test_id}/start", response_model=AttemptDetail)
-def start_test(test_id: int, student: CurrentStudent, db: DB) -> AttemptDetail:
+def start_test(test_id: int, student: StudentWithAccess, db: DB) -> AttemptDetail:
     test = _assigned_test(db, student, test_id)
     attempt = db.scalar(
         select(TestAttempt).where(TestAttempt.test_id == test.id, TestAttempt.student_id == student.id)
@@ -209,7 +209,7 @@ def start_test(test_id: int, student: CurrentStudent, db: DB) -> AttemptDetail:
 
 
 @router.put("/tests/attempts/{attempt_id}/progress", response_model=AttemptDetail)
-def save_progress(attempt_id: int, data: SaveProgress, student: CurrentStudent, db: DB) -> AttemptDetail:
+def save_progress(attempt_id: int, data: SaveProgress, student: StudentWithAccess, db: DB) -> AttemptDetail:
     attempt = _own_attempt(db, student, attempt_id)
     if attempt.status != AttemptStatus.IN_PROGRESS:
         raise BadRequest("Тест уже завершён")
@@ -221,7 +221,7 @@ def save_progress(attempt_id: int, data: SaveProgress, student: CurrentStudent, 
 
 
 @router.post("/tests/attempts/{attempt_id}/submit", response_model=AttemptDetail)
-def submit_test(attempt_id: int, data: SubmitAttempt, student: CurrentStudent, db: DB) -> AttemptDetail:
+def submit_test(attempt_id: int, data: SubmitAttempt, student: StudentWithAccess, db: DB) -> AttemptDetail:
     attempt = _own_attempt(db, student, attempt_id)
     if attempt.status != AttemptStatus.IN_PROGRESS:
         raise BadRequest("Тест уже завершён")
@@ -236,14 +236,14 @@ def submit_test(attempt_id: int, data: SubmitAttempt, student: CurrentStudent, d
 
 
 @router.get("/tests/attempts/{attempt_id}", response_model=AttemptDetail)
-def get_my_attempt(attempt_id: int, student: CurrentStudent, db: DB) -> AttemptDetail:
+def get_my_attempt(attempt_id: int, student: StudentWithAccess, db: DB) -> AttemptDetail:
     return test_svc.attempt_detail(_own_attempt(db, student, attempt_id), for_teacher=False)
 
 
 # ---------- attendance ----------
 
 @router.get("/attendance", response_model=StudentAttendanceSummary)
-def my_attendance(student: CurrentStudent, db: DB) -> StudentAttendanceSummary:
+def my_attendance(student: StudentWithAccess, db: DB) -> StudentAttendanceSummary:
     rows = list(db.scalars(att_svc.records_query(student_id=student.id)).unique().all())
     return StudentAttendanceSummary(
         stats=att_svc.build_stats(student, rows),

@@ -64,6 +64,18 @@ def to_out(sub: Subscription) -> SubscriptionOut:
     )
 
 
+ACCESS_STATUSES = (SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRING_SOON)
+
+
+def has_access(db: Session, student_id: int) -> bool:
+    """Lessons, homework and tests are open only while the current subscription
+    has started and is active (or ending soon). Expired, frozen, not started yet
+    or no subscription at all -> closed. Checked live on every request, so a
+    renewal (extend, unfreeze, new subscription) gives access back at once."""
+    sub = current_subscription(db, student_id)
+    return bool(sub and sub.start_date <= today() and compute_status(sub) in ACCESS_STATUSES)
+
+
 def current_subscription(db: Session, student_id: int) -> Subscription | None:
     """The subscription that is relevant 'now' for a student:
     the latest one that has started (or, failing that, the next upcoming one)."""

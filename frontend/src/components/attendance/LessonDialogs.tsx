@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox, RadioGroup, RadioGroupItem } from "@/components/ui/checkbox";
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input, NativeSelect } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
 import { groupsApi, lessonsApi } from "@/services/api";
@@ -30,6 +31,8 @@ function useInvalidate() {
 
 export function LessonFormDialog({ open, onOpenChange, lesson }: { open: boolean; onOpenChange: (o: boolean) => void; lesson?: Lesson }) {
   const { t } = useI18n();
+  // teachers change only the topic and add students; the rest belongs to the administrator
+  const limited = useAuth().user?.role === "teacher" && !!lesson;
   const invalidate = useInvalidate();
   const groups = useQuery({ queryKey: ["groups"], queryFn: groupsApi.list, enabled: open });
   const [title, setTitle] = useState("");
@@ -115,8 +118,12 @@ export function LessonFormDialog({ open, onOpenChange, lesson }: { open: boolean
           <DialogTitle>{lesson ? t.lessons.editTitle : t.lessons.createTitle}</DialogTitle>
         </DialogHeader>
         <DialogBody className="grid gap-4 sm:grid-cols-2">
+          {limited && (
+            <p className="rounded-xl bg-secondary px-3 py-2.5 text-sm text-muted-foreground sm:col-span-2">{t.lessons.teacherLimited}</p>
+          )}
           <Field label={t.lessons.name} error={errors.title}>
             <Input
+              disabled={limited}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               aria-invalid={!!errors.title}
@@ -128,13 +135,13 @@ export function LessonFormDialog({ open, onOpenChange, lesson }: { open: boolean
             <Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Present Perfect" />
           </Field>
           <Field label={t.lessons.startsAt} error={errors.startsAt}>
-            <Input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+            <Input type="datetime-local" disabled={limited} value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
           </Field>
           <Field label={t.lessons.duration}>
-            <Input type="number" min={15} max={600} step={15} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
+            <Input type="number" min={15} max={600} step={15} disabled={limited} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
           </Field>
           <Field label={t.lessons.meetingUrl} optional error={errors.url} className="sm:col-span-2">
-            <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://meet.google.com/…" />
+            <Input type="url" disabled={limited} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://meet.google.com/…" />
           </Field>
           {!lesson && (
             <div className="grid gap-3 rounded-xl border bg-secondary/40 p-3 sm:col-span-2">
@@ -172,7 +179,13 @@ export function LessonFormDialog({ open, onOpenChange, lesson }: { open: boolean
               showGroups={false}
               studentIds={studentIds}
               groupIds={[]}
-              disabledStudentIds={groupId ? groups.data?.find((g) => g.id === groupId)?.students.map((s) => s.id) : []}
+              disabledStudentIds={
+                limited
+                  ? lesson!.attendance.map((a) => a.student_id) // can add, not remove
+                  : groupId
+                    ? groups.data?.find((g) => g.id === groupId)?.students.map((s) => s.id)
+                    : []
+              }
               onChange={(v) => setStudentIds(v.studentIds)}
             />
           </Field>

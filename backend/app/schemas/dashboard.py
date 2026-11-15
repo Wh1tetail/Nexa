@@ -10,6 +10,8 @@ from app.schemas.test import StudentTestItem
 
 
 class StudentDashboard(BaseModel):
+    # False -> lessons, homework and tests are closed until the subscription is renewed
+    access_active: bool = True
     full_name: str
     english_level: EnglishLevel
     teacher_name: str | None

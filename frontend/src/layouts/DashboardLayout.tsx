@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookOpenCheck,
   CalendarCheck,
   CalendarDays,
@@ -8,7 +9,9 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Lock,
   Settings,
+  TrendingUp,
   Users,
   UsersRound,
   type LucideIcon,
@@ -43,6 +46,8 @@ interface NavItem {
   icon: LucideIcon;
   end?: boolean;
   badge?: number;
+  /** Student without an active subscription: the section is closed. */
+  locked?: boolean;
   /** Notifications of this section are counted on the item and marked seen when it is opened. */
   section?: NotificationSection;
 }
@@ -54,12 +59,22 @@ function useNav(): NavItem[] {
   const unread = useChatUnread(participant).data ?? 0;
   const counts = useSectionCounts(participant).data;
   const items = navFor(user?.role, t, unread);
-  return items.map((i) => (i.section ? { ...i, badge: counts?.[i.section] ?? 0 } : i));
+  const closed = user?.role === "student" && user.access_active === false;
+  const gated = new Set(["/student/homework", "/student/tests", "/student/schedule", "/student/attendance"]);
+  return items.map((i) => ({
+    ...i,
+    ...(i.section ? { badge: counts?.[i.section] ?? 0 } : {}),
+    ...(closed && gated.has(i.to) ? { locked: true, badge: 0 } : {}),
+  }));
 }
 
 function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], unread: number): NavItem[] {
   if (role === "admin") {
-    return [{ to: "/admin", label: t.nav.dashboard, icon: LayoutDashboard, end: true }];
+    return [
+      { to: "/admin", label: t.nav.dashboard, icon: LayoutDashboard, end: true },
+      { to: "/admin/groups", label: t.nav.groups, icon: UsersRound },
+      { to: "/admin/lessons", label: t.nav.lessons, icon: CalendarCheck },
+    ];
   }
   if (role === "student") {
     return [
@@ -67,6 +82,7 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
       { to: "/student/homework", label: t.nav.homework, icon: ClipboardList, section: "homework" },
       { to: "/student/messages", label: t.nav.messages, icon: MessageSquare, badge: unread },
       { to: "/student/tests", label: t.nav.tests, icon: BookOpenCheck, section: "tests" },
+      { to: "/student/progress", label: t.nav.progress, icon: TrendingUp },
       { to: "/student/schedule", label: t.nav.schedule, icon: CalendarDays, section: "lessons" },
       { to: "/student/attendance", label: t.nav.attendance, icon: CalendarCheck },
       { to: "/student/subscription", label: t.nav.subscription, icon: CreditCard, section: "subscription" },
@@ -80,6 +96,7 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
     { to: "/teacher/lessons", label: t.nav.lessons, icon: CalendarCheck },
     { to: "/teacher/homework", label: t.nav.homework, icon: ClipboardList, section: "homework" },
     { to: "/teacher/tests", label: t.nav.tests, icon: BookOpenCheck, section: "tests" },
+    { to: "/teacher/analytics", label: t.nav.analytics, icon: BarChart3 },
     { to: "/teacher/subscriptions", label: t.nav.subscriptions, icon: CreditCard, section: "subscription" },
   ];
 }
@@ -97,10 +114,11 @@ function useSeenOnVisit(items: NavItem[]) {
 }
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useI18n();
   const items = useNav();
   return (
     <nav className="grid gap-1">
-      {items.map(({ to, label, icon: Icon, end, badge }) => (
+      {items.map(({ to, label, icon: Icon, end, badge, locked }) => (
         <NavLink
           key={to}
           to={to}
@@ -115,6 +133,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         >
           <Icon className="size-[18px] shrink-0" />
           <span className="truncate">{label}</span>
+          {locked && <Lock className="ml-auto size-3.5 shrink-0 opacity-60" aria-label={t.access.locked} />}
           {!!badge && (
             <span className="tabular ml-auto rounded-full bg-accent px-1.5 text-[11px] font-medium leading-5 text-white">
               {badge > 99 ? "99+" : badge}

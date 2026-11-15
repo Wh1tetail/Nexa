@@ -108,6 +108,19 @@ CATALOG: dict[str, dict[str, str]] = {
     "Пароль должен содержать буквы и цифры": {"kk": "Құпиясөзде әріптер мен сандар болуы керек", "en": "The password must contain letters and digits"},
     "Профиль преподавателя не найден": {"kk": "Оқытушы профилі табылмады", "en": "Teacher profile not found"},
     "Профиль ученика не найден": {"kk": "Оқушы профилі табылмады", "en": "Student profile not found"},
+    "Выберите преподавателя": {"kk": "Оқытушыны таңдаңыз", "en": "Choose a teacher"},
+    "Изменять время, название, ссылку и статус занятия может только администратор": {
+        "kk": "Сабақтың уақытын, атауын, сілтемесін және мәртебесін тек әкімші өзгерте алады",
+        "en": "Only an administrator can change a lesson's time, title, link and status",
+    },
+    "Убирать учеников из занятия может только администратор": {
+        "kk": "Оқушыларды сабақтан тек әкімші алып тастай алады",
+        "en": "Only an administrator can remove students from a lesson",
+    },
+    "Доступ к занятиям, заданиям и тестам откроется после продления абонемента": {
+        "kk": "Сабақтарға, тапсырмаларға және тесттерге қолжетімділік абонемент ұзартылғаннан кейін ашылады",
+        "en": "Lessons, homework and tests will open again once the subscription is renewed",
+    },
     # --- people, groups, admin ---
     "Ученик не найден": {"kk": "Оқушы табылмады", "en": "Student not found"},
     "Можно назначать только своих учеников": {"kk": "Тек өз оқушыларыңызды тағайындай аласыз", "en": "You can only assign your own students"},

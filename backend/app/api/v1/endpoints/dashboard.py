@@ -67,7 +67,11 @@ def student_dashboard(student: CurrentStudent, db: DB) -> StudentDashboard:
         .limit(5)
     ).all()
     sub = sub_svc.current_subscription(db, student.id)
+    access = sub_svc.has_access(db, student.id)
+    if not access:  # no lesson links, tasks or results until the subscription is renewed
+        next_lessons, recent, pending, upcoming = [], [], 0, 0
     return StudentDashboard(
+        access_active=access,
         full_name=student.user.full_name,
         english_level=student.english_level,
         teacher_name=student.teacher.user.full_name if student.teacher else None,

@@ -7,9 +7,13 @@ from fastapi import HTTPException, status
 
 
 class AppError(HTTPException):
-    def __init__(self, status_code: int, template: str, headers: dict[str, str] | None = None, **params: Any) -> None:
+    def __init__(
+        self, status_code: int, template: str, headers: dict[str, str] | None = None,
+        code: str | None = None, **params: Any,
+    ) -> None:
         self.template = template
         self.params = params
+        self.code = code  # machine-readable reason for the frontend, e.g. "subscription_required"
         super().__init__(status_code, template.format(**params) if params else template, headers=headers)
 
 
@@ -19,8 +23,8 @@ class NotFound(AppError):
 
 
 class Forbidden(AppError):
-    def __init__(self, detail: str = "Недостаточно прав", **params: Any) -> None:
-        super().__init__(status.HTTP_403_FORBIDDEN, detail, **params)
+    def __init__(self, detail: str = "Недостаточно прав", code: str | None = None, **params: Any) -> None:
+        super().__init__(status.HTTP_403_FORBIDDEN, detail, code=code, **params)
 
 
 class BadRequest(AppError):

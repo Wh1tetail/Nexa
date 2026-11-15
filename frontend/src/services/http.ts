@@ -53,10 +53,18 @@ let requestLanguage = (() => {
   }
 })();
 
+/** Administrator pages that manage a teacher's groups and lessons set the
+ *  teacher here; the server reads it from X-Teacher-Id (ignored for others). */
+let actingTeacherId: number | null = null;
+export function setActingTeacher(id: number | null) {
+  actingTeacherId = id;
+}
+
 http.interceptors.request.use((config) => {
   const token = tokenStore.access;
   if (token) config.headers.Authorization = `Bearer ${token}`;
   config.headers["Accept-Language"] = requestLanguage;
+  if (actingTeacherId !== null) config.headers["X-Teacher-Id"] = String(actingTeacherId);
   return config;
 });
 

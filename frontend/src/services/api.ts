@@ -30,6 +30,7 @@ import type {
   StudentDashboard,
   StudentHomework,
   StudentProfile,
+  StudentProgress,
   StudentTestItem,
   Submission,
   SubmissionStatus,
@@ -39,6 +40,7 @@ import type {
   TeacherDashboard,
   TestDetail,
   TestListItem,
+  TeacherOverview,
   TestSettings,
   TokenPair,
 } from "@/types/api";
@@ -290,6 +292,13 @@ export const notificationsApi = {
 
 /** Messages per history page (the API allows up to 100). */
 export const MESSAGES_PAGE = 50;
+
+export const analyticsApi = {
+  overview: (period: number, groupId?: number | null) =>
+    get<TeacherOverview>("/analytics/overview", clean({ period, group_id: groupId })),
+  student: (studentId: number) => get<StudentProgress>(`/analytics/students/${studentId}`),
+  me: () => get<StudentProgress>("/analytics/me"),
+};
 
 export const messagesApi = {
   threads: () => get<ChatThread[]>("/messages/threads"),

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, NativeSelect } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
 import { groupsApi, studentsApi, type StudentFilters } from "@/services/api";
 import { ENGLISH_LEVELS, type EnglishLevel, type SubscriptionStatus } from "@/types/api";
@@ -19,6 +20,7 @@ import { fmtDate } from "@/utils/format";
 
 export default function StudentsPage() {
   const { t, locale } = useI18n();
+  const canCreate = useAuth().user?.role === "admin"; // teachers no longer add students
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState<EnglishLevel | "">("");
   const [groupId, setGroupId] = useState<number | "">("");
@@ -37,10 +39,12 @@ export default function StudentsPage() {
         title={t.students.title}
         subtitle={q.data ? t.common.studentsCount(q.data.length) : t.students.subtitle}
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus />
-            {t.students.add}
-          </Button>
+          canCreate && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus />
+              {t.students.add}
+            </Button>
+          )
         }
       />
 
@@ -84,9 +88,9 @@ export default function StudentsPage() {
                 <Button variant="outline" onClick={() => { setSearch(""); setLevel(""); setGroupId(""); setSubStatus(""); }}>
                   {t.common.resetFilters}
                 </Button>
-              ) : (
+              ) : canCreate ? (
                 <Button onClick={() => setCreating(true)}><Plus />{t.students.add}</Button>
-              )
+              ) : undefined
             }
           />
         </Card>

@@ -16,7 +16,7 @@ def _set_tz(client, headers, tz):
 
 
 def _series(client, school, local_start: datetime, weeks: int):
-    r = client.post(f"{API}/lessons", headers=school["ha"], json={
+    r = client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "Club", "starts_at": local_start.isoformat(), "student_ids": [school["s1"].id, school["s2"].id],
         "repeat_weeks": weeks})
     assert r.status_code == 201, r.text
@@ -60,7 +60,7 @@ def test_series_keeps_local_time_across_dst(client, school):
     assert [datetime.fromisoformat(x["starts_at"]).astimezone(UTC).hour for x in lessons] == [17, 16, 16]
 
     # extending the series also keeps 18:00 local
-    client.post(f"{API}/lessons/{lessons[0]['id']}/series/extend", headers=school["ha"], json={"weeks": 1})
+    client.post(f"{API}/lessons/{lessons[0]['id']}/series/extend", headers=school["aa"], json={"weeks": 1})
     every = sorted((x for x in client.get(f"{API}/lessons", headers=school["ha"]).json()
                     if x["series_id"] == lessons[0]["series_id"]), key=lambda x: x["starts_at"])
     assert len(every) == 4 and _local(every[-1]["starts_at"]).hour == 18
@@ -72,7 +72,7 @@ def test_shift_following_uses_local_clock(client, school):
     lessons = _series(client, school, datetime(2027, 3, 21, 18, 0, tzinfo=BERLIN), weeks=2)
     # move the FIRST lesson (still winter time) to 19:30 for it and all following
     new_start = datetime(2027, 3, 21, 19, 30, tzinfo=BERLIN)
-    r = client.patch(f"{API}/lessons/{lessons[0]['id']}?scope=following", headers=school["ha"],
+    r = client.patch(f"{API}/lessons/{lessons[0]['id']}?scope=following", headers=school["aa"],
                      json={"starts_at": new_start.isoformat()})
     assert r.status_code == 200
     after = [client.get(f"{API}/lessons/{x['id']}", headers=school["ha"]).json() for x in lessons]
@@ -82,10 +82,10 @@ def test_shift_following_uses_local_clock(client, school):
 def test_notification_text_in_each_students_time_zone(client, school):
     _set_tz(client, school["h1"], "Asia/Yekaterinburg")  # UTC+5; student 2 keeps the default (Moscow, UTC+3)
     start = datetime(2027, 1, 10, 12, 0, tzinfo=UTC)
-    lesson = client.post(f"{API}/lessons", headers=school["ha"], json={
+    lesson = client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "Grammar", "starts_at": start.isoformat(),
         "student_ids": [school["s1"].id, school["s2"].id]}).json()
-    client.patch(f"{API}/lessons/{lesson['id']}", headers=school["ha"],
+    client.patch(f"{API}/lessons/{lesson['id']}", headers=school["aa"],
                  json={"starts_at": (start + timedelta(hours=1)).isoformat()})  # 13:00 UTC
     n1 = next(n for n in client.get(f"{API}/notifications", headers=school["h1"]).json() if n["type"] == "lesson_changed")
     n2 = next(n for n in client.get(f"{API}/notifications", headers=school["h2"]).json() if n["type"] == "lesson_changed")
@@ -96,7 +96,7 @@ def test_notification_text_in_each_students_time_zone(client, school):
 
 def test_csv_export_uses_teacher_time_zone(client, school):
     _set_tz(client, school["ha"], "Asia/Vladivostok")  # UTC+10
-    r = client.post(f"{API}/lessons", headers=school["ha"], json={
+    r = client.post(f"{API}/lessons", headers=school["aa"], json={
         "title": "Late", "starts_at": datetime(2027, 1, 10, 20, 0, tzinfo=UTC).isoformat(),
         "student_ids": [school["s1"].id]})
     client.put(f"{API}/lessons/{r.json()['id']}/attendance", headers=school["ha"],

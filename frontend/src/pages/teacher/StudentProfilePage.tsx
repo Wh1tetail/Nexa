@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarCheck, CalendarDays, CalendarX2, Mail, MessageSquare, Pencil, Percent, Phone, Plus, Power, Send } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
+
+import { ProgressView } from "@/components/analytics/ProgressView";
 import { toast } from "sonner";
 
-import { EmptyState, ErrorState, PageSkeleton, StatCard } from "@/components/common";
+import { EmptyState, ErrorState, PageSkeleton, StatCard, StatsSkeleton } from "@/components/common";
 import { showInviteToast } from "@/components/common/InviteToast";
 import { AttemptBadge, AttendanceBadge, SubmissionBadge, SubscriptionBadge } from "@/components/common/StatusBadges";
 import { StudentFormDialog } from "@/components/students/StudentFormDialog";
@@ -17,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/contexts/I18nContext";
-import { lessonsApi, studentsApi, testsApi } from "@/services/api";
+import { analyticsApi, lessonsApi, studentsApi, testsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
 import { fmtDate, fmtDateTime, toDateInput } from "@/utils/format";
 import { scoreVariant } from "@/utils/status";
@@ -127,6 +129,7 @@ export default function StudentProfilePage() {
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">{t.students.overview}</TabsTrigger>
+          <TabsTrigger value="progress">{t.analytics.progressTab}</TabsTrigger>
           <TabsTrigger value="homework">{t.nav.homework}</TabsTrigger>
           <TabsTrigger value="tests">{t.nav.tests}</TabsTrigger>
           <TabsTrigger value="attendance">{t.nav.attendance}</TabsTrigger>
@@ -188,6 +191,10 @@ export default function StudentProfilePage() {
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="progress">
+          <StudentProgressTab studentId={id} />
         </TabsContent>
 
         <TabsContent value="homework">
@@ -288,4 +295,11 @@ export default function StudentProfilePage() {
       <SubscriptionFormDialog open={newSub} onOpenChange={setNewSub} studentId={id} />
     </div>
   );
+}
+
+function StudentProgressTab({ studentId }: { studentId: number }) {
+  const q = useQuery({ queryKey: ["analytics", "student", studentId], queryFn: () => analyticsApi.student(studentId) });
+  if (q.isLoading) return <StatsSkeleton />;
+  if (q.isError || !q.data) return <ErrorState onRetry={() => q.refetch()} />;
+  return <ProgressView data={q.data} />;
 }

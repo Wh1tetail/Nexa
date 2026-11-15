@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Response, status
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import DB, CurrentTeacher, get_owned_group, get_owned_students
+from app.api.deps import DB, ActingTeacher, AdminForTeacher, get_owned_group, get_owned_students
 from app.core.exceptions import Conflict
 from app.models import Group
 from app.repositories import student_repository as repo
@@ -25,12 +25,12 @@ def to_out(g: Group) -> GroupOut:
 
 
 @router.get("", response_model=list[GroupOut])
-def list_groups(teacher: CurrentTeacher, db: DB) -> list[GroupOut]:
+def list_groups(teacher: ActingTeacher, db: DB) -> list[GroupOut]:
     return [to_out(g) for g in repo.groups_for_teacher(db, teacher.id)]
 
 
 @router.post("", response_model=GroupOut, status_code=status.HTTP_201_CREATED)
-def create_group(data: GroupCreate, teacher: CurrentTeacher, db: DB) -> GroupOut:
+def create_group(data: GroupCreate, teacher: AdminForTeacher, db: DB) -> GroupOut:
     group = Group(teacher_id=teacher.id, name=data.name.strip(), level=data.level, description=data.description)
     group.students = get_owned_students(db, teacher, data.student_ids)
     db.add(group)
@@ -43,7 +43,7 @@ def create_group(data: GroupCreate, teacher: CurrentTeacher, db: DB) -> GroupOut
 
 
 @router.patch("/{group_id}", response_model=GroupOut)
-def update_group(group_id: int, data: GroupUpdate, teacher: CurrentTeacher, db: DB) -> GroupOut:
+def update_group(group_id: int, data: GroupUpdate, teacher: ActingTeacher, db: DB) -> GroupOut:
     group = get_owned_group(db, teacher, group_id)
     payload = data.model_dump(exclude_unset=True)
     if payload.get("name"):
@@ -63,7 +63,7 @@ def update_group(group_id: int, data: GroupUpdate, teacher: CurrentTeacher, db: 
 
 
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_group(group_id: int, teacher: CurrentTeacher, db: DB) -> Response:
+def delete_group(group_id: int, teacher: AdminForTeacher, db: DB) -> Response:
     db.delete(get_owned_group(db, teacher, group_id))
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

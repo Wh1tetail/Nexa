@@ -4,6 +4,7 @@ Set TEST_DATABASE_URL (defaults to <DATABASE_URL>_test). The schema is created
 with Alembic migrations, so migrations are tested too.
 """
 import os
+from datetime import UTC, datetime, timedelta
 import socket
 import tempfile
 import threading
@@ -35,7 +36,7 @@ from sqlalchemy import text  # noqa: E402
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import StudentProfile, TeacherProfile, User  # noqa: E402
+from app.models import StudentProfile, Subscription, TeacherProfile, User  # noqa: E402
 from app.models.enums import UserRole  # noqa: E402
 
 PASSWORD = "Passw0rd!"
@@ -119,8 +120,40 @@ def school(client):
     _, s1 = make_user(UserRole.STUDENT, "s1@test.io", ta, "Student One")
     _, s2 = make_user(UserRole.STUDENT, "s2@test.io", ta, "Student Two")
     _, s3 = make_user(UserRole.STUDENT, "s3@test.io", tb, "Student Three")
+    make_user(UserRole.ADMIN, "school-admin@test.io", name="School Admin")
+    # students need an active subscription for lessons, homework and tests
+    for s in (s1, s2, s3):
+        give_subscription(s)
+    adm = login(client, "school-admin@test.io")
     return {
         "ta": ta, "tb": tb, "s1": s1, "s2": s2, "s3": s3,
         "ha": login(client, "ta@test.io"), "hb": login(client, "tb@test.io"),
         "h1": login(client, "s1@test.io"), "h2": login(client, "s2@test.io"), "h3": login(client, "s3@test.io"),
+        # the administrator creates students, groups and lessons for a teacher
+        "adm": adm,
+        "aa": {**adm, "X-Teacher-Id": str(ta.id)},
+        "ab": {**adm, "X-Teacher-Id": str(tb.id)},
     }
+
+
+def give_subscription(student: StudentProfile, days: int = 60, **fields) -> Subscription:
+    """An active subscription (started yesterday) unless fields say otherwise."""
+    today = datetime.now(UTC).date()
+    with SessionLocal() as db:
+        sub = Subscription(
+            student_id=student.id, teacher_id=student.teacher_id,
+            start_date=fields.pop("start_date", today - timedelta(days=1)),
+            end_date=fields.pop("end_date", today + timedelta(days=days)),
+            total_lessons=fields.pop("total_lessons", 8), **fields,
+        )
+        db.add(sub)
+        db.commit()
+        db.refresh(sub)
+        return sub
+
+
+def clear_subscriptions(student: StudentProfile) -> None:
+    """For tests that manage a student's subscriptions themselves."""
+    with SessionLocal() as db:
+        db.query(Subscription).filter_by(student_id=student.id).delete()
+        db.commit()

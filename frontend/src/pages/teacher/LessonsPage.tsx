@@ -17,6 +17,7 @@ import { Input, NativeSelect } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
 import { lessonsApi, studentsApi } from "@/services/api";
@@ -30,12 +31,15 @@ function LessonCard({
   onEdit,
   onDelete,
   onExtend,
+  isAdmin,
 }: {
   lesson: Lesson;
   onMark: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onExtend: () => void;
+  /** scheduling, cancelling and deleting are for administrators */
+  isAdmin: boolean;
 }) {
   const { t, locale } = useI18n();
   const qc = useQueryClient();
@@ -114,21 +118,27 @@ function LessonCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={onEdit}><Pencil />{t.common.edit}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => toggleCancel.mutate("one")}>
-                {lesson.status === "cancelled" ? <><RotateCcw />{t.lessons.restoreLesson}</> : <><XCircle />{t.lessons.cancelLesson}</>}
-              </DropdownMenuItem>
-              {lesson.series_id && lesson.status === "scheduled" && lesson.series_position !== lesson.series_total && (
+              {isAdmin && (
+                <DropdownMenuItem onSelect={() => toggleCancel.mutate("one")}>
+                  {lesson.status === "cancelled" ? <><RotateCcw />{t.lessons.restoreLesson}</> : <><XCircle />{t.lessons.cancelLesson}</>}
+                </DropdownMenuItem>
+              )}
+              {isAdmin && lesson.series_id && lesson.status === "scheduled" && lesson.series_position !== lesson.series_total && (
                 <DropdownMenuItem onSelect={() => toggleCancel.mutate("following")}>
                   <XCircle />
                   {t.lessons.cancelFollowing}
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onSelect={onExtend}>
-                <Repeat />
-                {lesson.series_id ? t.lessons.extendSeries : t.lessons.makeRecurring}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem destructive onSelect={onDelete}><Trash2 />{t.common.delete}</DropdownMenuItem>
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem onSelect={onExtend}>
+                    <Repeat />
+                    {lesson.series_id ? t.lessons.extendSeries : t.lessons.makeRecurring}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem destructive onSelect={onDelete}><Trash2 />{t.common.delete}</DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -139,6 +149,7 @@ function LessonCard({
 
 export default function LessonsPage() {
   const { t, locale } = useI18n();
+  const isAdmin = useAuth().user?.role === "admin";
   const qc = useQueryClient();
   const today = new Date();
   const [from, setFrom] = useState(toDateInput(addDays(today, -30)));
@@ -232,7 +243,7 @@ export default function LessonsPage() {
               <Download />
               {t.lessons.exportCsv}
             </Button>
-            <Button onClick={() => { setEditing(undefined); setCreating(true); }}><Plus />{t.lessons.create}</Button>
+            {isAdmin && <Button onClick={() => { setEditing(undefined); setCreating(true); }}><Plus />{t.lessons.create}</Button>}
           </>
         }
       />
@@ -292,7 +303,7 @@ export default function LessonsPage() {
                 <section className="grid gap-3">
                   <h2 className="text-sm font-semibold text-muted-foreground">{t.lessons.upcoming} · {upcoming.length}</h2>
                   {upcoming.map((l) => (
-                    <LessonCard key={l.id} lesson={l} onMark={() => setMarking(l)} onEdit={() => { setEditing(l); setCreating(true); }} onDelete={() => setDeleting(l)} onExtend={() => setExtending(l)} />
+                    <LessonCard key={l.id} lesson={l} onMark={() => setMarking(l)} onEdit={() => { setEditing(l); setCreating(true); }} onDelete={() => setDeleting(l)} onExtend={() => setExtending(l)} isAdmin={isAdmin} />
                   ))}
                 </section>
               )}
@@ -300,7 +311,7 @@ export default function LessonsPage() {
                 <section className="grid gap-3">
                   <h2 className="text-sm font-semibold text-muted-foreground">{t.lessons.past} · {past.length}</h2>
                   {past.map((l) => (
-                    <LessonCard key={l.id} lesson={l} onMark={() => setMarking(l)} onEdit={() => { setEditing(l); setCreating(true); }} onDelete={() => setDeleting(l)} onExtend={() => setExtending(l)} />
+                    <LessonCard key={l.id} lesson={l} onMark={() => setMarking(l)} onEdit={() => { setEditing(l); setCreating(true); }} onDelete={() => setDeleting(l)} onExtend={() => setExtending(l)} isAdmin={isAdmin} />
                   ))}
                 </section>
               )}
