@@ -8,7 +8,7 @@ user-invocable: false
 
 ## Backend (FastAPI)
 - **Auth & roles**: use the dependencies in `app/api/deps.py` — `CurrentUser`, `CurrentTeacher`, `CurrentStudent`, `AdminUser`. Never trust ids from the client.
-- **Admin-only creation**: creating students/groups/lessons, deleting groups/lessons and extending series take `AdminForTeacher`; teacher-data endpoints that admins also use take `ActingTeacher` (admin picks the teacher with `X-Teacher-Id`, set on the frontend by `ActAsTeacher`).
+- **Admin-only creation**: creating students/groups/lessons, deleting groups/lessons, extending series and every subscription change take `AdminForTeacher`; teacher-data endpoints that admins also use take `ActingTeacher` (admin picks the teacher with `X-Teacher-Id`, set on the frontend by `ActAsTeacher`).
 - **Subscription gate**: student endpoints for lessons, homework, tests and attendance take `StudentWithAccess` (403, `code: "subscription_required"`); wrap their routes in `<RequireAccess>` on the frontend.
 - **Ownership**: load teacher-scoped objects with `get_owned_student`, `get_owned_students`, `get_owned_group`, `resolve_recipients` or a `_load`/`_get_owned_*` helper that checks `teacher_id`. Foreign objects raise `NotFound` (404) so their existence is not revealed. Student endpoints (`/me/...`) filter by `student.id`.
 - **Errors**: raise `BadRequest` / `NotFound` / `Forbidden` / `Conflict` from `app/core/exceptions.py` with a short Russian message (the message id) — values as params, never f-strings: `BadRequest("Не более {n} файлов", n=5)`. Add the kk/en translation to `CATALOG` in `app/core/i18n.py` (a test checks it); the response is translated into the request's language (Accept-Language).

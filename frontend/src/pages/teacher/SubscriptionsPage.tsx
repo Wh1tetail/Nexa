@@ -5,7 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { CardListSkeleton, EmptyState, ErrorState, PageHeader } from "@/components/common";
 import { SubscriptionBadge } from "@/components/common/StatusBadges";
-import { SubscriptionActions, SubscriptionFormDialog } from "@/components/subscriptions/SubscriptionDialogs";
+import { SubscriptionActions, SubscriptionFormDialog, useCanManageSubscriptions } from "@/components/subscriptions/SubscriptionDialogs";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,6 +25,7 @@ export default function SubscriptionsPage() {
   const [params, setParams] = useSearchParams();
   const status = (params.get("status") ?? "") as SubscriptionStatus | "";
   const [creating, setCreating] = useState(false);
+  const canManage = useCanManageSubscriptions(); // admin; teachers only view
   const all = useQuery({ queryKey: ["subscriptions", "current"], queryFn: () => subscriptionsApi.list() });
   const items = (all.data ?? []).filter((s) => !status || s.status === status);
   const count = (s: SubscriptionStatus | "") => (all.data ?? []).filter((x) => !s || x.status === s).length;
@@ -33,12 +34,14 @@ export default function SubscriptionsPage() {
     <div>
       <PageHeader
         title={t.subscriptions.title}
-        subtitle={t.subscriptions.subtitle}
+        subtitle={canManage ? t.subscriptions.subtitle : t.subscriptions.viewOnly}
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus />
-            {t.subscriptions.create}
-          </Button>
+          canManage && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus />
+              {t.subscriptions.create}
+            </Button>
+          )
         }
       />
       <Tabs value={status} onValueChange={(v) => setParams(v ? { status: v } : {})} className="mb-4">
@@ -67,13 +70,23 @@ export default function SubscriptionsPage() {
             return (
               <Card key={s.id} className="p-4 sm:p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                  <Link to={`/teacher/students/${s.student_id}`} className="flex min-w-0 items-center gap-3 md:w-64">
-                    <Avatar name={s.student_name} />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-primary hover:text-accent">{s.student_name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{s.title ?? "—"}</p>
-                    </div>
-                  </Link>
+                  {(() => {
+                    const who = (
+                      <>
+                        <Avatar name={s.student_name} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-primary hover:text-accent">{s.student_name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{s.title ?? "—"}</p>
+                        </div>
+                      </>
+                    );
+                    // student profiles are teacher pages
+                    return canManage ? (
+                      <div className="flex min-w-0 items-center gap-3 md:w-64">{who}</div>
+                    ) : (
+                      <Link to={`/teacher/students/${s.student_id}`} className="flex min-w-0 items-center gap-3 md:w-64">{who}</Link>
+                    );
+                  })()}
                   <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-3">
                     <div>
                       <p className="text-xs text-muted-foreground">{t.subscription.end}</p>

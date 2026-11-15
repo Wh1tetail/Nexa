@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
 import { studentsApi, subscriptionsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
@@ -225,7 +226,16 @@ export function ExtendDialog({ open, onOpenChange, sub }: { open: boolean; onOpe
 }
 
 /** Action menu for a subscription: extend, use/return lesson, freeze, edit, delete. */
-export function SubscriptionActions({ sub, compact }: { sub: Subscription; compact?: boolean }) {
+/** Subscriptions are created and changed only by the administrator; teachers just view them. */
+export function useCanManageSubscriptions() {
+  return useAuth().user?.role === "admin";
+}
+
+export function SubscriptionActions(props: { sub: Subscription; compact?: boolean }) {
+  return useCanManageSubscriptions() ? <ManageActions {...props} /> : null;
+}
+
+function ManageActions({ sub, compact }: { sub: Subscription; compact?: boolean }) {
   const { t } = useI18n();
   const invalidate = useInvalidate();
   const [editing, setEditing] = useState(false);

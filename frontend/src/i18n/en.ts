@@ -270,6 +270,7 @@ const en: Dict = {
   subscriptions: {
     title: "Subscriptions",
     subtitle: "Manage your students' subscriptions",
+    viewOnly: "Your students' subscriptions. The administrator issues and changes them",
     create: "New subscription",
     createTitle: "Create subscription",
     editTitle: "Edit subscription",

@@ -1,4 +1,4 @@
-"""Subscription gate for students; creating students/groups/lessons is admin-only."""
+"""Subscription gate for students; creating students/groups/lessons and changing subscriptions is admin-only."""
 from datetime import UTC, datetime, timedelta
 
 from conftest import give_subscription, make_user
@@ -32,7 +32,7 @@ def test_expired_subscription_closes_and_extension_reopens(client, school):
     assert _open(client, h1)
     sub = _only_sub(s1.id)
     today = datetime.now(UTC).date()
-    r = client.patch(f"{API}/subscriptions/{sub.id}", headers=school["ha"], json={
+    r = client.patch(f"{API}/subscriptions/{sub.id}", headers=school["aa"], json={
         "start_date": str(today - timedelta(days=40)), "end_date": str(today - timedelta(days=1))})
     assert r.status_code == 200 and r.json()["status"] == "expired"
 
@@ -47,16 +47,16 @@ def test_expired_subscription_closes_and_extension_reopens(client, school):
     assert client.get(f"{API}/notifications", headers=h1).status_code == 200
 
     # the teacher renews it -> everything is back at once
-    assert client.post(f"{API}/subscriptions/{sub.id}/extend", headers=school["ha"], json={"add_days": 30}).status_code == 200
+    assert client.post(f"{API}/subscriptions/{sub.id}/extend", headers=school["aa"], json={"add_days": 30}).status_code == 200
     assert _open(client, h1)
     assert client.get(f"{API}/auth/me", headers=h1).json()["access_active"] is True
 
 
 def test_frozen_closes_and_unfreeze_reopens(client, school):
     sub = _only_sub(school["s1"].id)
-    client.post(f"{API}/subscriptions/{sub.id}/freeze", headers=school["ha"])
+    client.post(f"{API}/subscriptions/{sub.id}/freeze", headers=school["aa"])
     assert _closed(client, school["h1"])
-    client.post(f"{API}/subscriptions/{sub.id}/unfreeze", headers=school["ha"])
+    client.post(f"{API}/subscriptions/{sub.id}/unfreeze", headers=school["aa"])
     assert _open(client, school["h1"])
 
 
@@ -81,7 +81,7 @@ def test_homework_files_follow_the_gate(client, school):
     file_id = up.json()[0]["id"]
     assert client.get(f"{API}/files/{file_id}", headers=school["h1"]).status_code == 200
     sub = _only_sub(school["s1"].id)
-    client.post(f"{API}/subscriptions/{sub.id}/freeze", headers=school["ha"])
+    client.post(f"{API}/subscriptions/{sub.id}/freeze", headers=school["aa"])
     assert client.get(f"{API}/files/{file_id}", headers=school["h1"]).status_code == 403
 
 
@@ -147,3 +147,31 @@ def test_admin_must_choose_a_teacher(client, school):
         "title": "L", "starts_at": start, "student_ids": [school["s3"].id]})
     assert r.status_code == 403
     assert client.get(f"{API}/groups", headers=school["h1"]).status_code == 403
+
+
+def test_subscriptions_are_view_only_for_teachers(client, school):
+    ha, aa, s1 = school["ha"], school["aa"], school["s1"].id
+    sub = _only_sub(s1)
+    url = f"{API}/subscriptions/{sub.id}"
+    # viewing: yes
+    assert client.get(f"{API}/subscriptions", headers=ha).status_code == 200
+    assert client.get(url, headers=ha).status_code == 200
+    assert client.get(f"{API}/students/{s1}/subscriptions", headers=ha).status_code == 200
+    # every change: no
+    today = datetime.now(UTC).date()
+    assert client.post(f"{API}/subscriptions", headers=ha, json={
+        "student_id": s1, "start_date": str(today), "end_date": str(today + timedelta(days=30)),
+        "total_lessons": 8}).status_code == 403
+    assert client.patch(url, headers=ha, json={"title": "X"}).status_code == 403
+    assert client.post(f"{url}/extend", headers=ha, json={"add_days": 30}).status_code == 403
+    assert client.post(f"{url}/use-lesson", headers=ha, json={"count": 1}).status_code == 403
+    assert client.post(f"{url}/freeze", headers=ha).status_code == 403
+    assert client.post(f"{url}/unfreeze", headers=ha).status_code == 403
+    assert client.delete(url, headers=ha).status_code == 403
+    # the admin, acting for the student's teacher, can
+    assert client.patch(url, headers=aa, json={"title": "X"}).json()["title"] == "X"
+    assert client.post(f"{url}/freeze", headers=aa).json()["status"] == "frozen"
+    assert client.post(f"{url}/unfreeze", headers=aa).status_code == 200
+    # ...but not through another teacher
+    assert client.patch(url, headers=school["ab"], json={"title": "Y"}).status_code == 404
+    assert client.delete(url, headers=aa).status_code == 204

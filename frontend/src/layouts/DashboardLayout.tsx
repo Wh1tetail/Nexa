@@ -74,6 +74,7 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
       { to: "/admin", label: t.nav.dashboard, icon: LayoutDashboard, end: true },
       { to: "/admin/groups", label: t.nav.groups, icon: UsersRound },
       { to: "/admin/lessons", label: t.nav.lessons, icon: CalendarCheck },
+      { to: "/admin/subscriptions", label: t.nav.subscriptions, icon: CreditCard },
     ];
   }
   if (role === "student") {

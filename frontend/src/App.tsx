@@ -44,6 +44,7 @@ const StudentProgressPage = lazy(() => import("@/pages/student/StudentProgressPa
 const AnalyticsPage = lazy(() => import("@/pages/teacher/AnalyticsPage"));
 const AdminGroupsPage = lazy(() => import("@/pages/admin/AdminGroupsPage"));
 const AdminLessonsPage = lazy(() => import("@/pages/admin/AdminLessonsPage"));
+const AdminSubscriptionsPage = lazy(() => import("@/pages/admin/AdminSubscriptionsPage"));
 const SettingsPage = lazy(() => import("@/pages/shared/SettingsPage"));
 
 export default function App() {
@@ -108,6 +109,7 @@ export default function App() {
             <Route index element={<AdminPage />} />
             <Route path="groups" element={<AdminGroupsPage />} />
             <Route path="lessons" element={<AdminLessonsPage />} />
+            <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

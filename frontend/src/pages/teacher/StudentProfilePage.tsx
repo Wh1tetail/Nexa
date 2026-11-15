@@ -10,7 +10,7 @@ import { EmptyState, ErrorState, PageSkeleton, StatCard, StatsSkeleton } from "@
 import { showInviteToast } from "@/components/common/InviteToast";
 import { AttemptBadge, AttendanceBadge, SubmissionBadge, SubscriptionBadge } from "@/components/common/StatusBadges";
 import { StudentFormDialog } from "@/components/students/StudentFormDialog";
-import { SubscriptionActions, SubscriptionFormDialog } from "@/components/subscriptions/SubscriptionDialogs";
+import { SubscriptionActions, SubscriptionFormDialog, useCanManageSubscriptions } from "@/components/subscriptions/SubscriptionDialogs";
 import { SubscriptionWidget } from "@/components/subscriptions/SubscriptionWidget";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ export default function StudentProfilePage() {
   const { studentId } = useParams();
   const id = Number(studentId);
   const { t, locale } = useI18n();
+  const canManageSubs = useCanManageSubscriptions();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [newSub, setNewSub] = useState(false);
@@ -143,12 +144,12 @@ export default function StudentProfilePage() {
               actions={
                 current ? (
                   <SubscriptionActions sub={current} />
-                ) : (
+                ) : canManageSubs ? (
                   <Button onClick={() => setNewSub(true)}>
                     <Plus />
                     {t.subscriptions.create}
                   </Button>
-                )
+                ) : undefined
               }
             />
             <div className="grid content-start gap-4">
@@ -161,10 +162,12 @@ export default function StudentProfilePage() {
               <Card>
                 <CardHeader className="flex-row items-center justify-between space-y-0">
                   <CardTitle>{t.subscription.history}</CardTitle>
-                  <Button size="sm" variant="soft" onClick={() => setNewSub(true)}>
-                    <Plus />
-                    {t.common.create}
-                  </Button>
+                  {canManageSubs && (
+                    <Button size="sm" variant="soft" onClick={() => setNewSub(true)}>
+                      <Plus />
+                      {t.common.create}
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent>
                   {subs.data?.length ? (

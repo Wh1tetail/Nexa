@@ -21,7 +21,7 @@ function savedTeacher(): number | null {
 }
 
 /** Data of one teacher's school life, kept apart per teacher in the cache. */
-const TEACHER_SCOPED = [["lessons"], ["groups"], ["students"], ["attendance"]];
+const TEACHER_SCOPED = [["lessons"], ["groups"], ["students"], ["attendance"], ["subscriptions"]];
 
 /** Administrator pages for a teacher's groups and schedule: pick the teacher,
  *  then the regular pages work for that teacher (X-Teacher-Id on every request). */

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.deps import DB, CurrentTeacher, get_owned_student
+from app.api.deps import DB, ActingTeacher, AdminForTeacher, get_owned_student
 from app.core.exceptions import BadRequest, NotFound
 from app.models import StudentProfile, Subscription, TeacherProfile
 from app.models.enums import SubscriptionStatus
@@ -19,6 +19,9 @@ from app.services import subscription_service as svc
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
+# Teachers only view subscriptions; creating and every change is admin-only
+# (the admin acts for the teacher chosen with X-Teacher-Id / ?teacher_id=).
+
 
 def _get_owned(db: Session, teacher: TeacherProfile, sub_id: int) -> Subscription:
     sub = db.get(Subscription, sub_id)
@@ -29,7 +32,7 @@ def _get_owned(db: Session, teacher: TeacherProfile, sub_id: int) -> Subscriptio
 
 @router.get("", response_model=list[SubscriptionOut])
 def list_subscriptions(
-    teacher: CurrentTeacher,
+    teacher: ActingTeacher,
     db: DB,
     status_filter: SubscriptionStatus | None = None,
     student_id: int | None = None,
@@ -58,7 +61,7 @@ def list_subscriptions(
 
 
 @router.post("", response_model=SubscriptionOut, status_code=status.HTTP_201_CREATED)
-def create_subscription(data: SubscriptionCreate, teacher: CurrentTeacher, db: DB) -> SubscriptionOut:
+def create_subscription(data: SubscriptionCreate, teacher: AdminForTeacher, db: DB) -> SubscriptionOut:
     get_owned_student(db, teacher, data.student_id)
     sub = Subscription(teacher_id=teacher.id, **data.model_dump())
     db.add(sub)
@@ -68,13 +71,13 @@ def create_subscription(data: SubscriptionCreate, teacher: CurrentTeacher, db: D
 
 
 @router.get("/{sub_id}", response_model=SubscriptionOut)
-def get_subscription(sub_id: int, teacher: CurrentTeacher, db: DB) -> SubscriptionOut:
+def get_subscription(sub_id: int, teacher: ActingTeacher, db: DB) -> SubscriptionOut:
     return svc.to_out(_get_owned(db, teacher, sub_id))
 
 
 @router.patch("/{sub_id}", response_model=SubscriptionOut)
 def update_subscription(
-    sub_id: int, data: SubscriptionUpdate, teacher: CurrentTeacher, db: DB
+    sub_id: int, data: SubscriptionUpdate, teacher: AdminForTeacher, db: DB
 ) -> SubscriptionOut:
     sub = _get_owned(db, teacher, sub_id)
     payload = data.model_dump(exclude_unset=True)
@@ -93,7 +96,7 @@ def update_subscription(
 
 @router.post("/{sub_id}/extend", response_model=SubscriptionOut)
 def extend_subscription(
-    sub_id: int, data: SubscriptionExtend, teacher: CurrentTeacher, db: DB
+    sub_id: int, data: SubscriptionExtend, teacher: AdminForTeacher, db: DB
 ) -> SubscriptionOut:
     sub = _get_owned(db, teacher, sub_id)
     if data.new_end_date:
@@ -110,7 +113,7 @@ def extend_subscription(
 
 
 @router.post("/{sub_id}/use-lesson", response_model=SubscriptionOut)
-def use_lesson(sub_id: int, data: UseLessonRequest, teacher: CurrentTeacher, db: DB) -> SubscriptionOut:
+def use_lesson(sub_id: int, data: UseLessonRequest, teacher: AdminForTeacher, db: DB) -> SubscriptionOut:
     sub = _get_owned(db, teacher, sub_id)
     svc.use_lessons(sub, data.count)
     db.commit()
@@ -118,7 +121,7 @@ def use_lesson(sub_id: int, data: UseLessonRequest, teacher: CurrentTeacher, db:
 
 
 @router.post("/{sub_id}/freeze", response_model=SubscriptionOut)
-def freeze(sub_id: int, teacher: CurrentTeacher, db: DB) -> SubscriptionOut:
+def freeze(sub_id: int, teacher: AdminForTeacher, db: DB) -> SubscriptionOut:
     sub = _get_owned(db, teacher, sub_id)
     if not sub.is_frozen:
         sub.is_frozen = True
@@ -128,7 +131,7 @@ def freeze(sub_id: int, teacher: CurrentTeacher, db: DB) -> SubscriptionOut:
 
 
 @router.post("/{sub_id}/unfreeze", response_model=SubscriptionOut)
-def unfreeze(sub_id: int, teacher: CurrentTeacher, db: DB) -> SubscriptionOut:
+def unfreeze(sub_id: int, teacher: AdminForTeacher, db: DB) -> SubscriptionOut:
     sub = _get_owned(db, teacher, sub_id)
     if sub.is_frozen:
         # The frozen period is added to the end date.
@@ -142,7 +145,7 @@ def unfreeze(sub_id: int, teacher: CurrentTeacher, db: DB) -> SubscriptionOut:
 
 
 @router.delete("/{sub_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_subscription(sub_id: int, teacher: CurrentTeacher, db: DB) -> Response:
+def delete_subscription(sub_id: int, teacher: AdminForTeacher, db: DB) -> Response:
     db.delete(_get_owned(db, teacher, sub_id))
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
