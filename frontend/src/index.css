@@ -32,7 +32,49 @@
     --warning-soft: 43 96% 94%;
     --danger: 0 84% 60%;
     --danger-soft: 0 86% 97%;
+    /* text on the *-soft backgrounds (badges, banners) */
+    --success-strong: 142 72% 29%;
+    --warning-strong: 32 95% 34%;
+    --danger-strong: 0 74% 45%;
+    /* always-dark brand panels (sign-in side panel, landing call to action) */
+    --brand: 221 51% 16%;
+    --skeleton: 220 30% 94%;
     --radius: 0.75rem;
+  }
+
+  /* Dark theme: navy surfaces; `primary` turns light because it is the
+     colour of headings and emphasised text. */
+  .dark {
+    --background: 224 44% 7%;
+    --foreground: 220 22% 88%;
+    --card: 223 38% 10%;
+    --card-foreground: 220 22% 88%;
+    --popover: 223 36% 12%;
+    --popover-foreground: 220 22% 88%;
+    --primary: 220 30% 96%;
+    --primary-foreground: 224 44% 9%;
+    /* lighter blue for text on navy; text on blue buttons is navy, not white */
+    --accent: 226 91% 68%;
+    --accent-foreground: 224 50% 8%;
+    --accent-soft: 226 50% 17%;
+    --secondary: 223 30% 15%;
+    --secondary-foreground: 220 22% 88%;
+    --muted: 223 30% 15%;
+    --muted-foreground: 220 14% 64%;
+    --border: 223 26% 19%;
+    --input: 223 22% 26%;
+    --ring: 226 91% 68%;
+    --success: 142 62% 44%;
+    --success-soft: 145 45% 13%;
+    --warning: 38 92% 52%;
+    --warning-soft: 36 60% 13%;
+    --danger: 0 78% 60%;
+    --danger-soft: 0 50% 16%;
+    --success-strong: 142 60% 62%;
+    --warning-strong: 40 92% 62%;
+    --danger-strong: 0 88% 74%;
+    --brand: 223 42% 14%;
+    --skeleton: 223 26% 17%;
   }
 
   * {

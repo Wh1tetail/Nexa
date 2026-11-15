@@ -7,6 +7,7 @@ import { Field, PageHeader } from "@/components/common";
 import { EmailPrefsCard } from "@/components/common/EmailPrefsCard";
 import { TimezoneCard } from "@/components/common/TimezoneCard";
 import { Button } from "@/components/ui/button";
+import { ThemePicker } from "@/components/common/ThemeToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
@@ -97,6 +98,16 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.theme.title}</CardTitle>
+          <p className="text-sm text-muted-foreground">{t.theme.hint}</p>
+        </CardHeader>
+        <CardContent>
+          <ThemePicker />
         </CardContent>
       </Card>
 

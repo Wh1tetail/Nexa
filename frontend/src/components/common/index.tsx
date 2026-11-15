@@ -99,8 +99,8 @@ export function StatCard({
 }) {
   const tones = {
     accent: "bg-accent-soft text-accent",
-    success: "bg-success-soft text-[hsl(142_72%_32%)]",
-    warning: "bg-warning-soft text-[hsl(32_95%_40%)]",
+    success: "bg-success-soft text-success-strong",
+    warning: "bg-warning-soft text-warning-strong",
     danger: "bg-danger-soft text-danger",
     primary: "bg-secondary text-primary",
   };

@@ -10,9 +10,9 @@ const badgeVariants = cva(
       variant: {
         default: "bg-accent-soft text-accent",
         neutral: "bg-secondary text-muted-foreground",
-        success: "bg-success-soft text-[hsl(142_72%_29%)]",
-        warning: "bg-warning-soft text-[hsl(32_95%_36%)]",
-        danger: "bg-danger-soft text-[hsl(0_74%_45%)]",
+        success: "bg-success-soft text-success-strong",
+        warning: "bg-warning-soft text-warning-strong",
+        danger: "bg-danger-soft text-danger-strong",
         primary: "bg-primary text-primary-foreground",
         outline: "border text-muted-foreground",
       },

@@ -221,7 +221,7 @@ const STATUS_BUTTONS: { status: AttendanceStatus; icon: typeof Check; active: st
   { status: "present", icon: Check, active: "border-success bg-success text-white" },
   { status: "late", icon: Clock, active: "border-warning bg-warning text-white" },
   { status: "absent", icon: X, active: "border-danger bg-danger text-white" },
-  { status: "excused", icon: ShieldCheck, active: "border-primary bg-primary text-white" },
+  { status: "excused", icon: ShieldCheck, active: "border-primary bg-primary text-primary-foreground" },
 ];
 
 export function AttendanceDialog({ open, onOpenChange, lesson }: { open: boolean; onOpenChange: (o: boolean) => void; lesson: Lesson | null }) {

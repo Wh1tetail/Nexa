@@ -783,6 +783,16 @@ const kk: Dict = {
     userDeleted: "Пайдаланушы жойылды",
   },
 
+  theme: {
+    title: "Безендіру тақырыбы",
+    hint: "Таңдау осы браузерде сақталады",
+    light: "Ашық",
+    dark: "Қараңғы",
+    system: "Жүйедегідей",
+    toDark: "Қараңғы тақырыпты қосу",
+    toLight: "Ашық тақырыпты қосу",
+  },
+
   settings: {
     emailTitle: "E-mail хабарландырулары",
     emailHint: (email: string) =>

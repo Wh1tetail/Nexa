@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
           <p className="mt-3 text-sm text-primary">{sent.detail}</p>
           {sent.dev_reset_url && (
             <div className="mt-4 rounded-xl border border-dashed border-warning/60 bg-warning-soft p-3 text-xs">
-              <p className="text-[hsl(32_95%_30%)]">{t.auth.devLink}:</p>
+              <p className="text-warning-strong">{t.auth.devLink}:</p>
               <a href={sent.dev_reset_url} className="mt-1 block break-all font-medium text-accent hover:underline">
                 {sent.dev_reset_url}
               </a>

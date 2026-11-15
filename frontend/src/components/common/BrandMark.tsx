@@ -11,13 +11,14 @@ export function BrandMark({
   inverted?: boolean;
   spark?: boolean;
 }) {
-  const tile = inverted ? "#FFFFFF" : "#14213D";
-  const stem = inverted ? "#14213D" : "#FFFFFF";
+  // the regular mark flips in the dark theme so it stays visible on navy
+  const tile = inverted ? "fill-white" : "fill-[#14213D] dark:fill-white";
+  const stem = inverted ? "stroke-[#14213D]" : "stroke-white dark:stroke-[#14213D]";
   return (
     <svg viewBox="0 0 32 32" className={cn("size-8 shrink-0", className)} aria-hidden focusable="false">
-      <rect width="32" height="32" rx="9" fill={tile} />
-      <path d="M10 23V9" stroke={stem} strokeWidth="3.2" strokeLinecap="round" />
-      <path d="M22 23V9" stroke={stem} strokeWidth="3.2" strokeLinecap="round" />
+      <rect width="32" height="32" rx="9" className={tile} />
+      <path d="M10 23V9" className={stem} strokeWidth="3.2" strokeLinecap="round" />
+      <path d="M22 23V9" className={stem} strokeWidth="3.2" strokeLinecap="round" />
       <path d="M10.6 9.8 21.4 22.2" stroke="#3563F5" strokeWidth="3.2" strokeLinecap="round" />
       {spark && <circle cx="25.5" cy="6.5" r="2.2" fill="#3563F5" />}
     </svg>

@@ -44,7 +44,7 @@ export default function NotificationsPage() {
           <TabsTrigger value="all">{t.notifications.all}</TabsTrigger>
           <TabsTrigger value="unread">
             {t.notifications.unread}
-            {(unread.data ?? 0) > 0 && <span className="tabular rounded-full bg-accent px-1.5 text-[11px] text-white">{unread.data}</span>}
+            {(unread.data ?? 0) > 0 && <span className="tabular rounded-full bg-accent px-1.5 text-[11px] text-accent-foreground">{unread.data}</span>}
           </TabsTrigger>
         </TabsList>
       </Tabs>

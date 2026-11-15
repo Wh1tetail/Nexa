@@ -783,6 +783,16 @@ const ru = {
     userDeleted: "Пользователь удалён",
   },
 
+  theme: {
+    title: "Тема оформления",
+    hint: "Выбор хранится в этом браузере",
+    light: "Светлая",
+    dark: "Тёмная",
+    system: "Как в системе",
+    toDark: "Включить тёмную тему",
+    toLight: "Включить светлую тему",
+  },
+
   settings: {
     emailTitle: "Уведомления на e-mail",
     emailHint: (email: string) =>

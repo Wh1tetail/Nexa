@@ -35,7 +35,7 @@ export function LockedSection() {
   const sub = useQuery({ queryKey: ["me", "subscription"], queryFn: meApi.subscription });
   return (
     <Card className="mx-auto max-w-xl p-6 text-center sm:p-10">
-      <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-warning-soft text-[hsl(32_95%_36%)]">
+      <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-warning-soft text-warning-strong">
         <Lock className="size-7" />
       </div>
       <h1 className="mt-5 text-xl font-semibold text-primary">{t.access.title}</h1>

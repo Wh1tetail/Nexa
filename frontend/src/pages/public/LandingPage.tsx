@@ -18,6 +18,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Logo } from "@/components/common";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -63,7 +64,7 @@ function HeroMockup() {
             <p className="text-xs text-muted-foreground">{t.subscription.title}</p>
             <p className="mt-1 font-semibold text-primary">12 / 16 {t.subscription.left.toLowerCase()}</p>
           </div>
-          <span className="rounded-full bg-success-soft px-2.5 py-1 text-xs font-medium text-[hsl(142_72%_29%)]">
+          <span className="rounded-full bg-success-soft px-2.5 py-1 text-xs font-medium text-success-strong">
             {t.status.subscription.active}
           </span>
         </div>
@@ -83,7 +84,7 @@ function HeroMockup() {
       </Card>
       <Card className="absolute -bottom-8 -left-2 hidden w-60 p-4 shadow-lift sm:block lg:-left-10">
         <div className="flex items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-success-soft text-[hsl(142_72%_32%)]">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-success-soft text-success-strong">
             <Check className="size-4" />
           </span>
           <div className="min-w-0">
@@ -135,6 +136,7 @@ export default function LandingPage() {
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <LanguageToggle />
+            <ThemeToggle />
             <Button variant="ghost" asChild className="hidden sm:inline-flex">
               <Link to={cabinet}>{user ? user.full_name.split(" ")[0] : l.login}</Link>
             </Button>
@@ -258,7 +260,7 @@ export default function LandingPage() {
       {/* CTA */}
       <section id="cta" className="scroll-mt-16 py-16 sm:py-24">
         <div className="container">
-          <div className="relative overflow-hidden rounded-3xl bg-primary px-6 py-12 text-center sm:px-12 sm:py-16">
+          <div className="relative overflow-hidden rounded-3xl bg-brand px-6 py-12 text-center sm:px-12 sm:py-16">
             <div className="absolute -right-20 -top-20 size-72 rounded-full bg-accent/40 blur-3xl" />
             <div className="absolute -bottom-24 -left-10 size-72 rounded-full bg-accent/20 blur-3xl" />
             <div className="relative">

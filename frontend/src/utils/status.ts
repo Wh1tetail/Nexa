@@ -40,11 +40,11 @@ export const attemptVariant: Record<AttemptStatus | "not_started", BadgeVariant>
 export function subscriptionTone(status: SubscriptionStatus) {
   switch (status) {
     case "active":
-      return { bar: "bg-success", text: "text-[hsl(142_72%_29%)]", soft: "bg-success-soft" };
+      return { bar: "bg-success", text: "text-success-strong", soft: "bg-success-soft" };
     case "expiring_soon":
-      return { bar: "bg-warning", text: "text-[hsl(32_95%_36%)]", soft: "bg-warning-soft" };
+      return { bar: "bg-warning", text: "text-warning-strong", soft: "bg-warning-soft" };
     case "expired":
-      return { bar: "bg-danger", text: "text-[hsl(0_74%_45%)]", soft: "bg-danger-soft" };
+      return { bar: "bg-danger", text: "text-danger-strong", soft: "bg-danger-soft" };
     default:
       return { bar: "bg-muted-foreground/40", text: "text-muted-foreground", soft: "bg-secondary" };
   }

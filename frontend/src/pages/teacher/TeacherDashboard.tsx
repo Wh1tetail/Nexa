@@ -34,8 +34,8 @@ export default function TeacherDashboard() {
         >
           <AlertTriangle className="size-5 shrink-0 text-warning" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-[hsl(32_95%_30%)]">{t.subscriptions.alertTitle(needAttention)}</p>
-            <p className="text-xs text-[hsl(32_70%_35%)]">{t.subscriptions.alertText}</p>
+            <p className="text-sm font-semibold text-warning-strong">{t.subscriptions.alertTitle(needAttention)}</p>
+            <p className="text-xs text-warning-strong">{t.subscriptions.alertText}</p>
           </div>
         </Link>
       )}

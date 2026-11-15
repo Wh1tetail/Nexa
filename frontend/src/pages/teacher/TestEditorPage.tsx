@@ -367,7 +367,7 @@ export default function TestEditorPage() {
       <h1 className="page-title">{editId ? t.tests.editTitle : t.tests.createTitle}</h1>
 
       {locked && (
-        <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm text-[hsl(32_95%_30%)]">
+        <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm text-warning-strong">
           <Lock className="mt-0.5 size-4 shrink-0" />
           {t.tests.lockedQuestions}
         </div>

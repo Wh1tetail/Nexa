@@ -81,7 +81,7 @@ export default function StudentHomeworkList() {
         <TabsList>
           <TabsTrigger value="active">
             {t.homework.filterActive}
-            {activeCount > 0 && <span className="tabular rounded-full bg-accent px-1.5 text-[11px] text-white">{activeCount}</span>}
+            {activeCount > 0 && <span className="tabular rounded-full bg-accent px-1.5 text-[11px] text-accent-foreground">{activeCount}</span>}
           </TabsTrigger>
           <TabsTrigger value="done">{t.homework.filterDone}</TabsTrigger>
           <TabsTrigger value="all">{t.common.all}</TabsTrigger>

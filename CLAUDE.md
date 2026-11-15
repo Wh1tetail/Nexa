@@ -36,4 +36,5 @@ Online English school LMS. Russian UI by default (English supported). Full docs:
 - Time: store UTC; anything "wall clock" (weekly series, texts for people, CSV) goes through `app/core/timezones.py` with the user's `users.timezone`. Frontend formats only via `utils/format.ts` (profile time zone), never raw `toLocaleString`/`setHours`.
 - Main data lives in PostgreSQL; `localStorage` only holds the refresh token and UI preferences.
 - No horizontal scroll at 375px; dialogs are bottom sheets on mobile.
+- Light and dark themes: colours only through the tokens in `src/index.css` (`bg-card`, `text-primary`, `text-success-strong`, `bg-brand`, `text-accent-foreground`…), never hex/`hsl()` literals or `text-white` on `bg-accent`; a fixed palette needs `dark:` variants (see `components/ui/avatar.tsx`).
 - Never edit `backend/.env` (use `.env.example`) or lock files by hand — a hook blocks it.

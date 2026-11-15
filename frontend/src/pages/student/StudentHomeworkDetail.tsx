@@ -116,7 +116,7 @@ export default function StudentHomeworkDetail() {
                   {t.homework.teacherFeedback}
                 </CardTitle>
                 {h.grade !== null && (
-                  <span className="tabular rounded-xl bg-success-soft px-3 py-1 text-lg font-semibold text-[hsl(142_72%_29%)]">
+                  <span className="tabular rounded-xl bg-success-soft px-3 py-1 text-lg font-semibold text-success-strong">
                     {h.grade}
                     <span className="text-sm font-normal opacity-70">/{h.max_grade}</span>
                   </span>

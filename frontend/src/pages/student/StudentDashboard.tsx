@@ -25,7 +25,7 @@ export default function StudentDashboard() {
     <div className="space-y-6">
       {!d.access_active && (
         <div className="flex flex-col gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-4 sm:flex-row sm:items-center">
-          <Lock className="size-5 shrink-0 text-[hsl(32_95%_36%)]" />
+          <Lock className="size-5 shrink-0 text-warning-strong" />
           <p className="flex-1 text-sm text-primary">{t.access.banner}</p>
           <Button size="sm" asChild>
             <Link to="/student/subscription">{t.access.mySubscription}</Link>

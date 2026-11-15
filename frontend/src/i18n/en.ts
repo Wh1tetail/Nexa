@@ -782,6 +782,16 @@ const en: Dict = {
     userDeleted: "User deleted",
   },
 
+  theme: {
+    title: "Theme",
+    hint: "Your choice is saved in this browser",
+    light: "Light",
+    dark: "Dark",
+    system: "System",
+    toDark: "Switch to dark theme",
+    toLight: "Switch to light theme",
+  },
+
   settings: {
     emailTitle: "E-mail notifications",
     emailHint: (email: string) =>

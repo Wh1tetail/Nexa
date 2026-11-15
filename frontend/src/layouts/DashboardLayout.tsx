@@ -22,6 +22,7 @@ import { toast } from "sonner";
 
 import { Logo } from "@/components/common";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTitle, SheetContent } from "@/components/ui/dialog";
@@ -136,7 +137,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           <span className="truncate">{label}</span>
           {locked && <Lock className="ml-auto size-3.5 shrink-0 opacity-60" aria-label={t.access.locked} />}
           {!!badge && (
-            <span className="tabular ml-auto rounded-full bg-accent px-1.5 text-[11px] font-medium leading-5 text-white">
+            <span className="tabular ml-auto rounded-full bg-accent px-1.5 text-[11px] font-medium leading-5 text-accent-foreground">
               {badge > 99 ? "99+" : badge}
             </span>
           )}
@@ -231,6 +232,7 @@ export function DashboardLayout() {
           </Button>
           <Logo to={base} className="lg:hidden" />
           <div className="flex-1" />
+          <ThemeToggle />
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

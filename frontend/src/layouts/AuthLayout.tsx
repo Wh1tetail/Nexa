@@ -17,7 +17,7 @@ export function AuthLayout() {
         </div>
         <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} {t.appName}</p>
       </div>
-      <div className="relative hidden overflow-hidden bg-primary lg:block">
+      <div className="relative hidden overflow-hidden bg-brand lg:block">
         <div className="absolute -right-24 -top-24 size-[420px] rounded-full bg-accent/40 blur-3xl" />
         <div className="absolute -bottom-32 -left-16 size-[360px] rounded-full bg-accent/25 blur-3xl" />
         <div className="relative flex h-full flex-col justify-end p-12 text-white">

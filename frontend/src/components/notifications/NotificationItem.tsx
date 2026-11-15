@@ -20,12 +20,12 @@ import { fmtRelative } from "@/utils/format";
 const ICONS: Record<NotificationType, { icon: LucideIcon; tone: string }> = {
   homework_assigned: { icon: ClipboardList, tone: "bg-accent-soft text-accent" },
   homework_submitted: { icon: FileUp, tone: "bg-accent-soft text-accent" },
-  homework_reviewed: { icon: FileCheck2, tone: "bg-success-soft text-[hsl(142_72%_32%)]" },
+  homework_reviewed: { icon: FileCheck2, tone: "bg-success-soft text-success-strong" },
   test_assigned: { icon: BookOpenCheck, tone: "bg-accent-soft text-accent" },
   test_completed: { icon: ClipboardCheck, tone: "bg-accent-soft text-accent" },
-  test_graded: { icon: ClipboardCheck, tone: "bg-success-soft text-[hsl(142_72%_32%)]" },
-  lesson_changed: { icon: CalendarClock, tone: "bg-warning-soft text-[hsl(32_95%_40%)]" },
-  subscription_expiring: { icon: CreditCard, tone: "bg-warning-soft text-[hsl(32_95%_40%)]" },
+  test_graded: { icon: ClipboardCheck, tone: "bg-success-soft text-success-strong" },
+  lesson_changed: { icon: CalendarClock, tone: "bg-warning-soft text-warning-strong" },
+  subscription_expiring: { icon: CreditCard, tone: "bg-warning-soft text-warning-strong" },
   subscription_expired: { icon: CreditCard, tone: "bg-danger-soft text-danger" },
   system: { icon: Bell, tone: "bg-secondary text-primary" },
 };

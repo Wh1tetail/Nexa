@@ -142,7 +142,7 @@ export default function TakeTestPage() {
             <div
               className={cn(
                 "tabular flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold",
-                left < 60 ? "bg-danger-soft text-danger" : left < 300 ? "bg-warning-soft text-[hsl(32_95%_36%)]" : "bg-secondary text-primary",
+                left < 60 ? "bg-danger-soft text-danger" : left < 300 ? "bg-warning-soft text-warning-strong" : "bg-secondary text-primary",
               )}
               aria-label={t.tests.timeLeft}
             >

@@ -134,7 +134,7 @@ function ThreadList({ threads, loading, activeId }: { threads?: ChatThread[]; lo
                       {last ? (last.sender_user_id === user?.id ? `${t.messages.you}: ` : "") + lastText(last) : t.messages.noMessagesYet}
                     </span>
                     {x.unread_count > 0 && (
-                      <span className="tabular shrink-0 rounded-full bg-accent px-1.5 text-[11px] font-medium text-white">{x.unread_count}</span>
+                      <span className="tabular shrink-0 rounded-full bg-accent px-1.5 text-[11px] font-medium text-accent-foreground">{x.unread_count}</span>
                     )}
                   </div>
                 </div>
@@ -404,7 +404,7 @@ function MessageRow({ m, mine, dayHeader, time }: { m: ChatMessage; mine: boolea
         <div
           className={cn(
             "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm shadow-sm sm:max-w-[70%]",
-            mine ? "rounded-br-md bg-accent text-white" : "rounded-bl-md bg-background text-primary",
+            mine ? "rounded-br-md bg-accent text-accent-foreground" : "rounded-bl-md bg-background text-primary",
           )}
         >
           {m.attachments.length > 0 && (
@@ -415,7 +415,7 @@ function MessageRow({ m, mine, dayHeader, time }: { m: ChatMessage; mine: boolea
             </div>
           )}
           {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
-          <div className={cn("mt-0.5 flex items-center justify-end gap-1 text-[10px]", mine ? "text-white/75" : "text-muted-foreground")}>
+          <div className={cn("mt-0.5 flex items-center justify-end gap-1 text-[10px]", mine ? "text-accent-foreground/90" : "text-muted-foreground")}>
             <span>{time}</span>
             {mine &&
               (m.read_at ? (
@@ -449,16 +449,16 @@ function ChatFile({ file, mine }: { file: Attachment; mine: boolean }) {
       }}
       className={cn(
         "flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors disabled:opacity-60",
-        mine ? "bg-white/15 hover:bg-white/25" : "bg-secondary hover:bg-secondary/70",
+        mine ? "bg-accent-foreground/10 hover:bg-accent-foreground/20" : "bg-secondary hover:bg-secondary/70",
       )}
       aria-label={`${t.common.download}: ${file.original_name}`}
     >
-      <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", mine ? "bg-white/20" : "bg-accent-soft text-accent")}>
+      <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", mine ? "bg-accent-foreground/15" : "bg-accent-soft text-accent")}>
         {busy ? <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Download className="size-4" />}
       </span>
       <span className="min-w-0">
         <span className="block truncate font-medium">{file.original_name}</span>
-        <span className={cn("block text-[11px]", mine ? "text-white/75" : "text-muted-foreground")}>{fmtSize(file.size_bytes)}</span>
+        <span className={cn("block text-[11px]", mine ? "text-accent-foreground/90" : "text-muted-foreground")}>{fmtSize(file.size_bytes)}</span>
       </span>
     </button>
   );
