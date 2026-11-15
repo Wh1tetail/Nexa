@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # E-mail: "console" logs messages (development), "smtp" sends them.
     EMAIL_BACKEND: Literal["console", "smtp"] = "console"
-    EMAIL_FROM: str = "NEXA <no-reply@nexa.school>"
+    EMAIL_FROM: str = "NEXA <no-reply@nexalanguage.com>"
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587
     SMTP_USER: str | None = None

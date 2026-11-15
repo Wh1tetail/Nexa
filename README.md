@@ -550,7 +550,9 @@ GET /api/v1/analytics/me                            (ученик)
 | A | `@` | IP-адрес VPS |
 | A | `www` | IP-адрес VPS (необязательно: `www` будет перенаправлять на основной адрес) |
 
-Проверка: `ping ваш-домен.kz` должен показать IP сервера.
+Проверка: `ping nexalanguage.com` должен показать IP сервера.
+
+Для `nexalanguage.com` (DNS на Hostinger, на ноябрь 2026): запись `A @` сейчас ведёт на страницу-заглушку Hostinger (`2.57.91.91`) — замените её значение на IP VPS в hPanel → «Домены» → «DNS / Nameservers». `www` уже настроен как псевдоним основного домена, его трогать не нужно. Почтовых (MX) записей пока нет: для писем создайте ящик, например `no-reply@nexalanguage.com`, в Hostinger Email — MX и SPF-записи добавятся при подключении почты.
 
 ### 2. Сервер
 
@@ -579,8 +581,8 @@ cp .env.production.example .env && nano .env
 
 | Параметр | Значение |
 |---|---|
-| `DOMAIN` | домен без `https://`, например `nexa-school.kz` |
-| `PUBLIC_URL` | `https://nexa-school.kz` — используется в ссылках из писем |
+| `DOMAIN` | `nexalanguage.com` (без `https://`) |
+| `PUBLIC_URL` | `https://nexalanguage.com` — используется в ссылках из писем |
 | `HTTP_BIND` | `127.0.0.1` — сайт снаружи доступен только через HTTPS |
 | `POSTGRES_PASSWORD` | `python3 -c "import secrets; print(secrets.token_urlsafe(24))"` |
 | `SECRET_KEY` | `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
@@ -590,7 +592,7 @@ cp .env.production.example .env && nano .env
 | Параметр | Пример |
 |---|---|
 | `EMAIL_BACKEND` | `smtp` |
-| `EMAIL_FROM` | `NEXA <no-reply@nexa-school.kz>` |
+| `EMAIL_FROM` | `NEXA <no-reply@nexalanguage.com>` |
 | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | адрес сервера, логин (обычно e-mail) и пароль ящика |
 | `SMTP_PORT` | `587` (тогда `SMTP_STARTTLS=true`, `SMTP_SSL=false`) или `465` (тогда `SMTP_SSL=true`) |
 
@@ -602,12 +604,12 @@ cp .env.production.example .env && nano .env
 docker compose --profile https up -d --build
 ```
 
-Первая сборка занимает несколько минут. Состояние: `docker compose ps` (все сервисы `running`/`healthy`), логи: `docker compose logs -f`. Через минуту после старта сайт открывается на `https://ваш-домен` с действующим сертификатом.
+Первая сборка занимает несколько минут. Состояние: `docker compose ps` (все сервисы `running`/`healthy`), логи: `docker compose logs -f`. Через минуту после старта сайт открывается на `https://nexalanguage.com` с действующим сертификатом.
 
 ### 5. Первый администратор и проверка почты
 
 ```bash
-docker compose exec backend python -m scripts.create_admin --email you@nexa-school.kz --name "Имя Фамилия"
+docker compose exec backend python -m scripts.create_admin --email you@nexalanguage.com --name "Имя Фамилия"
 ```
 
 Пароль спросят дважды (минимум 8 символов, буквы и цифры). Дальше администратор входит на сайт и создаёт преподавателей и учеников в интерфейсе. Если пароль администратора забыт — та же команда с `--reset-password`.
