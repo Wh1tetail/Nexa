@@ -168,6 +168,8 @@ CATALOG: dict[str, dict[str, str]] = {
     "Тест ещё не открыт": {"kk": "Тест әлі ашылмаған", "en": "The test is not open yet"},
     "Срок сдачи теста истёк": {"kk": "Тестті тапсыру мерзімі өтті", "en": "The test deadline has passed"},
     "Тест уже завершён": {"kk": "Тест аяқталып қойған", "en": "The test is already finished"},
+    "Попытки закончились": {"kk": "Талпыныстар таусылды", "en": "No attempts left"},
+    "Тест больше не назначен этому ученику": {"kk": "Бұл тест енді осы оқушыға тағайындалмаған", "en": "This test is no longer assigned to the student"},
     "Время на прохождение теста истекло": {"kk": "Тестке берілген уақыт бітті", "en": "Time for the test is up"},
     "Ученик ещё не завершил тест": {"kk": "Оқушы тестті әлі аяқтаған жоқ", "en": "The student has not finished the test yet"},
     "Ответ не относится к этой попытке": {"kk": "Жауап бұл әрекетке жатпайды", "en": "The answer does not belong to this attempt"},

@@ -160,13 +160,17 @@ def test_teacher_can_allow_a_retake(client, school):
     t = _create(client, school)
     result = _take(client, school, t, right=1)
     # another teacher cannot
-    assert client.post(f"{API}/tests/attempts/{result['id']}/reset", headers=school["hb"]).status_code == 404
-    assert client.post(f"{API}/tests/attempts/{result['id']}/reset", headers=school["ha"]).status_code == 204
+    assert client.post(f"{API}/tests/attempts/{result['id']}/retake", headers=school["hb"]).status_code == 404
+    assert client.post(f"{API}/tests/attempts/{result['id']}/retake", headers=school["ha"]).status_code == 204
     item = client.get(f"{API}/me/tests", headers=school["h1"]).json()[0]
-    assert item["attempt_id"] is None
+    assert item["can_retake"] is True and item["attempt_id"] == result["id"]  # the old result is kept
     notes = client.get(f"{API}/notifications", headers=school["h1"]).json()
     assert notes[0]["title"] == "Тест можно пройти ещё раз"
-    assert _take(client, school, t, right=3)["percent"] == 100
+    again = client.post(f"{API}/me/tests/{t['id']}/start", headers=school["h1"], params={"retake": True}).json()
+    answers = [{"question_id": q["id"], "answer": ["a"]} for q in t["questions"]]
+    done = client.post(f"{API}/me/tests/attempts/{again['id']}/submit", headers=school["h1"],
+                       json={"answers": answers}).json()
+    assert done["percent"] == 100 and done["number"] == 2
 
 
 def test_settings_can_change_after_start_but_questions_cannot(client, school):

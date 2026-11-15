@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, EyeOff, Hourglass } from "lucide-react";
+import { ArrowLeft, EyeOff, Hourglass, RotateCcw } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import { ErrorState, PageSkeleton } from "@/components/common";
@@ -7,16 +7,26 @@ import { AttemptBadge } from "@/components/common/StatusBadges";
 import { QuestionView } from "@/components/tests/QuestionView";
 import { TestMaterials } from "@/components/tests/TestMedia";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
 import { meApi } from "@/services/api";
 import { fmtDateTime } from "@/utils/format";
+import { scoreVariant } from "@/utils/status";
 
 export default function AttemptResultPage() {
   const { attemptId } = useParams();
   const { t, locale } = useI18n();
   const q = useQuery({ queryKey: ["me", "attempt", attemptId], queryFn: () => meApi.attempt(Number(attemptId)) });
+  const testId = q.data?.test_id;
+  const history = useQuery({
+    queryKey: ["me", "tests", testId, "attempts"],
+    queryFn: () => meApi.testAttempts(testId!),
+    enabled: !!testId,
+  });
+  const tests = useQuery({ queryKey: ["me", "tests"], queryFn: meApi.tests, enabled: !!testId });
+  const item = tests.data?.find((x) => x.test_id === testId);
 
   if (q.isLoading) return <PageSkeleton />;
   if (q.isError || !q.data) return <ErrorState onRetry={() => q.refetch()} />;
@@ -66,6 +76,9 @@ export default function AttemptResultPage() {
             )}
           </div>
           <h1 className="mt-2 text-xl font-semibold">{a.test_title}</h1>
+          {(item?.attempts_allowed ?? 1) > 1 && (
+            <p className="text-sm text-muted-foreground">{t.tests.attemptOf(a.number, item!.attempts_allowed)}</p>
+          )}
           {a.score !== null && (
             <p className="tabular mt-1 text-sm text-muted-foreground">
               {t.tests.score}: {a.score} / {a.max_score}
@@ -79,8 +92,41 @@ export default function AttemptResultPage() {
               {t.tests.answersHidden}
             </p>
           )}
+          {item?.can_retake && (
+            <Button asChild className="mt-4">
+              <Link to={`/student/tests/${a.test_id}/take?retake=1`}><RotateCcw />{t.tests.retake}</Link>
+            </Button>
+          )}
         </div>
       </Card>
+
+      {(history.data?.length ?? 0) > 1 && (
+        <Card className="mt-4 p-4 sm:p-5">
+          <h2 className="text-sm font-semibold text-primary">{t.tests.myAttempts}</h2>
+          <ul className="mt-2 divide-y">
+            {history.data!.map((h) => (
+              <li key={h.id}>
+                <Link
+                  to={`/student/tests/attempts/${h.id}`}
+                  aria-current={h.id === a.id ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-2 py-2.5 text-sm hover:bg-secondary/60",
+                    h.id === a.id && "bg-secondary/60 font-medium",
+                  )}
+                >
+                  <span className="w-24 shrink-0 text-primary">{t.tests.attemptNo(h.number)}</span>
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground">{fmtDateTime(h.submitted_at ?? h.started_at, locale)}</span>
+                  {h.percent !== null ? (
+                    <Badge variant={scoreVariant(h.percent)} className="tabular">{h.percent}%</Badge>
+                  ) : (
+                    <AttemptBadge status={h.status} />
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <div className="mt-6 grid gap-4">
         <TestMaterials files={a.files} usedIds={a.questions.flatMap((x) => x.attachment_ids)} />

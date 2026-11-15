@@ -41,7 +41,7 @@ export default function TestResultsPage() {
   });
 
   const reset = useMutation({
-    mutationFn: (a: AttemptSummary) => testsApi.resetAttempt(a.id),
+    mutationFn: (a: AttemptSummary) => testsApi.allowRetake(a.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tests"] });
       toast.success(t.tests.retakeAllowed);
@@ -110,6 +110,9 @@ export default function TestResultsPage() {
                     <div className="flex items-center gap-3 whitespace-nowrap">
                       <Avatar name={a.student_name} className="size-8 text-[10px]" />
                       <span className="font-medium text-primary">{a.student_name}</span>
+                      {d.max_attempts > 1 || attempts.data!.some((x) => x.student_id === a.student_id && x.number > 1) ? (
+                        <span className="text-xs text-muted-foreground">{t.tests.attemptNo(a.number)}</span>
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">{fmtDateTime(a.submitted_at ?? a.started_at, locale)}</TableCell>
@@ -148,7 +151,6 @@ export default function TestResultsPage() {
         description={resetting ? t.tests.retakeText(resetting.student_name) : ""}
         confirmLabel={t.tests.allowRetake}
         cancelLabel={t.common.cancel}
-        destructive
         loading={reset.isPending}
         onConfirm={() => resetting && reset.mutate(resetting)}
       />

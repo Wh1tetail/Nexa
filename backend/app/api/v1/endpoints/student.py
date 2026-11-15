@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, File, Response, UploadFile, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import DB, CurrentStudent, StudentWithAccess
@@ -14,7 +15,7 @@ from app.models.test import test_assignments
 from app.schemas.homework import AttachmentOut, StudentHomework, SubmitRequest
 from app.schemas.lesson import StudentAttendanceSummary
 from app.schemas.subscription import SubscriptionOut
-from app.schemas.test import AttemptDetail, SaveProgress, StudentTestItem, SubmitAttempt
+from app.schemas.test import AttemptDetail, AttemptSummary, SaveProgress, StudentTestItem, SubmitAttempt
 from app.services import attendance_service as att_svc
 from app.services import file_service
 from app.services import homework_service as hw_svc
@@ -174,38 +175,62 @@ def my_tests(student: StudentWithAccess, db: DB) -> list[StudentTestItem]:
         .where(test_assignments.c.student_id == student.id)
         .order_by(Test.created_at.desc())
     ).all()
-    attempts = {
-        a.test_id: a
-        for a in db.scalars(select(TestAttempt).where(TestAttempt.student_id == student.id)).all()
-    }
-    return [test_svc.student_item(t, attempts.get(t.id)) for t in tests]
+    attempts = test_svc.attempts_of(db, student.id)
+    extra = test_svc.extra_attempts(db, student.id)
+    return [test_svc.student_item(t, attempts.get(t.id, []), extra.get(t.id, 0)) for t in tests]
 
 
 @router.post("/tests/{test_id}/start", response_model=AttemptDetail)
-def start_test(test_id: int, student: StudentWithAccess, db: DB) -> AttemptDetail:
+def start_test(test_id: int, student: StudentWithAccess, db: DB, retake: bool = False) -> AttemptDetail:
+    """Open the test: continues an unfinished attempt, otherwise starts the first
+    one. With retake=true a finished test is started again if attempts are left;
+    without it the latest attempt is returned (its results)."""
     test = _assigned_test(db, student, test_id)
-    attempt = db.scalar(
-        select(TestAttempt).where(TestAttempt.test_id == test.id, TestAttempt.student_id == student.id)
-    )
-    if attempt is None:
+    attempts = test_svc.attempts_of(db, student.id, [test.id]).get(test.id, [])
+    latest = attempts[-1] if attempts else None
+    if latest and latest.status == AttemptStatus.IN_PROGRESS:
+        if test_svc.is_time_over(latest):
+            # time ran out while the student was away: submit what was saved
+            test_svc.finalize(db, latest, {a.question_id: a.answer for a in latest.answers})
+            db.commit()
+        return test_svc.attempt_detail(latest, for_teacher=False)
+    if latest and not retake:
+        return test_svc.attempt_detail(latest, for_teacher=False)
+
+    extra = test_svc.extra_attempts(db, student.id).get(test.id, 0)
+    if not test_svc.can_start(test, attempts, extra):
         if not test_svc.is_available(test):
             raise BadRequest("Тест ещё не открыт")
-        if test.due_at and test.due_at < datetime.now(UTC):
-            raise BadRequest("Срок сдачи теста истёк")
-        attempt = TestAttempt(
-            test_id=test.id,
-            student_id=student.id,
-            started_at=datetime.now(UTC),
-            max_score=float(sum(q.points for q in test.questions)),
-        )
-        db.add(attempt)
+        if attempts and len(attempts) >= test.max_attempts + extra:
+            raise BadRequest("Попытки закончились")
+        raise BadRequest("Срок сдачи теста истёк")
+    attempt = TestAttempt(
+        test_id=test.id,
+        student_id=student.id,
+        number=(latest.number + 1) if latest else 1,
+        started_at=datetime.now(UTC),
+        max_score=float(sum(q.points for q in test.questions)),
+    )
+    db.add(attempt)
+    try:
         db.commit()
-        db.refresh(attempt)
-    elif attempt.status == AttemptStatus.IN_PROGRESS and test_svc.is_time_over(attempt):
-        # time ran out while the student was away: submit what was saved
-        test_svc.finalize(db, attempt, {a.question_id: a.answer for a in attempt.answers})
-        db.commit()
+    except IntegrityError:  # a parallel request (double click) already started it
+        db.rollback()
+        attempt = db.scalars(
+            select(TestAttempt)
+            .where(TestAttempt.test_id == test.id, TestAttempt.student_id == student.id)
+            .order_by(TestAttempt.number.desc())
+        ).first()
+    db.refresh(attempt)
     return test_svc.attempt_detail(attempt, for_teacher=False)
+
+
+@router.get("/tests/{test_id}/attempts", response_model=list[AttemptSummary])
+def my_test_attempts(test_id: int, student: StudentWithAccess, db: DB) -> list[AttemptSummary]:
+    """All my attempts at a test, newest first (scores only once graded)."""
+    test = _assigned_test(db, student, test_id)
+    attempts = test_svc.attempts_of(db, student.id, [test.id]).get(test.id, [])
+    return [test_svc.attempt_summary(a) for a in reversed(attempts)]
 
 
 @router.put("/tests/attempts/{attempt_id}/progress", response_model=AttemptDetail)

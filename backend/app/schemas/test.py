@@ -53,6 +53,8 @@ class TestSettings(BaseModel):
     shuffle_options: bool = False
     show_correct_answers: bool = True
     passing_percent: int | None = Field(default=None, ge=1, le=100)
+    # attempts per student; the best result counts
+    max_attempts: int = Field(default=1, ge=1, le=10)
 
 
 class TestCreate(TestSettings):
@@ -134,6 +136,7 @@ class AttemptSummary(BaseModel):
     test_title: str
     student_id: int
     student_name: str
+    number: int = 1  # attempt No. for this student and test
     status: AttemptStatus
     started_at: datetime
     submitted_at: datetime | None
@@ -195,3 +198,8 @@ class StudentTestItem(BaseModel):
     max_score: float | None
     percent: int | None
     submitted_at: datetime | None
+    # attempts: the fields above describe the latest one
+    attempts_used: int = 0
+    attempts_allowed: int = 1
+    can_retake: bool = False  # another attempt can be started now
+    best_percent: int | None = None

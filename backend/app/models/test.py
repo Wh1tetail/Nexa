@@ -7,11 +7,13 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,6 +35,8 @@ test_assignments = Table(
         primary_key=True,
         index=True,
     ),
+    # attempts the teacher allowed this student on top of Test.max_attempts
+    Column("extra_attempts", Integer, nullable=False, server_default="0"),
 )
 
 
@@ -46,6 +50,7 @@ class Test(Base, TimestampMixin):
         CheckConstraint(
             "passing_percent IS NULL OR passing_percent BETWEEN 1 AND 100", name="passing_percent_range"
         ),
+        CheckConstraint("max_attempts BETWEEN 1 AND 10", name="max_attempts_range"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -63,6 +68,8 @@ class Test(Base, TimestampMixin):
     # after grading the student sees correct answers and explanations (score is always shown)
     show_correct_answers: Mapped[bool] = mapped_column(default=True, server_default="true")
     passing_percent: Mapped[int | None] = mapped_column(Integer)  # None = no pass/fail
+    # how many times a student may take it (the best result counts)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
     teacher: Mapped[TeacherProfile] = relationship()
     questions: Mapped[list["TestQuestion"]] = relationship(
@@ -109,13 +116,21 @@ class TestQuestion(Base):
 class TestAttempt(Base):
     __test__ = False
     __tablename__ = "test_attempts"
-    __table_args__ = (UniqueConstraint("test_id", "student_id", name="uq_attempt_test_student"),)
+    __table_args__ = (
+        UniqueConstraint("test_id", "student_id", "number", name="uq_attempt_test_student_number"),
+        # at most one unfinished attempt per student and test
+        Index(
+            "uq_attempt_one_in_progress", "test_id", "student_id",
+            unique=True, postgresql_where=text("status = 'in_progress'"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     test_id: Mapped[int] = mapped_column(ForeignKey("tests.id", ondelete="CASCADE"), index=True)
     student_id: Mapped[int] = mapped_column(
         ForeignKey("student_profiles.id", ondelete="CASCADE"), index=True
     )
+    number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")  # 1, 2, ... per student
     status: Mapped[AttemptStatus] = mapped_column(
         str_enum(AttemptStatus, "attempt_status"), default=AttemptStatus.IN_PROGRESS
     )

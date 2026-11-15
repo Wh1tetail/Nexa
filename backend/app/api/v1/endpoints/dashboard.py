@@ -44,10 +44,9 @@ def student_dashboard(student: CurrentStudent, db: DB) -> StudentDashboard:
         .options(selectinload(Test.questions))
         .where(test_assignments.c.student_id == student.id)
     ).all()
-    attempts = {
-        a.test_id: a for a in db.scalars(select(TestAttempt).where(TestAttempt.student_id == student.id)).all()
-    }
-    items = [test_svc.student_item(t, attempts.get(t.id)) for t in tests]
+    attempts = test_svc.attempts_of(db, student.id)
+    extra = test_svc.extra_attempts(db, student.id)
+    items = [test_svc.student_item(t, attempts.get(t.id, []), extra.get(t.id, 0)) for t in tests]
     recent = sorted(
         (i for i in items if i.submitted_at), key=lambda i: i.submitted_at, reverse=True
     )[:5]

@@ -248,8 +248,8 @@ export const testsApi = {
   attempt: (attemptId: number) => get<AttemptDetail>(`/tests/attempts/${attemptId}`),
   grade: (attemptId: number, answers: { answer_id: number; points_awarded: number; teacher_comment?: string | null }[]) =>
     post<AttemptDetail>(`/tests/attempts/${attemptId}/grade`, { answers }),
-  /** Lets the student take the test again (the attempt is deleted). */
-  resetAttempt: (attemptId: number) => post(`/tests/attempts/${attemptId}/reset`),
+  /** One more attempt for this student (earlier results are kept). */
+  allowRetake: (attemptId: number) => post(`/tests/attempts/${attemptId}/retake`),
   uploadFiles: (id: number, files: File[], onProgress?: (p: number) => void) =>
     upload(`/tests/${id}/files`, files, onProgress),
   deleteFile: (id: number, fileId: number) => del(`/tests/${id}/files/${fileId}`),
@@ -271,7 +271,10 @@ export const meApi = {
   submitHomework: (submissionId: number, student_comment: string | null) =>
     post<StudentHomework>(`/me/homework/${submissionId}/submit`, { student_comment }),
   tests: () => get<StudentTestItem[]>("/me/tests"),
-  startTest: (testId: number) => post<AttemptDetail>(`/me/tests/${testId}/start`),
+  /** Continues an unfinished attempt or starts the first one; retake=true starts the next one. */
+  startTest: (testId: number, retake = false) =>
+    post<AttemptDetail>(`/me/tests/${testId}/start${retake ? "?retake=true" : ""}`),
+  testAttempts: (testId: number) => get<AttemptSummary[]>(`/me/tests/${testId}/attempts`),
   saveProgress: (attemptId: number, answers: AnswerMap) =>
     put<AttemptDetail>(`/me/tests/attempts/${attemptId}/progress`, { answers: toAnswers(answers) }),
   submitTest: (attemptId: number, answers: AnswerMap) =>

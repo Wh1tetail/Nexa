@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Send, Timer } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ErrorState, PageSkeleton } from "@/components/common";
@@ -38,10 +38,20 @@ export default function TakeTestPage() {
   const dirty = useRef(false);
   const submittedRef = useRef(false);
 
-  // Starting is idempotent on the server: returns the existing attempt if any.
+  // ?retake=1 starts the next attempt. Used only for the first request: later
+  // refetches (e.g. after submitting) must not start yet another attempt.
+  const [params, setParams] = useSearchParams();
+  const retakeOnce = useRef(params.get("retake") === "1");
+  // Starting is idempotent on the server: returns the unfinished attempt if any.
   const start = useQuery({
     queryKey: ["me", "tests", "attempt-start", testId],
-    queryFn: () => meApi.startTest(Number(testId)),
+    queryFn: async () => {
+      const retake = retakeOnce.current;
+      retakeOnce.current = false;
+      const res = await meApi.startTest(Number(testId), retake);
+      if (retake) setParams({}, { replace: true });
+      return res;
+    },
     staleTime: Infinity,
     gcTime: 0,
   });

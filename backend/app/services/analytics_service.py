@@ -56,10 +56,16 @@ def _test_points(db: Session, student_ids: list[int], since: datetime | None = N
     )
     if since:
         q = q.where(TestAttempt.submitted_at >= since)
-    out: dict[int, list[ScorePoint]] = defaultdict(list)
+    # several attempts at one test: only the best counts (the latest of equal ones)
+    best: dict[tuple[int, int], TestAttempt] = {}
     for a in db.scalars(q).all():
         if not a.max_score or a.score is None:
             continue
+        key = (a.student_id, a.test_id)
+        if key not in best or a.score / a.max_score >= best[key].score / best[key].max_score:
+            best[key] = a
+    out: dict[int, list[ScorePoint]] = defaultdict(list)
+    for a in sorted(best.values(), key=lambda a: a.submitted_at):
         pct = _pct(a.score, a.max_score)
         passing = a.test.passing_percent
         out[a.student_id].append(ScorePoint(

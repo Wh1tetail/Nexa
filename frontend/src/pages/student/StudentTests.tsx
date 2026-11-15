@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { BookOpenCheck, CalendarClock, HelpCircle, Timer } from "lucide-react";
+import { BookOpenCheck, CalendarClock, HelpCircle, RotateCcw, Timer } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { CardListSkeleton, EmptyState, ErrorState, PageHeader, SectionTitle } from "@/components/common";
@@ -50,7 +50,20 @@ function TestCard({ item }: { item: StudentTestItem }) {
           </span>
         )}
       </div>
+      {item.attempts_allowed > 1 && item.attempts_used > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {t.tests.attemptOf(item.attempts_used, item.attempts_allowed)}
+          {item.best_percent !== null && item.attempts_used > 1 && (
+            <span className="tabular"> · {t.tests.bestResult}: {item.best_percent}%</span>
+          )}
+        </p>
+      )}
       <div className="mt-5 flex-1" />
+      {item.can_retake && (
+        <Button asChild className="mb-2 w-full">
+          <Link to={`/student/tests/${item.test_id}/take?retake=1`}><RotateCcw />{t.tests.retake}</Link>
+        </Button>
+      )}
       {canStart || inProgress ? (
         <Button asChild className="w-full">
           <Link to={`/student/tests/${item.test_id}/take`}>{inProgress ? t.tests.continue : t.tests.start}</Link>

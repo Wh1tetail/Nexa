@@ -242,6 +242,7 @@ export default function TestEditorPage() {
   const [description, setDescription] = useState("");
   const [limit, setLimit] = useState<string>("");
   const [due, setDue] = useState("");
+  const [maxAttempts, setMaxAttempts] = useState(1);
   const [questions, setQuestions] = useState<QuestionInput[]>([blankQuestion()]);
   const [availableFrom, setAvailableFrom] = useState("");
   const [passing, setPassing] = useState("");
@@ -271,6 +272,7 @@ export default function TestEditorPage() {
     );
     setAvailableFrom(d.available_from ? toDateTimeInput(new Date(d.available_from)) : "");
     setPassing(d.passing_percent?.toString() ?? "");
+    setMaxAttempts(d.max_attempts);
     setShuffleQuestions(d.shuffle_questions);
     setShuffleOptions(d.shuffle_options);
     setShowAnswers(d.show_correct_answers);
@@ -301,6 +303,7 @@ export default function TestEditorPage() {
         due_at: localInputToIso(due),
         available_from: localInputToIso(availableFrom),
         passing_percent: passing ? Number(passing) : null,
+        max_attempts: maxAttempts,
         shuffle_questions: shuffleQuestions,
         shuffle_options: shuffleOptions,
         show_correct_answers: showAnswers,
@@ -400,6 +403,13 @@ export default function TestEditorPage() {
           </Field>
           <Field label={t.tests.passingPercent} hint={t.tests.passingHint} error={errors.passing} optional>
             <Input type="number" min={1} max={100} placeholder="70" value={passing} onChange={(e) => setPassing(e.target.value)} aria-invalid={!!errors.passing} />
+          </Field>
+          <Field label={t.tests.maxAttempts} hint={t.tests.maxAttemptsHint}>
+            <NativeSelect value={maxAttempts} onChange={(e) => setMaxAttempts(Number(e.target.value))}>
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </NativeSelect>
           </Field>
           <div className="grid gap-1 sm:col-span-2">
             <Toggle label={t.tests.shuffleQuestions} hint={t.tests.shuffleQuestionsHint} checked={shuffleQuestions} onChange={setShuffleQuestions} />

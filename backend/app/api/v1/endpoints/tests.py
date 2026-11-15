@@ -2,7 +2,7 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, File, Response, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import DB, CurrentTeacher, get_owned_student, resolve_recipients
@@ -10,6 +10,7 @@ from app.core.exceptions import BadRequest, NotFound
 from app.core.i18n import M
 from app.models import Attachment, StudentProfile, TeacherProfile, Test, TestAttempt
 from app.models.enums import AttemptStatus, NotificationType
+from app.models.test import test_assignments
 from app.schemas.test import (
     AssignRequest,
     AttemptDetail,
@@ -248,12 +249,19 @@ def delete_test_file(test_id: int, file_id: int, teacher: CurrentTeacher, db: DB
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/attempts/{attempt_id}/reset", status_code=status.HTTP_204_NO_CONTENT)
-def reset_attempt(attempt_id: int, teacher: CurrentTeacher, db: DB) -> Response:
-    """Let the student take the test again: the attempt and its answers are deleted."""
+@router.post("/attempts/{attempt_id}/retake", status_code=status.HTTP_204_NO_CONTENT)
+def allow_retake(attempt_id: int, teacher: CurrentTeacher, db: DB) -> Response:
+    """Give the student one more attempt at this test. Earlier attempts and
+    their results are kept; the extra attempt works even after the deadline."""
     attempt = _load_attempt(db, teacher, attempt_id)
     test, student = attempt.test, attempt.student
-    db.delete(attempt)
+    granted = db.execute(
+        update(test_assignments)
+        .where(test_assignments.c.test_id == test.id, test_assignments.c.student_id == student.id)
+        .values(extra_attempts=test_assignments.c.extra_attempts + 1)
+    ).rowcount
+    if not granted:
+        raise BadRequest("Тест больше не назначен этому ученику")
     notify(db, [student.user_id], NotificationType.TEST_ASSIGNED, M("Тест можно пройти ещё раз"), test.title,
            "/student/tests")
     db.commit()

@@ -2,12 +2,14 @@
 import random
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import StudentProfile, Test, TestAnswer, TestAttempt, TestQuestion
 from app.core.exceptions import BadRequest
 from app.core.i18n import M
 from app.models.enums import AttemptStatus, NotificationType, QuestionType
+from app.models.test import test_assignments
 from app.schemas.test import (
     AnswerOut,
     AttemptDetail,
@@ -58,6 +60,7 @@ def apply_settings(test: Test, data) -> None:
     test.shuffle_options = data.shuffle_options
     test.show_correct_answers = data.show_correct_answers
     test.passing_percent = data.passing_percent
+    test.max_attempts = data.max_attempts
 
 
 def settings_of(test: Test) -> dict:
@@ -67,6 +70,7 @@ def settings_of(test: Test) -> dict:
         "shuffle_options": test.shuffle_options,
         "show_correct_answers": test.show_correct_answers,
         "passing_percent": test.passing_percent,
+        "max_attempts": test.max_attempts,
     }
 
 
@@ -229,6 +233,7 @@ def attempt_summary(a: TestAttempt) -> AttemptSummary:
         test_title=a.test.title,
         student_id=a.student_id,
         student_name=a.student.user.full_name,
+        number=a.number,
         status=a.status,
         started_at=a.started_at,
         submitted_at=a.submitted_at,
@@ -277,10 +282,52 @@ def attempt_detail(a: TestAttempt, for_teacher: bool) -> AttemptDetail:
     )
 
 
-def student_item(test: Test, attempt: TestAttempt | None) -> StudentTestItem:
+# ---------- attempts (several per student; the best result counts) ----------
+
+def attempts_of(db: Session, student_id: int, test_ids: list[int] | None = None) -> dict[int, list[TestAttempt]]:
+    """Attempts by test id, oldest first."""
+    q = select(TestAttempt).where(TestAttempt.student_id == student_id).order_by(TestAttempt.number)
+    if test_ids is not None:
+        q = q.where(TestAttempt.test_id.in_(test_ids))
+    out: dict[int, list[TestAttempt]] = {}
+    for a in db.scalars(q).all():
+        out.setdefault(a.test_id, []).append(a)
+    return out
+
+
+def extra_attempts(db: Session, student_id: int) -> dict[int, int]:
+    """Extra attempts the teacher allowed, by test id."""
+    rows = db.execute(
+        select(test_assignments.c.test_id, test_assignments.c.extra_attempts)
+        .where(test_assignments.c.student_id == student_id)
+    ).all()
+    return {test_id: extra for test_id, extra in rows}
+
+
+def can_start(test: Test, attempts: list[TestAttempt], extra: int, now: datetime | None = None) -> bool:
+    """A new attempt may begin: none unfinished, attempts left, the test is open.
+    An attempt the teacher added on top of max_attempts ignores the deadline."""
+    now = now or datetime.now(UTC)
+    if attempts and attempts[-1].status == AttemptStatus.IN_PROGRESS:
+        return False
+    if len(attempts) >= test.max_attempts + extra or not is_available(test, now):
+        return False
+    granted_by_teacher = len(attempts) >= test.max_attempts
+    return granted_by_teacher or not (test.due_at and test.due_at < now)
+
+
+def best_attempt(attempts: list[TestAttempt]) -> TestAttempt | None:
+    graded = [a for a in attempts if a.status == AttemptStatus.GRADED and percent(a) is not None]
+    return max(graded, key=lambda a: (percent(a), a.number)) if graded else None
+
+
+def student_item(test: Test, attempts: list[TestAttempt], extra: int = 0) -> StudentTestItem:
     now = datetime.now(UTC)
+    attempt = attempts[-1] if attempts else None
     graded = attempt is not None and attempt.status == AttemptStatus.GRADED
     done = attempt is not None and attempt.status != AttemptStatus.IN_PROGRESS
+    retake = bool(attempts) and can_start(test, attempts, extra, now)
+    best = best_attempt(attempts)
     return StudentTestItem(
         test_id=test.id,
         title=test.title,
@@ -292,13 +339,17 @@ def student_item(test: Test, attempt: TestAttempt | None) -> StudentTestItem:
         passing_percent=test.passing_percent,
         passed=passed(attempt) if attempt else None,
         questions_count=len(test.questions),
-        is_overdue=bool(test.due_at and test.due_at < now and not done),
+        is_overdue=bool(test.due_at and test.due_at < now and not done and not retake),
         attempt_id=attempt.id if attempt else None,
         attempt_status=attempt.status if attempt else None,
         score=attempt.score if graded else None,
         max_score=attempt.max_score if graded else None,
         percent=percent(attempt) if graded else None,
         submitted_at=attempt.submitted_at if attempt else None,
+        attempts_used=len(attempts),
+        attempts_allowed=test.max_attempts + extra,
+        can_retake=retake,
+        best_percent=percent(best) if best else None,
     )
 
 

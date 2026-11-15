@@ -330,6 +330,8 @@ export interface TestSettings {
   shuffle_options: boolean;
   show_correct_answers: boolean;
   passing_percent: number | null;
+  /** Attempts per student (1-10); the best result counts. */
+  max_attempts: number;
 }
 
 export interface TestListItem extends TestSettings {
@@ -374,6 +376,8 @@ export interface AttemptSummary {
   test_title: string;
   student_id: number;
   student_name: string;
+  /** Attempt No. for this student and test (1, 2, ...). */
+  number: number;
   status: AttemptStatus;
   started_at: string;
   submitted_at: string | null;
@@ -414,6 +418,12 @@ export interface StudentTestItem {
   max_score: number | null;
   percent: number | null;
   submitted_at: string | null;
+  /** The fields above describe the latest attempt. */
+  attempts_used: number;
+  attempts_allowed: number;
+  /** Another attempt can be started now. */
+  can_retake: boolean;
+  best_percent: number | null;
 }
 
 export interface Notification {

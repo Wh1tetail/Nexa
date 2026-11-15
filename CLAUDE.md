@@ -30,6 +30,7 @@ Online English school LMS. Russian UI by default (English supported). Full docs:
 - Schema changes go through an Alembic migration (see the `create-migration` skill); never edit applied migrations.
 - E-mail is sent only through `services/email_service.py`: from requests via `BackgroundTasks`; copies of notifications/chat messages only via the outbox worker (`services/email_outbox.py`) — never send those from a request.
 - Bumping `users.token_version` revokes all sessions and closes open SSE streams (`services/realtime.py`). Other live events go through `realtime.publish(db, ...)` inside the transaction (delivered on commit), e.g. chat in `services/message_service.py`.
+- Test attempts: a student may have several per test (`TestAttempt.number`); the latest is `attempts_of(...)[-1]`, the best (`best_attempt`) counts in analytics. Never delete attempts to allow a retake — add `test_assignments.extra_attempts`.
 - Chat threads are keyed by `student_id` and exist only between a student and their CURRENT teacher; anything else is 404.
 - Time: store UTC; anything "wall clock" (weekly series, texts for people, CSV) goes through `app/core/timezones.py` with the user's `users.timezone`. Frontend formats only via `utils/format.ts` (profile time zone), never raw `toLocaleString`/`setHours`.
 - Main data lives in PostgreSQL; `localStorage` only holds the refresh token and UI preferences.
