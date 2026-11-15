@@ -1,0 +1,23 @@
+# HTTPS in front of the stack: Caddy gets and renews a Let's Encrypt certificate
+# for DOMAIN by itself (ports 80 and 443 must be open, the DNS A record must
+# point to this server). Started with: docker compose --profile https up -d
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Caddy replaces any X-Forwarded-For sent by the client with the real
+	# address, so the app behind it sees the true client IP.
+	reverse_proxy web:80 {
+		# Server-Sent Events (live notifications, chat) must not be buffered
+		flush_interval -1
+	}
+}
+
+# www.example.com -> example.com (needs its own DNS record; harmless without it)
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

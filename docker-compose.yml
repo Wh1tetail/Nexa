@@ -3,6 +3,9 @@
 #   docker compose up -d --build
 #   open http://localhost:8080
 # Only nginx is published to the host; the database and the API stay on the internal network.
+# On a server with a domain: set DOMAIN and HTTP_BIND=127.0.0.1 in .env, then
+#   docker compose --profile https up -d --build   (Caddy adds HTTPS on ports 80/443)
+# The `backup` service dumps the database and uploaded files into BACKUP_DIR.
 
 name: nexa
 
@@ -33,14 +36,19 @@ services:
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (at least 32 characters)}
       FRONTEND_URL: ${PUBLIC_URL:-http://localhost:8080}
       CORS_ORIGINS: '["${PUBLIC_URL:-http://localhost:8080}"]'
-      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Europe/Moscow}
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Almaty}
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
       EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
       EMAIL_FROM: ${EMAIL_FROM:-NEXA <no-reply@nexa.school>}
+      EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-true}
+      EMAIL_NOTIFY_DELAY_MINUTES: ${EMAIL_NOTIFY_DELAY_MINUTES:-10}
+      STORAGE_SWEEP_INTERVAL_HOURS: ${STORAGE_SWEEP_INTERVAL_HOURS:-24}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
       S3_BUCKET: ${S3_BUCKET:-}
       S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
@@ -57,8 +65,49 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "${HTTP_PORT:-8080}:80"
+      # behind Caddy use HTTP_BIND=127.0.0.1 so plain HTTP is not reachable from outside
+      - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-8080}:80"
+
+  # HTTPS for a real domain (only with `--profile https`)
+  caddy:
+    image: caddy:2.8-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # certificates: keep this volume
+      - caddy_config:/config
+
+  # Database dump + uploaded files archive every BACKUP_INTERVAL_HOURS
+  backup:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nexa}
+      POSTGRES_USER: ${POSTGRES_USER:-nexa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - uploads:/uploads:ro
+      - ${BACKUP_DIR:-./backups}:/backups
 
 volumes:
   pgdata:
   uploads:
+  caddy_data:
+  caddy_config:

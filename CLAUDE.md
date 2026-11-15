@@ -18,6 +18,7 @@ Online English school LMS. Russian UI by default (English supported). Full docs:
 - CI: `.github/workflows/ci.yml` (backend tests on PostgreSQL 18, frontend build, docker compose smoke test). Production: `docker-compose.yml` + `.env` from `.env.production.example`. Docker is not installed locally — the compose stack is verified only in CI.
 - Types/build: `cd frontend && npx tsc -b --noEmit` / `npm run build`
 - Demo data: `cd backend && .venv/Scripts/python -m scripts.seed --reset` (password `Demo12345` for all demo users)
+- Production server (README «Запуск на VPS с доменом»): `docker compose --profile https up -d --build` (Caddy HTTPS for `DOMAIN`, nginx bound to `HTTP_BIND=127.0.0.1`); first admin `python -m scripts.create_admin`, SMTP check `python -m scripts.send_test_email`; the `backup` service writes DB dumps + file archives to `BACKUP_DIR`. New backend settings must also be passed through `docker-compose.yml` and listed in `.env.production.example`.
 
 ## Rules that are easy to break
 - Ownership: teacher endpoints load students/groups/lessons via `get_owned_*` in `app/api/deps.py`; foreign objects return **404**, not 403. Students only ever see their own data.

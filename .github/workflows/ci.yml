@@ -90,6 +90,11 @@ jobs:
           cp .env.production.example .env
           sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" .env
           sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$(openssl rand -hex 32)|" .env
+      - name: Check the HTTPS configuration (Caddy)
+        run: |
+          DOMAIN=nexa.example.com docker compose --profile https config --quiet
+          docker run --rm -e DOMAIN=nexa.example.com -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2.8-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: Build and start
         run: docker compose up -d --build --wait --wait-timeout 180
       - name: Smoke test through nginx
@@ -113,6 +118,16 @@ jobs:
           # Server-Sent Events must stream through nginx without buffering
           curl -sN -m 5 -H "Authorization: Bearer $token" "$base/api/v1/notifications/stream" > /tmp/sse.txt || true
           grep -q "event: ready" /tmp/sse.txt
+          # First administrator on a fresh server
+          docker compose exec -T -e NEXA_ADMIN_PASSWORD=Admin12345 backend \
+            python -m scripts.create_admin --email owner@example.com --name "Owner"
+          curl -fsS -H 'Content-Type: application/json' \
+            -d '{"email":"owner@example.com","password":"Admin12345"}' "$base/api/v1/auth/login" | grep -q access_token
+          # The backup service writes a database dump and a files archive
+          for i in $(seq 1 30); do ls backups/db-*.dump >/dev/null 2>&1 && break; sleep 2; done
+          ls -l backups
+          ls backups/db-*.dump backups/files-*.tar.gz
+          docker compose exec -T db pg_restore --list < "$(ls backups/db-*.dump | head -1)" | grep -q "TABLE public users"
           echo "Smoke test passed"
       - name: Logs on failure
         if: failure()

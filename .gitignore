@@ -29,3 +29,6 @@ Thumbs.db
 
 # Uploaded files (LOCAL_STORAGE_PATH) - never commit user uploads
 /storage/
+
+# Database and file backups (docker compose backup service)
+/backups/

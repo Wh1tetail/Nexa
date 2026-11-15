@@ -296,7 +296,7 @@ docker compose exec backend python -m scripts.seed     # демо-данные (
 docker compose logs -f backend                        # логи, в том числе письма при EMAIL_BACKEND=console
 ```
 
-Перед публикацией в интернете поставьте перед стеком HTTPS (например, Caddy, Traefik или nginx с Let's Encrypt) и укажите `PUBLIC_URL=https://ваш-домен`.
+Для работы в интернете с доменом и HTTPS есть ещё сервис `caddy` (профиль `https`), а сервис `backup` делает резервные копии — пошагово в разделе [«Запуск на VPS с доменом»](#запуск-на-vps-с-доменом).
 
 Разное:
 - **Зависимости разделены:** `backend/requirements.txt` — только то, что нужно для работы (идёт в образ), `requirements-dev.txt` — плюс тесты и линтер.
@@ -535,13 +535,138 @@ GET /api/v1/analytics/me                            (ученик)
 
 Тесты: `tests/test_access_rules.py`.
 
+## Запуск на VPS с доменом
+
+Нужен **VPS** (виртуальный сервер) на Ubuntu 22.04/24.04 с доступом по SSH: обычный «shared»-хостинг для сайтов на PHP/WordPress не подойдёт — сайту нужны Docker, Python и PostgreSQL. Достаточно 2 ГБ памяти, 1–2 ядер и 20–40 ГБ диска (у Hostinger — тарифы «VPS KVM»).
+
+Что получится: Caddy принимает HTTPS на портах 80/443 и сам выпускает и продлевает сертификат Let's Encrypt → nginx (сайт и `/api`) → backend → PostgreSQL. Сервис `backup` раз в сутки сохраняет копию базы и файлов.
+
+### 1. Домен
+
+В панели, где куплен домен, создайте DNS-записи и подождите, пока они заработают (от нескольких минут до нескольких часов):
+
+| Тип | Имя | Значение |
+|---|---|---|
+| A | `@` | IP-адрес VPS |
+| A | `www` | IP-адрес VPS (необязательно: `www` будет перенаправлять на основной адрес) |
+
+Проверка: `ping ваш-домен.kz` должен показать IP сервера.
+
+### 2. Сервер
+
+Подключитесь по SSH (`ssh root@IP-сервера`) и выполните:
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+```bash
+git clone https://github.com/Wh1tetail/Nexa.git /opt/nexa && cd /opt/nexa
+```
+
+Если на сервере включён файрвол `ufw`, откройте SSH и веб-порты (8080 открывать не нужно):
+
+```bash
+ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp && ufw enable
+```
+
+### 3. Настройки (`.env`)
+
+```bash
+cp .env.production.example .env && nano .env
+```
+
+Обязательно заполните:
+
+| Параметр | Значение |
+|---|---|
+| `DOMAIN` | домен без `https://`, например `nexa-school.kz` |
+| `PUBLIC_URL` | `https://nexa-school.kz` — используется в ссылках из писем |
+| `HTTP_BIND` | `127.0.0.1` — сайт снаружи доступен только через HTTPS |
+| `POSTGRES_PASSWORD` | `python3 -c "import secrets; print(secrets.token_urlsafe(24))"` |
+| `SECRET_KEY` | `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
+
+Почта (приглашения, восстановление пароля, копии уведомлений) — данные SMTP даёт почтовый сервис домена:
+
+| Параметр | Пример |
+|---|---|
+| `EMAIL_BACKEND` | `smtp` |
+| `EMAIL_FROM` | `NEXA <no-reply@nexa-school.kz>` |
+| `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | адрес сервера, логин (обычно e-mail) и пароль ящика |
+| `SMTP_PORT` | `587` (тогда `SMTP_STARTTLS=true`, `SMTP_SSL=false`) или `465` (тогда `SMTP_SSL=true`) |
+
+`.env` хранит пароли: он не попадает в git, не отправляйте его никому.
+
+### 4. Запуск
+
+```bash
+docker compose --profile https up -d --build
+```
+
+Первая сборка занимает несколько минут. Состояние: `docker compose ps` (все сервисы `running`/`healthy`), логи: `docker compose logs -f`. Через минуту после старта сайт открывается на `https://ваш-домен` с действующим сертификатом.
+
+### 5. Первый администратор и проверка почты
+
+```bash
+docker compose exec backend python -m scripts.create_admin --email you@nexa-school.kz --name "Имя Фамилия"
+```
+
+Пароль спросят дважды (минимум 8 символов, буквы и цифры). Дальше администратор входит на сайт и создаёт преподавателей и учеников в интерфейсе. Если пароль администратора забыт — та же команда с `--reset-password`.
+
+```bash
+docker compose exec backend python -m scripts.send_test_email --to you@example.com
+```
+
+Команда отправит тестовое письмо и покажет ошибку SMTP, если что-то не так (обычные письма об ошибках не сообщают — только в лог).
+
+**Не запускайте `scripts.seed` на рабочем сервере** — он создаёт демо-пользователей с общим паролем.
+
+### Резервные копии
+
+Сервис `backup` при старте и затем каждые `BACKUP_INTERVAL_HOURS` часов (по умолчанию 24) кладёт в `BACKUP_DIR` (по умолчанию `/opt/nexa/backups`) два файла: `db-ДАТА.dump` (база) и `files-ДАТА.tar.gz` (загруженные файлы). Копии старше `BACKUP_KEEP_DAYS` дней (по умолчанию 14) удаляются. Журнал: `docker compose logs backup`.
+
+Копии лежат на том же сервере — периодически скачивайте их к себе, например:
+
+```bash
+scp -r root@IP-сервера:/opt/nexa/backups ./nexa-backups
+```
+
+Восстановление (заменяет текущие данные!):
+
+```bash
+docker compose stop backend backup
+```
+```bash
+docker compose exec -T db pg_restore -U nexa -d nexa --clean --if-exists --no-owner < backups/db-ДАТА.dump
+```
+```bash
+docker compose run --rm --no-deps -v "$PWD/backups:/backups" -u root --entrypoint sh backend -c "cd /app/storage && tar -xzf /backups/files-ДАТА.tar.gz && chown -R app:app ."
+```
+```bash
+docker compose --profile https up -d
+```
+
+(`nexa` — значения `POSTGRES_USER` / `POSTGRES_DB` из `.env`.)
+
+### Обновление сайта
+
+```bash
+cd /opt/nexa && git pull && docker compose --profile https up -d --build
+```
+
+Миграции базы применяются автоматически при старте backend; при перезапуске сервис `backup` сразу делает свежую копию.
+
+### Что проверяется автоматически
+
+CI на каждом коммите собирает весь стек в Docker и проверяет: сайт и API через nginx, вход, поток уведомлений, создание первого администратора, появление копии базы и файлов (и что дамп читается `pg_restore`), корректность конфигурации Caddy. Сам выпуск сертификата и отправку через настоящий SMTP проверить можно только на сервере с доменом.
+
 ## Что осталось / ограничения (честно)
 - Казахские и английские тексты (интерфейс, ответы сервера, письма) переведены без носителя языка — их стоит вычитать.
 - Старые уведомления, созданные до этапа 11, остаются на русском (тексты уведомлений сохраняются при создании).
 - Несколько попыток теста подряд не поддерживаются: пересдача удаляет прежнюю попытку (история попыток не хранится).
 
 - S3-хранилище реализовано (`STORAGE_BACKEND=s3`), но проверено только локальное.
-- SMTP-отправка написана, но в этой среде проверялся только режим `console` — реального почтового сервера не было.
+- SMTP-отправка написана, но в этой среде проверялся только режим `console` — реального почтового сервера не было. На сервере проверьте её командой `scripts.send_test_email`.
+- Выпуск HTTPS-сертификата (Caddy + Let's Encrypt) проверяется только на настоящем сервере с доменом: в CI проверяется лишь конфигурация.
 - В чате нет редактирования и удаления сообщений, предпросмотра картинок и групповых чатов.
 - Письма уведомлений только на русском (как и остальные письма школы) и проверены только в режиме `console`.
 - Docker-образы и compose проверяются только в CI на GitHub: на этом компьютере Docker не установлен.
