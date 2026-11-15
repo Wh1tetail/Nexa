@@ -92,7 +92,8 @@ services:
     image: postgres:18-alpine
     restart: unless-stopped
     depends_on:
-      db:
+      # backend healthy = migrations applied, so even the first dump has the schema
+      backend:
         condition: service_healthy
     entrypoint: ["/bin/sh", "/backup.sh"]
     environment:

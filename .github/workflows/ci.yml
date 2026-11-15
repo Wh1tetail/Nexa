@@ -131,7 +131,10 @@ jobs:
           ls backups/db-*.dump backups/files-*.tar.gz
           # (to a file first: with pipefail, grep -q stopping early would fail the pipe)
           docker compose exec -T db pg_restore --list < "$(ls backups/db-*.dump | head -1)" > /tmp/toc.txt
-          grep -q "TABLE public users" /tmp/toc.txt
+          grep -q "TABLE public users" /tmp/toc.txt || {
+            echo "::error title=Backup listing::no users table in the dump ($(grep -c TABLE /tmp/toc.txt) tables)"
+            exit 1
+          }
           echo "Smoke test passed"
       - name: Logs on failure
         if: failure()
