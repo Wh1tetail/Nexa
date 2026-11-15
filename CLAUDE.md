@@ -12,7 +12,7 @@ Online English school LMS. Russian UI by default (English supported). Full docs:
 - Migrations: `cd backend && .venv/Scripts/alembic upgrade head`
 - Backend: `cd backend && .venv/Scripts/python -m uvicorn app.main:app --port 8000` (or the `backend` entry in `.claude/launch.json`)
 - Frontend: `cd frontend && npm run dev` (Vite proxies `/api` to :8000)
-- Tests (real PostgreSQL, ~4 min; wipe the `<db>_test` database each run): `cd backend && .venv/Scripts/python -m pytest -q`
+- Tests (real PostgreSQL, ~10 min; wipe the `<db>_test` database each run): `cd backend && .venv/Scripts/python -m pytest -q`. Only one run at a time: the `single_pytest.py` hook blocks a pytest command while another pytest process is alive (wait for the running one)
 - Lint: `cd backend && .venv/Scripts/python -m pyflakes app tests scripts`
 - Dependencies: `backend/requirements.txt` = runtime only (goes into the Docker image); dev/CI tools in `requirements-dev.txt`
 - CI: `.github/workflows/ci.yml` (backend tests on PostgreSQL 18, frontend build, docker compose smoke test). Production: `docker-compose.yml` + `.env` from `.env.production.example`. Docker is not installed locally — the compose stack is verified only in CI.
