@@ -11,6 +11,7 @@ import {
   Presentation,
   RefreshCw,
   Search,
+  Trash2,
   UserX,
   Users,
   UserRoundCog,
@@ -169,15 +170,26 @@ function EditUserDialog({ user, onClose }: { user: AdminUser | null; onClose: ()
   const { t } = useI18n();
   const invalidate = useInvalidate();
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [level, setLevel] = useState<EnglishLevel>("A1");
   useEffect(() => {
     if (user) {
       setFullName(user.full_name);
+      setEmail(user.email);
       setPhone(user.phone ?? "");
+      setLevel(user.english_level ?? "A1");
     }
   }, [user]);
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const save = useMutation({
-    mutationFn: () => adminApi.updateUser(user!.id, { full_name: fullName.trim(), phone: phone.trim() || null }),
+    mutationFn: () =>
+      adminApi.updateUser(user!.id, {
+        full_name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || null,
+        ...(user!.role === "student" ? { english_level: level } : {}),
+      }),
     onSuccess: () => {
       invalidate();
       toast.success(t.common.saved);
@@ -194,11 +206,92 @@ function EditUserDialog({ user, onClose }: { user: AdminUser | null; onClose: ()
         </DialogHeader>
         <DialogBody className="grid gap-4">
           <Field label={t.students.fullName}><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></Field>
+          <Field
+            label={t.students.email}
+            hint={email.trim().toLowerCase() !== user?.email.toLowerCase() ? t.admin.emailChangeHint : undefined}
+            error={email && !emailOk ? t.admin.emailInvalid : undefined}
+          >
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={!!email && !emailOk} />
+          </Field>
           <Field label={t.students.phone} optional><Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
+          {user?.role === "student" && (
+            <Field label={t.students.level}>
+              <NativeSelect value={level} onChange={(e) => setLevel(e.target.value as EnglishLevel)}>
+                {ENGLISH_LEVELS.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </NativeSelect>
+            </Field>
+          )}
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>{t.common.cancel}</Button>
-          <Button loading={save.isPending} disabled={fullName.trim().length < 2} onClick={() => save.mutate()}>{t.common.save}</Button>
+          <Button loading={save.isPending} disabled={fullName.trim().length < 2 || !emailOk} onClick={() => save.mutate()}>{t.common.save}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteUserDialog({ user, onClose }: { user: AdminUser | null; onClose: () => void }) {
+  const { t } = useI18n();
+  const invalidate = useInvalidate();
+  const isTeacher = user?.role === "teacher";
+  const needsTransfer = isTeacher && (user?.students_count ?? 0) > 0;
+  const teachers = useQuery({ queryKey: ["admin", "teachers"], queryFn: adminApi.teachers, enabled: !!user && isTeacher });
+  const others = (teachers.data ?? []).filter((x) => x.id !== user?.teacher_profile_id);
+  const [transferTo, setTransferTo] = useState("");
+  const [sure, setSure] = useState(false);
+  useEffect(() => {
+    setTransferTo("");
+    setSure(false);
+  }, [user]);
+  const remove = useMutation({
+    mutationFn: () => adminApi.deleteUser(user!.id, transferTo ? Number(transferTo) : undefined),
+    onSuccess: () => {
+      invalidate();
+      toast.success(t.admin.userDeleted);
+      onClose();
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  if (!user) return null;
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle>{isTeacher ? t.admin.deleteTeacherTitle : t.admin.deleteStudentTitle}</DialogTitle>
+          <DialogDescription>{user.full_name} · {user.email}</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="grid gap-4">
+          <p className="text-sm text-muted-foreground">{isTeacher ? t.admin.deleteTeacherText : t.admin.deleteStudentText}</p>
+          {needsTransfer && (
+            <Field label={t.admin.transferTo} hint={t.admin.transferHint(user.students_count ?? 0)}>
+              <NativeSelect value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
+                <option value="">{t.actAs.choose}</option>
+                {others.map((x) => (
+                  <option key={x.id} value={x.id}>{x.full_name} · {t.common.studentsCount(x.students_count)}</option>
+                ))}
+              </NativeSelect>
+            </Field>
+          )}
+          <p className="rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">{t.admin.deactivateInstead}</p>
+          <label className="flex items-start gap-2 text-sm">
+            <Checkbox checked={sure} onCheckedChange={(v) => setSure(v === true)} className="mt-0.5" />
+            <span>{t.admin.deleteConfirm}</span>
+          </label>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>{t.common.cancel}</Button>
+          <Button
+            variant="destructive"
+            loading={remove.isPending}
+            disabled={!sure || (needsTransfer && !transferTo)}
+            onClick={() => remove.mutate()}
+          >
+            <Trash2 />
+            {t.common.delete}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -321,6 +414,7 @@ export default function AdminPage() {
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [pwUser, setPwUser] = useState<AdminUser | null>(null);
   const [reassigning, setReassigning] = useState<AdminUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
 
   const stats = useQuery({ queryKey: ["admin", "stats"], queryFn: adminApi.stats });
   const filters = { role, search: deferred };
@@ -436,6 +530,12 @@ export default function AdminPage() {
                               <Power />
                               {u.is_active ? t.admin.deactivate : t.admin.activate}
                             </DropdownMenuItem>
+                            {u.role !== "admin" && (
+                              <DropdownMenuItem destructive onSelect={() => setDeletingUser(u)}>
+                                <Trash2 />
+                                {t.common.delete}
+                              </DropdownMenuItem>
+                            )}
                           </>
                         )}
                       </DropdownMenuContent>
@@ -452,6 +552,7 @@ export default function AdminPage() {
       <EditUserDialog user={editing} onClose={() => setEditing(null)} />
       <PasswordDialog user={pwUser} onClose={() => setPwUser(null)} />
       <ReassignDialog user={reassigning} onClose={() => setReassigning(null)} />
+      <DeleteUserDialog user={deletingUser} onClose={() => setDeletingUser(null)} />
     </div>
   );
 }

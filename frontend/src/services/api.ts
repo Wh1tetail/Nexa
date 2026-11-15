@@ -331,8 +331,13 @@ export interface AdminUserFilters {
 export const adminApi = {
   stats: () => get<AdminStats>("/admin/stats"),
   users: (f: AdminUserFilters = {}) => get<AdminUser[]>("/admin/users", clean(f)),
-  updateUser: (id: number, data: { full_name?: string; phone?: string | null; is_active?: boolean }) =>
-    patch<AdminUser>(`/admin/users/${id}`, data),
+  updateUser: (
+    id: number,
+    data: { full_name?: string; email?: string; phone?: string | null; is_active?: boolean; english_level?: EnglishLevel },
+  ) => patch<AdminUser>(`/admin/users/${id}`, data),
+  /** Deletes a teacher or student for good; a teacher's students move to `transferTo`. */
+  deleteUser: (id: number, transferTo?: number) =>
+    del(`/admin/users/${id}${transferTo ? `?transfer_to=${transferTo}` : ""}`),
   setPassword: (id: number, data: { password?: string; send_link?: boolean }) =>
     post<InviteResponse>(`/admin/users/${id}/password`, data),
   teachers: () => get<TeacherBrief[]>("/admin/teachers"),

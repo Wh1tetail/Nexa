@@ -767,6 +767,19 @@ const en: Dict = {
     created: "User created",
     empty: "No users found",
     you: "You",
+    emailChangeHint: "The new address becomes the sign-in login",
+    emailInvalid: "Invalid email",
+    deleteStudentTitle: "Delete student",
+    deleteStudentText:
+      "The student's account and all their data will be deleted: subscriptions, attendance, homework, test results and messages.",
+    deleteTeacherTitle: "Delete teacher",
+    deleteTeacherText:
+      "The teacher's account, groups, lessons, homework and tests will be deleted, together with students' results on them. Students and their subscriptions move to the chosen teacher.",
+    transferTo: "Hand students over to",
+    transferHint: (n: number) => `Students of this teacher: ${n}. Their subscriptions are kept.`,
+    deactivateInstead: "Deleting cannot be undone. To close access but keep the data, deactivate the user instead.",
+    deleteConfirm: "I understand this cannot be undone",
+    userDeleted: "User deleted",
   },
 
   settings: {

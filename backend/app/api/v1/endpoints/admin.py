@@ -2,8 +2,8 @@
 import secrets
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, BackgroundTasks, status
-from sqlalchemy import func, or_, select
+from fastapi import APIRouter, BackgroundTasks, Response, status
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import joinedload
 
 from app.api.deps import DB, AdminUser
@@ -23,7 +23,7 @@ from app.schemas.user import (
     TeacherCreate,
     TeacherOut,
 )
-from app.services import account_service, email_service, student_service
+from app.services import account_service, email_service, realtime, student_service
 from app.services import subscription_service as sub_svc
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -127,6 +127,16 @@ def update_user(user_id: int, data: AdminUserUpdate, admin: AdminUser, db: DB) -
         raise BadRequest("Нельзя деактивировать собственный аккаунт")
     if payload.get("full_name"):
         user.full_name = payload["full_name"].strip()
+    if payload.get("email"):
+        email = str(payload["email"]).strip().lower()
+        if email != user.email.lower():
+            if student_service.email_taken(db, email):
+                raise Conflict("Пользователь с таким email уже существует")
+            user.email = email  # the new address is the login from now on
+    if payload.get("english_level") is not None:
+        if user.student_profile is None:
+            raise BadRequest("Уровень английского задаётся только ученикам")
+        user.student_profile.english_level = payload["english_level"]
     if "phone" in payload:
         user.phone = payload["phone"] or None
     if payload.get("is_active") is not None and payload["is_active"] != user.is_active:
@@ -135,6 +145,56 @@ def update_user(user_id: int, data: AdminUserUpdate, admin: AdminUser, db: DB) -
             user.token_version += 1  # sign out everywhere
     db.commit()
     return _user_out(user, _students_per_teacher(db))
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int, admin: AdminUser, db: DB, transfer_to: int | None = None) -> Response:
+    """Delete a teacher or a student for good.
+
+    A student is deleted with all their data (subscriptions, results, chat).
+    A teacher's students first move to the teacher `transfer_to` together with
+    their subscriptions; the teacher's own groups, lessons, homework and tests
+    (with students' results on them) are deleted. Deactivation keeps everything."""
+    user = _get_user(db, user_id)
+    if user.id == admin.id:
+        raise BadRequest("Нельзя удалить собственный аккаунт")
+    if user.role == UserRole.ADMIN:
+        raise BadRequest("Администраторов удалять нельзя")
+    if user.role == UserRole.TEACHER and user.teacher_profile:
+        _hand_over_students(db, user.teacher_profile, transfer_to)
+    # end live sessions (SSE streams) of the deleted user
+    realtime.publish(db, [{"user_id": user.id, "revoke": user.token_version + 1}])
+    db.flush()
+    # database cascades remove profiles and everything that belongs to them;
+    # stored files nobody refers to any more are removed by the storage sweep
+    db.execute(delete(User).where(User.id == user.id))
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _hand_over_students(db, teacher: TeacherProfile, transfer_to: int | None) -> None:
+    """Students and subscriptions of a teacher being deleted go to another teacher
+    (subscriptions cascade with their teacher, so they must move first)."""
+    students = list(db.scalars(select(StudentProfile).where(StudentProfile.teacher_id == teacher.id)).all())
+    subs = list(db.scalars(
+        select(Subscription).options(joinedload(Subscription.student)).where(Subscription.teacher_id == teacher.id)
+    ).unique().all())
+    if not students and not subs:
+        return
+    if transfer_to is None:
+        raise BadRequest("Выберите преподавателя, которому перейдут ученики")
+    target = db.get(TeacherProfile, transfer_to)
+    if target is None:
+        raise NotFound("Преподаватель не найден")
+    if target.id == teacher.id:
+        raise BadRequest("Нельзя передать учеников удаляемому преподавателю")
+    for s in students:
+        s.teacher_id = target.id
+        s.groups = []  # groups belong to the old teacher
+    for sub in subs:
+        # a student moved earlier keeps the subscription with their current teacher
+        current = sub.student.teacher_id
+        sub.teacher_id = current if current and current != teacher.id else target.id
 
 
 @router.post("/users/{user_id}/password", response_model=InviteResponse)

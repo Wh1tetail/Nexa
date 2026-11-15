@@ -27,8 +27,10 @@ class AdminUserOut(BaseModel):
 
 class AdminUserUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=200)
+    email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=32)
     is_active: bool | None = None
+    english_level: EnglishLevel | None = None  # students only
 
 
 class AdminPasswordRequest(BaseModel):
