@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Field } from "@/components/common";
+import { ParticipantList, type ParticipantRow } from "@/components/common/ParticipantList";
 import { RecipientPicker } from "@/components/common/RecipientPicker";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -88,8 +89,6 @@ export function LessonFormDialog({ open, onOpenChange, lesson }: { open: boolean
       (Object.keys(before) as (keyof typeof before)[]).forEach((k) => {
         if (body[k] !== before[k]) Object.assign(changed, { [k]: body[k] });
       });
-      const prevIds = lesson.attendance.map((a) => a.student_id).sort().join(",");
-      if ([...studentIds].sort().join(",") !== prevIds) changed.student_ids = studentIds;
       return lessonsApi.update(lesson.id, changed, scope);
     },
     onSuccess: () => {
@@ -174,21 +173,17 @@ export function LessonFormDialog({ open, onOpenChange, lesson }: { open: boolean
               </NativeSelect>
             </Field>
           )}
-          <Field label={t.lessons.participants} error={errors.students} className="sm:col-span-2">
-            <RecipientPicker
-              showGroups={false}
-              studentIds={studentIds}
-              groupIds={[]}
-              disabledStudentIds={
-                limited
-                  ? lesson!.attendance.map((a) => a.student_id) // can add, not remove
-                  : groupId
-                    ? groups.data?.find((g) => g.id === groupId)?.students.map((s) => s.id)
-                    : []
-              }
-              onChange={(v) => setStudentIds(v.studentIds)}
-            />
-          </Field>
+          {!lesson && (
+            <Field label={t.lessons.participants} error={errors.students} className="sm:col-span-2">
+              <RecipientPicker
+                showGroups={false}
+                studentIds={studentIds}
+                groupIds={[]}
+                disabledStudentIds={groupId ? groups.data?.find((g) => g.id === groupId)?.students.map((s) => s.id) : []}
+                onChange={(v) => setStudentIds(v.studentIds)}
+              />
+            </Field>
+          )}
           {lesson?.series_id && lesson.series_position && lesson.series_total && (
             <Field label={t.lessons.applyTo} hint={t.lessons.scopeHint} className="sm:col-span-2">
               <RadioGroup value={scope} onValueChange={(v) => setScope(v as "one" | "following")} className="sm:grid-cols-2">
@@ -211,6 +206,103 @@ export function LessonFormDialog({ open, onOpenChange, lesson }: { open: boolean
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t.common.cancel}</Button>
           <Button loading={save.isPending} onClick={submit}>{lesson ? t.common.save : t.common.create}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Participants of one lesson: add, remove (with confirmation), restore.
+ *  Removing touches only this lesson; group, other lessons and marks stay. */
+export function LessonParticipantsDialog({ lesson, onClose }: { lesson: Lesson | null; onClose: () => void }) {
+  const { t, locale } = useI18n();
+  const invalidate = useInvalidate();
+  const id = lesson?.id ?? 0;
+  const q = useQuery({ queryKey: ["lessons", "detail", id], queryFn: () => lessonsApi.get(id), enabled: !!lesson });
+  const [adding, setAdding] = useState<number[]>([]);
+  useEffect(() => setAdding([]), [lesson]);
+  const d = q.data;
+
+  const done = (msg: string) => {
+    invalidate();
+    toast.success(msg);
+  };
+  const add = useMutation({
+    mutationFn: (ids: number[]) => lessonsApi.addParticipants(id, ids),
+    onSuccess: (_, ids) => {
+      setAdding([]);
+      done(ids.length === 1 && d?.removed.some((r) => r.student_id === ids[0]) ? t.participants.restoredToast : t.participants.addedToast(ids.length));
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const remove = useMutation({
+    mutationFn: (ids: number[]) => lessonsApi.removeParticipants(id, ids),
+    onSuccess: (_, ids) => done(t.participants.removedToast(ids.length)),
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  const rows: ParticipantRow[] = d
+    ? [
+        ...d.attendance.map((a) => ({
+          studentId: a.student_id,
+          name: a.student_name,
+          removedAt: null,
+          meta: a.status ? t.status.attendance[a.status] : undefined,
+        })),
+        ...d.removed.map((r) => ({
+          studentId: r.student_id,
+          name: r.student_name,
+          removedAt: r.removed_at,
+          meta: r.status ? t.status.attendance[r.status] : undefined,
+        })),
+      ]
+    : [];
+
+  return (
+    <Dialog open={!!lesson} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent size="lg">
+        <DialogHeader>
+          <DialogTitle>{t.participants.title}</DialogTitle>
+          {lesson && (
+            <DialogDescription>
+              {lesson.title} · {fmtDateTime(lesson.starts_at, locale)}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+        <DialogBody className="grid gap-5">
+          {q.isLoading || !d ? (
+            <div className="h-32 animate-pulse rounded-xl bg-skeleton" />
+          ) : (
+            <ParticipantList
+              rows={rows}
+              confirmTitle={t.participants.removeLessonTitle}
+              confirmText={t.participants.removeLessonText}
+              onRemove={(ids) => remove.mutateAsync(ids)}
+              onRestore={(sid) => add.mutateAsync([sid])}
+              busy={add.isPending || remove.isPending}
+            />
+          )}
+          {d && (
+            <div className="grid gap-2 rounded-xl border bg-secondary/40 p-3">
+              <p className="text-sm font-medium text-primary">{t.participants.addStudents}</p>
+              <RecipientPicker
+                showGroups={false}
+                studentIds={adding}
+                groupIds={[]}
+                disabledStudentIds={d.attendance.map((a) => a.student_id)}
+                onChange={(v) => setAdding(v.studentIds)}
+              />
+              <div className="flex justify-end">
+                <Button size="sm" disabled={!adding.length} loading={add.isPending} onClick={() => add.mutate(adding)}>
+                  {t.participants.add}
+                  {adding.length > 0 && <span className="tabular">· {adding.length}</span>}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>{t.common.close}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

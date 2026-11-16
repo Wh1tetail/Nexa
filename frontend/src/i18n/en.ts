@@ -375,8 +375,48 @@ const en: Dict = {
     noLevel: "Any",
   },
 
+  participants: {
+    title: "Participants",
+    manage: "Participants",
+    active: "Active",
+    removed: "Excluded",
+    all: "All",
+    removedBadge: "Excluded",
+    removedOn: (date: string) => `Excluded ${date}`,
+    remove: "Remove",
+    removeSelected: (n: number) => `Remove selected: ${n}`,
+    restore: "Restore",
+    add: "Add",
+    addStudents: "Add students",
+    empty: "No students",
+    noneToAdd: "All your students already take part",
+    selectAll: "Select all",
+    removeLessonTitle: (n: number) => (n === 1 ? "Remove the student from this lesson?" : `Remove ${n} students from this lesson?`),
+    removeLessonText:
+      "They stay in the group and in other lessons. The attendance mark is kept and comes back if they are added again; a charged lesson returns to the subscription.",
+    removeTestTitle: (n: number) => (n === 1 ? "Exclude the student from the test?" : `Exclude ${n} students from the test?`),
+    removeTestText: "The test disappears for the student. Attempts and results are kept and shown under “Excluded”.",
+    removeHwTitle: (n: number) => (n === 1 ? "Exclude the student from the task?" : `Exclude ${n} students from the task?`),
+    removeHwText: "The task disappears for the student. Uploaded files, the grade and comments are kept.",
+    removedToast: (n: number) => `Excluded: ${n}`,
+    restoredToast: "Student restored",
+    addedToast: (n: number) => `Added: ${n}`,
+    attempts: (n: number) => `Attempts: ${n}`,
+    best: (p: number) => `best ${p}%`,
+    lessonsTitle: "Group lessons for new members",
+    lessonsAll: (n: number) => `All upcoming lessons (${n})`,
+    lessonsFrom: "From a date",
+    lessonsNone: "Don't assign lessons",
+    leavingNote: (n: number) =>
+      `Students leaving the group (${n}) are taken off its upcoming lessons. Past lessons and attendance are kept.`,
+    groupSaved: (assigned: number, released: number) =>
+      [assigned ? `lesson places assigned: ${assigned}` : "", released ? `taken off lessons: ${released}` : ""]
+        .filter(Boolean)
+        .join(", "),
+  },
+
   lessons: {
-    teacherLimited: "The time, title, link and removing students are handled by an administrator.",
+    teacherLimited: "The time, title and link are changed by an administrator. Participants: lesson menu → “Participants”.",
     title: "Schedule & attendance",
     subtitle: "Lessons, topics and attendance",
     create: "New lesson",

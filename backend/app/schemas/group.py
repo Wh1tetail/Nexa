@@ -17,6 +17,10 @@ class GroupUpdate(BaseModel):
     level: EnglishLevel | None = None
     description: str | None = None
     student_ids: list[int] | None = None
+    # new members join the group's scheduled lessons: all upcoming ones, or
+    # from `lessons_from` (past lessons are never assigned)
+    assign_lessons: bool = True
+    lessons_from: datetime | None = None
 
 
 class GroupMember(BaseModel):
@@ -32,3 +36,7 @@ class GroupOut(BaseModel):
     description: str | None
     created_at: datetime
     students: list[GroupMember]
+    upcoming_lessons: int = 0  # scheduled lessons of the group from now on
+    # after a change of members: lesson places added / released
+    lessons_assigned: int | None = None
+    lessons_released: int | None = None

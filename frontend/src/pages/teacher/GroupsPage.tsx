@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { CardListSkeleton, EmptyState, ErrorState, Field, PageHeader } from "@/components/common";
 import { RecipientPicker } from "@/components/common/RecipientPicker";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/checkbox";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
 import { groupsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
+import { cn } from "@/lib/utils";
+import { localInputToIso } from "@/utils/format";
 import { ENGLISH_LEVELS, type EnglishLevel, type Group } from "@/types/api";
 
 function GroupDialog({ open, onOpenChange, group }: { open: boolean; onOpenChange: (o: boolean) => void; group?: Group }) {
@@ -27,6 +30,12 @@ function GroupDialog({ open, onOpenChange, group }: { open: boolean; onOpenChang
   const [description, setDescription] = useState("");
   const [studentIds, setStudentIds] = useState<number[]>([]);
   const [error, setError] = useState<string>();
+  // what new members get from the group's upcoming lessons
+  const [lessonsMode, setLessonsMode] = useState<"all" | "from" | "none">("all");
+  const [lessonsFrom, setLessonsFrom] = useState("");
+  const before = new Set(group?.students.map((s) => s.id) ?? []);
+  const joining = studentIds.filter((id) => !before.has(id));
+  const leaving = [...before].filter((id) => !studentIds.includes(id));
 
   useEffect(() => {
     if (open) {
@@ -35,18 +44,27 @@ function GroupDialog({ open, onOpenChange, group }: { open: boolean; onOpenChang
       setDescription(group?.description ?? "");
       setStudentIds(group?.students.map((s) => s.id) ?? []);
       setError(undefined);
+      setLessonsMode("all");
+      setLessonsFrom("");
     }
   }, [open, group]);
 
   const save = useMutation({
     mutationFn: () => {
       const body = { name: name.trim(), level: level || null, description: description.trim() || null, student_ids: studentIds };
-      return group ? groupsApi.update(group.id, body) : groupsApi.create(body);
+      if (!group) return groupsApi.create(body);
+      return groupsApi.update(group.id, {
+        ...body,
+        assign_lessons: lessonsMode !== "none",
+        lessons_from: lessonsMode === "from" && lessonsFrom ? localInputToIso(`${lessonsFrom}T00:00`) : null,
+      });
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["groups"] });
       qc.invalidateQueries({ queryKey: ["students"] });
-      toast.success(group ? t.common.saved : t.groups.created);
+      qc.invalidateQueries({ queryKey: ["lessons"] });
+      const detail = t.participants.groupSaved(res.lessons_assigned ?? 0, res.lessons_released ?? 0);
+      toast.success(group ? (detail ? `${t.common.saved}: ${detail}` : t.common.saved) : t.groups.created);
       onOpenChange(false);
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -76,6 +94,32 @@ function GroupDialog({ open, onOpenChange, group }: { open: boolean; onOpenChang
           <Field label={`${t.groups.members} · ${studentIds.length}`} className="sm:col-span-2">
             <RecipientPicker showGroups={false} studentIds={studentIds} groupIds={[]} onChange={(v) => setStudentIds(v.studentIds)} />
           </Field>
+          {group && joining.length > 0 && group.upcoming_lessons > 0 && (
+            <Field label={t.participants.lessonsTitle} className="sm:col-span-2">
+              <RadioGroup value={lessonsMode} onValueChange={(v) => setLessonsMode(v as typeof lessonsMode)} className="gap-2">
+                {(["all", "from", "none"] as const).map((m) => (
+                  <label
+                    key={m}
+                    className={cn(
+                      "flex min-h-11 cursor-pointer flex-wrap items-center gap-3 rounded-xl border px-3 py-2 text-sm transition-colors",
+                      lessonsMode === m ? "border-accent bg-accent-soft/60" : "hover:bg-secondary/60",
+                    )}
+                  >
+                    <RadioGroupItem value={m} />
+                    {m === "all" ? t.participants.lessonsAll(group.upcoming_lessons) : m === "from" ? t.participants.lessonsFrom : t.participants.lessonsNone}
+                    {m === "from" && lessonsMode === "from" && (
+                      <Input type="date" value={lessonsFrom} onChange={(e) => setLessonsFrom(e.target.value)} className="h-9 w-auto" />
+                    )}
+                  </label>
+                ))}
+              </RadioGroup>
+            </Field>
+          )}
+          {group && leaving.length > 0 && (
+            <p className="rounded-xl bg-warning-soft px-3 py-2.5 text-sm text-warning-strong sm:col-span-2">
+              {t.participants.leavingNote(leaving.length)}
+            </p>
+          )}
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t.common.cancel}</Button>
@@ -83,6 +127,7 @@ function GroupDialog({ open, onOpenChange, group }: { open: boolean; onOpenChang
             loading={save.isPending}
             onClick={() => {
               if (!name.trim()) return setError(t.common.required);
+              if (lessonsMode === "from" && joining.length && !lessonsFrom) return toast.error(t.participants.lessonsFrom);
               save.mutate();
             }}
           >

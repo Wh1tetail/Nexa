@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import UploadFile
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import Forbidden, NotFound
@@ -96,8 +97,14 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
             return att
         # students only once they have started the test (no peeking at a listening task)
         if user.role == UserRole.STUDENT and user.student_profile and _student_access(db, user):
-            started = db.query(TestAttempt.id).filter_by(test_id=test.id, student_id=user.student_profile.id).first()
-            if started:
+            from app.models.test import test_assignments as ta
+
+            sid = user.student_profile.id
+            started = db.query(TestAttempt.id).filter_by(test_id=test.id, student_id=sid).first()
+            assigned = db.execute(select(ta.c.student_id).where(
+                ta.c.test_id == test.id, ta.c.student_id == sid, ta.c.removed_at.is_(None)
+            )).first()
+            if started and assigned:
                 return att
         raise NotFound("Файл не найден")
 
@@ -108,7 +115,7 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
         if user.role == UserRole.TEACHER and user.teacher_profile and hw.teacher_id == user.teacher_profile.id:
             return att
         if user.role == UserRole.STUDENT and user.student_profile and _student_access(db, user):
-            assigned = any(s.student_id == user.student_profile.id for s in hw.submissions)
+            assigned = any(s.student_id == user.student_profile.id and s.removed_at is None for s in hw.submissions)
             if assigned:
                 return att
     elif att.submission_id is not None:
@@ -116,6 +123,6 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
         if user.role == UserRole.TEACHER and user.teacher_profile and sub.homework.teacher_id == user.teacher_profile.id:
             return att
         if (user.role == UserRole.STUDENT and user.student_profile and sub.student_id == user.student_profile.id
-                and _student_access(db, user)):
+                and sub.removed_at is None and _student_access(db, user)):
             return att
     raise Forbidden("Нет доступа к файлу")

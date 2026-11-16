@@ -24,6 +24,7 @@ import type {
   Me,
   MyLesson,
   Notification,
+  ParticipantState,
   QuestionInput,
   Role,
   StudentBrief,
@@ -40,6 +41,7 @@ import type {
   TeacherDashboard,
   TestDetail,
   TestListItem,
+  TestParticipant,
   TeacherOverview,
   TestSettings,
   TokenPair,
@@ -130,7 +132,9 @@ export interface GroupInput {
 export const groupsApi = {
   list: () => get<Group[]>("/groups"),
   create: (data: GroupInput) => post<Group>("/groups", data),
-  update: (id: number, data: Partial<GroupInput>) => patch<Group>(`/groups/${id}`, data),
+  /** New members join the group's upcoming lessons (all, from `lessons_from`, or none). */
+  update: (id: number, data: Partial<GroupInput> & { assign_lessons?: boolean; lessons_from?: string | null }) =>
+    patch<Group>(`/groups/${id}`, data),
   remove: (id: number) => del(`/groups/${id}`),
 };
 
@@ -182,6 +186,11 @@ export const lessonsApi = {
   update: (id: number, data: Partial<LessonInput> & { status?: LessonStatus }, scope: "one" | "following" = "one") =>
     patch<Lesson>(`/lessons/${id}?scope=${scope}`, data),
   extendSeries: (id: number, weeks: number) => post<Lesson>(`/lessons/${id}/series/extend`, { weeks }),
+  /** Add students to this lesson only (an excluded one comes back with their mark). */
+  addParticipants: (id: number, student_ids: number[]) => post<Lesson>(`/lessons/${id}/participants`, { student_ids }),
+  /** Take students off this lesson only; group, other lessons and marks stay. */
+  removeParticipants: (id: number, student_ids: number[]) =>
+    post<Lesson>(`/lessons/${id}/participants/remove`, { student_ids }),
   remove: (id: number, scope: "one" | "following" = "one") => del(`/lessons/${id}?scope=${scope}`),
   mark: (
     id: number,
@@ -216,7 +225,9 @@ export const homeworkApi = {
   uploadAttachments: (id: number, files: File[], onProgress?: (p: number) => void) =>
     upload(`/homework/${id}/attachments`, files, onProgress),
   removeAttachment: (id: number, attachmentId: number) => del(`/homework/${id}/attachments/${attachmentId}`),
-  submissions: (params: { student_id?: number; status_filter?: SubmissionStatus } = {}) =>
+  /** Exclude students from the task; their work and grades stay. */
+  unassign: (id: number, student_ids: number[]) => post<HomeworkDetail>(`/homework/${id}/unassign`, { student_ids }),
+  submissions: (params: { student_id?: number; status_filter?: SubmissionStatus; state?: ParticipantState } = {}) =>
     get<Submission[]>("/homework/submissions", clean(params)),
   review: (submissionId: number, data: { status: SubmissionStatus; grade: number | null; teacher_comment: string | null }) =>
     post<Submission>(`/homework/submissions/${submissionId}/review`, data),
@@ -242,7 +253,11 @@ export const testsApi = {
   remove: (id: number) => del(`/tests/${id}`),
   assign: (id: number, student_ids: number[], group_ids: number[]) =>
     post<TestDetail>(`/tests/${id}/assign`, { student_ids, group_ids }),
-  attempts: (id: number) => get<AttemptSummary[]>(`/tests/${id}/attempts`),
+  attempts: (id: number, state: ParticipantState = "all") => get<AttemptSummary[]>(`/tests/${id}/attempts`, { state }),
+  participants: (id: number, state: ParticipantState = "all") =>
+    get<TestParticipant[]>(`/tests/${id}/participants`, { state }),
+  /** Exclude students: the test disappears for them, results stay. */
+  unassign: (id: number, student_ids: number[]) => post<TestDetail>(`/tests/${id}/unassign`, { student_ids }),
   allAttempts: (params: { student_id?: number; status_filter?: AttemptStatus } = {}) =>
     get<AttemptSummary[]>("/tests/attempts/all", clean(params)),
   attempt: (attemptId: number) => get<AttemptDetail>(`/tests/attempts/${attemptId}`),

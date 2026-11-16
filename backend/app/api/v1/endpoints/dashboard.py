@@ -31,7 +31,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 def student_dashboard(student: CurrentStudent, db: DB) -> StudentDashboard:
     statuses = db.execute(
         select(HomeworkSubmission.status, func.count())
-        .where(HomeworkSubmission.student_id == student.id)
+        .where(HomeworkSubmission.student_id == student.id, HomeworkSubmission.removed_at.is_(None))
         .group_by(HomeworkSubmission.status)
     ).all()
     by_status = {s: n for s, n in statuses}
@@ -42,7 +42,7 @@ def student_dashboard(student: CurrentStudent, db: DB) -> StudentDashboard:
         select(Test)
         .join(test_assignments, test_assignments.c.test_id == Test.id)
         .options(selectinload(Test.questions))
-        .where(test_assignments.c.student_id == student.id)
+        .where(test_assignments.c.student_id == student.id, test_assignments.c.removed_at.is_(None))
     ).all()
     attempts = test_svc.attempts_of(db, student.id)
     extra = test_svc.extra_attempts(db, student.id)
@@ -99,7 +99,10 @@ def teacher_dashboard(teacher: CurrentTeacher, db: DB) -> TeacherDashboard:
         select(func.count())
         .select_from(HomeworkSubmission)
         .join(HomeworkSubmission.homework)
-        .where(Homework.teacher_id == teacher.id, HomeworkSubmission.status == SubmissionStatus.SUBMITTED)
+        .where(
+            Homework.teacher_id == teacher.id, HomeworkSubmission.status == SubmissionStatus.SUBMITTED,
+            HomeworkSubmission.removed_at.is_(None),
+        )
     )
     tests_to_review = db.scalar(
         select(func.count())

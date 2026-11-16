@@ -55,7 +55,7 @@ def _submissions_query(student: StudentProfile):
             selectinload(HomeworkSubmission.homework).selectinload(Homework.attachments),
             selectinload(HomeworkSubmission.homework).selectinload(Homework.teacher),
         )
-        .where(HomeworkSubmission.student_id == student.id)
+        .where(HomeworkSubmission.student_id == student.id, HomeworkSubmission.removed_at.is_(None))
     )
 
 
@@ -152,7 +152,7 @@ def _assigned_test(db: Session, student: StudentProfile, test_id: int) -> Test:
         select(Test)
         .join(test_assignments, test_assignments.c.test_id == Test.id)
         .options(selectinload(Test.questions))
-        .where(Test.id == test_id, test_assignments.c.student_id == student.id)
+        .where(Test.id == test_id, test_assignments.c.student_id == student.id, test_assignments.c.removed_at.is_(None))
     )
     if test is None:
         raise NotFound("Тест не найден")
@@ -172,7 +172,7 @@ def my_tests(student: StudentWithAccess, db: DB) -> list[StudentTestItem]:
         select(Test)
         .join(test_assignments, test_assignments.c.test_id == Test.id)
         .options(selectinload(Test.questions))
-        .where(test_assignments.c.student_id == student.id)
+        .where(test_assignments.c.student_id == student.id, test_assignments.c.removed_at.is_(None))
         .order_by(Test.created_at.desc())
     ).all()
     attempts = test_svc.attempts_of(db, student.id)

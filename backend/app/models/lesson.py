@@ -40,8 +40,15 @@ class Lesson(Base, TimestampMixin):
 
     teacher: Mapped[TeacherProfile] = relationship()
     group: Mapped[Group | None] = relationship()
+    # active participants only; removed ones keep their row (marks, charges history)
     attendance: Mapped[list["Attendance"]] = relationship(
-        back_populates="lesson", cascade="all, delete-orphan"
+        back_populates="lesson",
+        cascade="all, delete-orphan",
+        primaryjoin="and_(Lesson.id == Attendance.lesson_id, Attendance.removed_at.is_(None))",
+    )
+    removed_attendance: Mapped[list["Attendance"]] = relationship(
+        primaryjoin="and_(Lesson.id == Attendance.lesson_id, Attendance.removed_at.is_not(None))",
+        viewonly=True,
     )
 
 
@@ -64,6 +71,8 @@ class Attendance(Base, TimestampMixin):
     comment: Mapped[str | None] = mapped_column(Text)
     marked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Subscription a lesson was deducted from (present/late), to allow reverting.
+    # the student was taken off this lesson (the row and its mark are kept)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     charged_subscription_id: Mapped[int | None] = mapped_column(
         ForeignKey("subscriptions.id", ondelete="SET NULL")
     )

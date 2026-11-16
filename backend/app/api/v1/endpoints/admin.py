@@ -23,7 +23,7 @@ from app.schemas.user import (
     TeacherCreate,
     TeacherOut,
 )
-from app.services import account_service, email_service, realtime, student_service
+from app.services import account_service, email_service, participation, realtime, student_service
 from app.services import subscription_service as sub_svc
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -280,6 +280,8 @@ def reassign_student(student_id: int, teacher_id: int, _: AdminUser, db: DB) -> 
     if not student or not teacher:
         raise NotFound()
     if student.teacher_id != teacher.id:
+        for g in student.groups:  # leaves the old groups' upcoming lessons; history stays
+            participation.release_group_lessons(db, g, {student.id})
         student.teacher_id = teacher.id
         student.groups = []
         db.commit()

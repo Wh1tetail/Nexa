@@ -37,6 +37,8 @@ test_assignments = Table(
     ),
     # attempts the teacher allowed this student on top of Test.max_attempts
     Column("extra_attempts", Integer, nullable=False, server_default="0"),
+    # excluded from the test: hidden from the student, attempts and results kept
+    Column("removed_at", DateTime(timezone=True)),
 )
 
 
@@ -75,7 +77,12 @@ class Test(Base, TimestampMixin):
     questions: Mapped[list["TestQuestion"]] = relationship(
         back_populates="test", cascade="all, delete-orphan", order_by="TestQuestion.position"
     )
-    students: Mapped[list[StudentProfile]] = relationship(secondary=test_assignments)
+    # active assignees only; assignment rows are written by test_service (they may be restored)
+    students: Mapped[list[StudentProfile]] = relationship(
+        secondary=test_assignments,
+        secondaryjoin="and_(StudentProfile.id == test_assignments.c.student_id, test_assignments.c.removed_at.is_(None))",
+        viewonly=True,
+    )
     attempts: Mapped[list["TestAttempt"]] = relationship(
         back_populates="test", cascade="all, delete-orphan"
     )

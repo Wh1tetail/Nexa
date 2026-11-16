@@ -17,10 +17,17 @@ from app.services.notification_service import notify
 
 
 def assign(db: Session, hw: Homework, students: list[StudentProfile]) -> int:
-    existing = {s.student_id for s in hw.submissions}
-    new_students = [s for s in students if s.id not in existing]
-    for s in new_students:
-        hw.submissions.append(HomeworkSubmission(student_id=s.id, status=SubmissionStatus.NEW))
+    """Assign students; an excluded student is restored with their earlier work."""
+    existing = {s.student_id: s for s in hw.submissions}
+    new_students = []
+    for s in students:
+        sub = existing.get(s.id)
+        if sub is None:
+            hw.submissions.append(HomeworkSubmission(student_id=s.id, status=SubmissionStatus.NEW))
+            new_students.append(s)
+        elif sub.removed_at is not None:
+            sub.removed_at = None
+            new_students.append(s)
     db.flush()
     by_student = {s.student_id: s.id for s in hw.submissions}
     for s in new_students:
@@ -35,9 +42,21 @@ def assign(db: Session, hw: Homework, students: list[StudentProfile]) -> int:
     return len(new_students)
 
 
+def unassign(hw: Homework, student_ids: set[int]) -> list[int]:
+    """Exclude students: the task disappears for them; files, grade and comments stay."""
+    now = datetime.now(UTC)
+    removed = []
+    for sub in hw.submissions:
+        if sub.student_id in student_ids and sub.removed_at is None:
+            sub.removed_at = now
+            removed.append(sub.student_id)
+    return removed
+
+
 def counts(hw: Homework) -> SubmissionCounts:
-    c = SubmissionCounts(total=len(hw.submissions))
-    for s in hw.submissions:
+    active = [s for s in hw.submissions if s.removed_at is None]
+    c = SubmissionCounts(total=len(active), removed=len(hw.submissions) - len(active))
+    for s in active:
         setattr(c, s.status.value, getattr(c, s.status.value) + 1)
     return c
 
@@ -66,6 +85,7 @@ def submission_out(s: HomeworkSubmission) -> SubmissionOut:
         submitted_at=s.submitted_at,
         reviewed_at=s.reviewed_at,
         files=[AttachmentOut.model_validate(f) for f in s.files],
+        removed_at=s.removed_at,
     )
 
 

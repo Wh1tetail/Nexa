@@ -82,6 +82,20 @@ class AssignRequest(BaseModel):
     group_ids: list[int] = []
 
 
+class UnassignRequest(BaseModel):
+    student_ids: list[int] = Field(min_length=1, max_length=500)
+
+
+class TestParticipant(BaseModel):
+    """A student assigned to a test, active or excluded (results are kept either way)."""
+    student_id: int
+    student_name: str
+    removed_at: datetime | None  # set = excluded from the test
+    attempts_used: int
+    last_status: AttemptStatus | None
+    best_percent: int | None
+
+
 class QuestionOut(BaseModel):
     id: int
     position: int

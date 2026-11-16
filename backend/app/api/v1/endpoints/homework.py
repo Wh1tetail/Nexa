@@ -1,5 +1,6 @@
 """Teacher-side homework management."""
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, File, Response, UploadFile, status
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from app.core.i18n import M
 from app.models import Attachment, Homework, HomeworkSubmission, StudentProfile, TeacherProfile, User
 from app.models.enums import NotificationType, SubmissionStatus
 from app.schemas.homework import (
+    HomeworkUnassign,
     AttachmentOut,
     HomeworkCreate,
     HomeworkDetail,
@@ -86,6 +88,7 @@ def list_submissions(
     db: DB,
     student_id: int | None = None,
     status_filter: SubmissionStatus | None = None,
+    state: Literal["active", "removed", "all"] = "active",
 ) -> list[SubmissionOut]:
     q = (
         select(HomeworkSubmission)
@@ -102,6 +105,10 @@ def list_submissions(
         q = q.where(HomeworkSubmission.student_id == student_id)
     if status_filter:
         q = q.where(HomeworkSubmission.status == status_filter)
+    if state == "active":
+        q = q.where(HomeworkSubmission.removed_at.is_(None))
+    elif state == "removed":
+        q = q.where(HomeworkSubmission.removed_at.is_not(None))
     return [svc.submission_out(s) for s in db.scalars(q).all()]
 
 
@@ -145,6 +152,15 @@ def update_homework(hw_id: int, data: HomeworkUpdate, teacher: CurrentTeacher, d
             setattr(hw, k, v)
     if data.add_student_ids or data.add_group_ids:
         svc.assign(db, hw, resolve_recipients(db, teacher, data.add_student_ids, data.add_group_ids))
+    db.commit()
+    return svc.to_detail(_load(db, teacher, hw_id))
+
+
+@router.post("/{hw_id}/unassign", response_model=HomeworkDetail)
+def unassign_homework(hw_id: int, data: HomeworkUnassign, teacher: CurrentTeacher, db: DB) -> HomeworkDetail:
+    """Exclude students from the task (also single students of a group task)."""
+    hw = _load(db, teacher, hw_id)
+    svc.unassign(hw, set(data.student_ids))
     db.commit()
     return svc.to_detail(_load(db, teacher, hw_id))
 

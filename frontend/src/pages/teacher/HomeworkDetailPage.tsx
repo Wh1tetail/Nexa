@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { EmptyState, ErrorState, Field, PageSkeleton } from "@/components/common";
+import { ErrorState, Field, PageSkeleton } from "@/components/common";
 import { FileDropzone, FileList } from "@/components/common/Files";
+import { ParticipantList } from "@/components/common/ParticipantList";
 import { RecipientPicker } from "@/components/common/RecipientPicker";
 import { SubmissionBadge } from "@/components/common/StatusBadges";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
-import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -176,7 +176,7 @@ function AddStudentsDialog({ hw, open, onOpenChange }: { hw: HomeworkDetail; ope
       <DialogContent>
         <DialogHeader><DialogTitle>{t.homework.addStudents}</DialogTitle></DialogHeader>
         <DialogBody>
-          <RecipientPicker studentIds={r.studentIds} groupIds={r.groupIds} onChange={setR} disabledStudentIds={hw.submissions.map((s) => s.student_id)} />
+          <RecipientPicker studentIds={r.studentIds} groupIds={r.groupIds} onChange={setR} disabledStudentIds={hw.submissions.filter((s) => !s.removed_at).map((s) => s.student_id)} />
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t.common.cancel}</Button>
@@ -209,6 +209,22 @@ export default function HomeworkDetailPage() {
       qc.invalidateQueries({ queryKey: ["homework"] });
       toast.success(t.common.deleted);
       navigate("/teacher/homework", { replace: true });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const unassign = useMutation({
+    mutationFn: (ids: number[]) => homeworkApi.unassign(id, ids),
+    onSuccess: (_, ids) => {
+      qc.invalidateQueries({ queryKey: ["homework"] });
+      toast.success(t.participants.removedToast(ids.length));
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const restore = useMutation({
+    mutationFn: (studentId: number) => homeworkApi.update(id, { add_student_ids: [studentId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["homework"] });
+      toast.success(t.participants.restoredToast);
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -275,35 +291,40 @@ export default function HomeworkDetailPage() {
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>{t.homework.submissions}</CardTitle>
             <span className="text-sm text-muted-foreground">
-              {t.homework.progress(hw.submissions.filter((s) => ["submitted", "reviewed"].includes(s.status)).length, hw.submissions.length)}
+              {t.homework.progress(
+                hw.submissions.filter((s) => !s.removed_at && ["submitted", "reviewed"].includes(s.status)).length,
+                hw.submissions.filter((s) => !s.removed_at).length,
+              )}
             </span>
           </CardHeader>
           <CardContent className="px-3 sm:px-4">
-            {hw.submissions.length ? (
-              <ul className="grid gap-1">
-                {hw.submissions.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      onClick={() => setParams({ submission: String(s.id) })}
-                      className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-secondary"
-                    >
-                      <Avatar name={s.student_name} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-primary">{s.student_name}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {s.submitted_at ? `${t.homework.sentAt}: ${fmtDateTime(s.submitted_at, locale)}` : t.homework.notSubmittedYet}
-                          {s.files.length > 0 && ` · 📎 ${s.files.length}`}
-                        </p>
-                      </div>
-                      {s.grade !== null && <span className="tabular text-sm font-semibold text-primary">{s.grade}/{hw.max_grade}</span>}
-                      <SubmissionBadge status={s.status} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState title={t.homework.noSubmissions} />
-            )}
+            <ParticipantList
+              rows={hw.submissions.map((s) => ({
+                studentId: s.student_id,
+                name: s.student_name,
+                removedAt: s.removed_at,
+                meta: (
+                  <>
+                    {s.submitted_at ? `${t.homework.sentAt}: ${fmtDateTime(s.submitted_at, locale)}` : t.homework.notSubmittedYet}
+                    {s.files.length > 0 && ` · 📎 ${s.files.length}`}
+                  </>
+                ),
+                aside: (
+                  <div className="flex shrink-0 items-center gap-2">
+                    {s.grade !== null && <span className="tabular text-sm font-semibold text-primary">{s.grade}/{hw.max_grade}</span>}
+                    {!s.removed_at && <SubmissionBadge status={s.status} />}
+                    <Button size="sm" variant="ghost" onClick={() => setParams({ submission: String(s.id) })}>
+                      {t.common.open}
+                    </Button>
+                  </div>
+                ),
+              }))}
+              confirmTitle={t.participants.removeHwTitle}
+              confirmText={t.participants.removeHwText}
+              onRemove={(ids) => unassign.mutateAsync(ids)}
+              onRestore={(sid) => restore.mutateAsync(sid)}
+              busy={unassign.isPending || restore.isPending}
+            />
           </CardContent>
         </Card>
       </div>

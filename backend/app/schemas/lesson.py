@@ -39,6 +39,18 @@ class AttendanceRow(BaseModel):
     comment: str | None
 
 
+class RemovedParticipant(BaseModel):
+    """Taken off the lesson; the attendance mark is kept and returns on re-adding."""
+    student_id: int
+    student_name: str
+    status: AttendanceStatus | None
+    removed_at: datetime
+
+
+class ParticipantsChange(BaseModel):
+    student_ids: list[int] = Field(min_length=1, max_length=200)
+
+
 class LessonOut(BaseModel):
     id: int
     title: str
@@ -53,6 +65,7 @@ class LessonOut(BaseModel):
     series_position: int | None = None  # 1-based index of this lesson in its series
     series_total: int | None = None
     attendance: list[AttendanceRow]
+    removed: list[RemovedParticipant] = []  # only in the single-lesson views
 
 
 class AttendanceMark(BaseModel):

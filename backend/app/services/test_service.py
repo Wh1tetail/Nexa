@@ -354,9 +354,12 @@ def student_item(test: Test, attempts: list[TestAttempt], extra: int = 0) -> Stu
 
 
 def assign_students(db: Session, test: Test, students: list[StudentProfile]) -> int:
-    current = {s.id for s in test.students}
-    new = [s for s in students if s.id not in current]
-    test.students.extend(new)
+    """Assign students (an excluded one is restored with their attempts); notifies the new ones."""
+    from app.services import participation
+
+    db.flush()
+    new = participation.assign_test(db, test.id, students)
+    db.expire(test, ["students"])
     for s in new:
         notify(
             db,

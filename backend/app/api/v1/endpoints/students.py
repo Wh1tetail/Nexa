@@ -10,6 +10,7 @@ from app.models.enums import EnglishLevel, SubscriptionStatus
 from app.repositories import student_repository as repo
 from app.schemas.subscription import SubscriptionOut
 from app.schemas.user import InviteResponse, StudentBrief, StudentCreate, StudentProfileOut, StudentUpdate
+from app.services import participation
 from app.services import student_service, subscription_service
 
 router = APIRouter(prefix="/students", tags=["students (teacher)"])
@@ -40,6 +41,8 @@ def create_student(
     student = student_service.create_student(db, data, teacher)
     student.groups = groups
     db.flush()
+    for g in groups:  # a new group member joins the group's upcoming lessons
+        participation.assign_group_lessons(db, g, [student])
     url = None
     if data.send_invite:
         url = student_service.send_invitation(db, student.user, teacher.user.full_name, background)

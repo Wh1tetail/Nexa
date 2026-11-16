@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck, ClipboardCheck, Download, Repeat, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, Users, Video, XCircle } from "lucide-react";
+import { CalendarCheck, ClipboardCheck, Download, Repeat, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, Users, UsersRound, Video, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { CardListSkeleton, EmptyState, ErrorState, PageHeader } from "@/components/common";
 import { AttendanceBadge, LessonBadge } from "@/components/common/StatusBadges";
 import { currentMonday, shiftDays, WeekCalendar, type CalendarEvent } from "@/components/calendar/WeekCalendar";
-import { AttendanceDialog, ExtendSeriesDialog, LessonFormDialog } from "@/components/attendance/LessonDialogs";
+import { AttendanceDialog, ExtendSeriesDialog, LessonFormDialog, LessonParticipantsDialog } from "@/components/attendance/LessonDialogs";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ function LessonCard({
   onEdit,
   onDelete,
   onExtend,
+  onParticipants,
   isAdmin,
 }: {
   lesson: Lesson;
@@ -38,6 +39,7 @@ function LessonCard({
   onEdit: () => void;
   onDelete: () => void;
   onExtend: () => void;
+  onParticipants: () => void;
   /** scheduling, cancelling and deleting are for administrators */
   isAdmin: boolean;
 }) {
@@ -118,6 +120,7 @@ function LessonCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={onEdit}><Pencil />{t.common.edit}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onParticipants}><UsersRound />{t.participants.manage}</DropdownMenuItem>
               {isAdmin && (
                 <DropdownMenuItem onSelect={() => toggleCancel.mutate("one")}>
                   {lesson.status === "cancelled" ? <><RotateCcw />{t.lessons.restoreLesson}</> : <><XCircle />{t.lessons.cancelLesson}</>}
@@ -160,6 +163,7 @@ export default function LessonsPage() {
   const [marking, setMarking] = useState<Lesson | null>(null);
   const [deleting, setDeleting] = useState<Lesson | null>(null);
   const [extending, setExtending] = useState<Lesson | null>(null);
+  const [managing, setManaging] = useState<Lesson | null>(null);
 
   const filter = { date_from: from, date_to: to, student_id: studentId };
   const lessons = useQuery({ queryKey: ["lessons", filter], queryFn: () => lessonsApi.list(filter), placeholderData: (p) => p });
@@ -303,7 +307,7 @@ export default function LessonsPage() {
                 <section className="grid gap-3">
                   <h2 className="text-sm font-semibold text-muted-foreground">{t.lessons.upcoming} · {upcoming.length}</h2>
                   {upcoming.map((l) => (
-                    <LessonCard key={l.id} lesson={l} onMark={() => setMarking(l)} onEdit={() => { setEditing(l); setCreating(true); }} onDelete={() => setDeleting(l)} onExtend={() => setExtending(l)} isAdmin={isAdmin} />
+                    <LessonCard key={l.id} lesson={l} onMark={() => setMarking(l)} onEdit={() => { setEditing(l); setCreating(true); }} onDelete={() => setDeleting(l)} onExtend={() => setExtending(l)} onParticipants={() => setManaging(l)} isAdmin={isAdmin} />
                   ))}
                 </section>
               )}
@@ -311,7 +315,7 @@ export default function LessonsPage() {
                 <section className="grid gap-3">
                   <h2 className="text-sm font-semibold text-muted-foreground">{t.lessons.past} · {past.length}</h2>
                   {past.map((l) => (
-                    <LessonCard key={l.id} lesson={l} onMark={() => setMarking(l)} onEdit={() => { setEditing(l); setCreating(true); }} onDelete={() => setDeleting(l)} onExtend={() => setExtending(l)} isAdmin={isAdmin} />
+                    <LessonCard key={l.id} lesson={l} onMark={() => setMarking(l)} onEdit={() => { setEditing(l); setCreating(true); }} onDelete={() => setDeleting(l)} onExtend={() => setExtending(l)} onParticipants={() => setManaging(l)} isAdmin={isAdmin} />
                   ))}
                 </section>
               )}
@@ -399,6 +403,7 @@ export default function LessonsPage() {
 
       <LessonFormDialog open={creating} onOpenChange={setCreating} lesson={editing} />
       <ExtendSeriesDialog lesson={extending} onClose={() => setExtending(null)} />
+      <LessonParticipantsDialog lesson={managing} onClose={() => setManaging(null)} />
       <AttendanceDialog open={!!marking} onOpenChange={(o) => !o && setMarking(null)} lesson={marking} />
       <ConfirmDialog
         open={!!deleting && !deleting.series_id}

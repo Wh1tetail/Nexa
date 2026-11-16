@@ -102,6 +102,7 @@ def _attendance_rows(db: Session, student_ids: list[int], since: datetime | None
         .options(selectinload(Attendance.lesson))
         .where(
             Attendance.student_id.in_(student_ids),
+            Attendance.removed_at.is_(None),
             Lesson.status != LessonStatus.CANCELLED,
             Lesson.starts_at <= datetime.now(UTC),
         )

@@ -119,8 +119,11 @@ def test_what_a_teacher_can_still_change(client, school):
     # topic and adding students: yes
     r = client.patch(url, headers=ha, json={"topic": "Past Simple", "student_ids": [s1, s2]})
     assert r.status_code == 200 and r.json()["topic"] == "Past Simple" and len(r.json()["attendance"]) == 2
-    # removing students, time, title, link, cancelling: no
-    assert client.patch(url, headers=ha, json={"student_ids": [s1]}).status_code == 403
+    # removing students: yes (the attendance mark is kept)
+    r = client.patch(url, headers=ha, json={"student_ids": [s1]})
+    assert r.status_code == 200 and [p["student_id"] for p in r.json()["attendance"]] == [s1]
+    assert [p["student_id"] for p in r.json()["removed"]] == [s2]
+    # time, title, link, cancelling: no
     assert client.patch(url, headers=ha, json={"starts_at": (start + timedelta(hours=1)).isoformat()}).status_code == 403
     assert client.patch(url, headers=ha, json={"title": "New"}).status_code == 403
     assert client.patch(url, headers=ha, json={"status": "cancelled"}).status_code == 403

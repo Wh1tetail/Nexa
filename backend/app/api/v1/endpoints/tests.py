@@ -1,5 +1,6 @@
 """Teacher-side test management."""
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, File, Response, UploadFile, status
 from sqlalchemy import select, update
@@ -12,6 +13,8 @@ from app.models import Attachment, StudentProfile, TeacherProfile, Test, TestAtt
 from app.models.enums import AttemptStatus, NotificationType
 from app.models.test import test_assignments
 from app.schemas.test import (
+    TestParticipant,
+    UnassignRequest,
     AssignRequest,
     AttemptDetail,
     AttemptSummary,
@@ -23,6 +26,7 @@ from app.schemas.test import (
 )
 from app.schemas.homework import AttachmentOut
 from app.services import file_service
+from app.services import participation
 from app.services import test_service as svc
 from app.services.notification_service import notify
 from app.utils.files import validate_upload
@@ -257,7 +261,10 @@ def allow_retake(attempt_id: int, teacher: CurrentTeacher, db: DB) -> Response:
     test, student = attempt.test, attempt.student
     granted = db.execute(
         update(test_assignments)
-        .where(test_assignments.c.test_id == test.id, test_assignments.c.student_id == student.id)
+        .where(
+            test_assignments.c.test_id == test.id, test_assignments.c.student_id == student.id,
+            test_assignments.c.removed_at.is_(None),
+        )
         .values(extra_attempts=test_assignments.c.extra_attempts + 1)
     ).rowcount
     if not granted:
@@ -269,6 +276,53 @@ def allow_retake(attempt_id: int, teacher: CurrentTeacher, db: DB) -> Response:
 
 
 @router.get("/{test_id}/attempts", response_model=list[AttemptSummary])
-def list_attempts(test_id: int, teacher: CurrentTeacher, db: DB) -> list[AttemptSummary]:
+def list_attempts(
+    test_id: int, teacher: CurrentTeacher, db: DB, state: Literal["active", "removed", "all"] = "all"
+) -> list[AttemptSummary]:
+    """Results; state filters by whether the student is still assigned."""
     test = _load(db, teacher, test_id)
-    return [svc.attempt_summary(a) for a in sorted(test.attempts, key=lambda a: a.started_at, reverse=True)]
+    rows = participation.test_rows(db, test.id)
+    keep = {
+        "all": lambda sid: True,
+        "active": lambda sid: sid in rows and rows[sid] is None,
+        "removed": lambda sid: sid not in rows or rows[sid] is not None,
+    }[state]
+    attempts = [a for a in test.attempts if keep(a.student_id)]
+    return [svc.attempt_summary(a) for a in sorted(attempts, key=lambda a: a.started_at, reverse=True)]
+
+
+@router.get("/{test_id}/participants", response_model=list[TestParticipant])
+def list_participants(
+    test_id: int, teacher: CurrentTeacher, db: DB, state: Literal["active", "removed", "all"] = "active"
+) -> list[TestParticipant]:
+    """Assigned students with their progress; excluded ones keep their results."""
+    test = _load(db, teacher, test_id)
+    rows = participation.test_rows(db, test.id)
+    wanted = [sid for sid, removed in rows.items()
+              if state == "all" or (state == "active") == (removed is None)]
+    students = {s.id: s for s in db.scalars(
+        select(StudentProfile).options(selectinload(StudentProfile.user)).where(StudentProfile.id.in_(wanted))
+    ).all()}
+    by_student: dict[int, list[TestAttempt]] = {}
+    for a in sorted(test.attempts, key=lambda a: a.number):
+        by_student.setdefault(a.student_id, []).append(a)
+    out = []
+    for sid in wanted:
+        attempts = by_student.get(sid, [])
+        best = svc.best_attempt(attempts)
+        out.append(TestParticipant(
+            student_id=sid, student_name=students[sid].user.full_name, removed_at=rows[sid],
+            attempts_used=len(attempts), last_status=attempts[-1].status if attempts else None,
+            best_percent=svc.percent(best) if best else None,
+        ))
+    return sorted(out, key=lambda p: (p.removed_at is not None, p.student_name))
+
+
+@router.post("/{test_id}/unassign", response_model=TestDetail)
+def unassign_test(test_id: int, data: UnassignRequest, teacher: CurrentTeacher, db: DB) -> TestDetail:
+    """Exclude students: the test disappears for them; attempts and results stay."""
+    test = _load(db, teacher, test_id)
+    participation.unassign_test(db, test.id, set(data.student_ids))
+    db.commit()
+    db.expire_all()
+    return _detail(_load(db, teacher, test_id))

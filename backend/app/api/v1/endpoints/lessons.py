@@ -31,9 +31,12 @@ from app.schemas.lesson import (
     LessonCreate,
     LessonOut,
     LessonUpdate,
+    ParticipantsChange,
+    RemovedParticipant,
     SeriesExtend,
 )
 from app.services import attendance_service as att_svc
+from app.services import participation
 from app.services.notification_service import notify
 
 router = APIRouter(tags=["lessons & attendance"])
@@ -47,7 +50,7 @@ def _day_end(d: date | None) -> datetime | None:
     return datetime.combine(d + timedelta(days=1), time.min, tzinfo=UTC) if d else None
 
 
-def to_out(lesson: Lesson) -> LessonOut:
+def to_out(lesson: Lesson, with_removed: bool = False) -> LessonOut:
     return LessonOut(
         id=lesson.id,
         title=lesson.title,
@@ -72,6 +75,16 @@ def to_out(lesson: Lesson) -> LessonOut:
             ),
             key=lambda r: r.student_name,
         ),
+        removed=sorted(
+            (
+                RemovedParticipant(
+                    student_id=a.student_id, student_name=a.student.user.full_name,
+                    status=a.status, removed_at=a.removed_at,
+                )
+                for a in lesson.removed_attendance
+            ),
+            key=lambda r: r.student_name,
+        ) if with_removed else [],
     )
 
 
@@ -95,7 +108,7 @@ def _fill_series(db: Session, outs: list[LessonOut]) -> list[LessonOut]:
 
 
 def _one(db: Session, lesson: Lesson) -> LessonOut:
-    return _fill_series(db, [to_out(lesson)])[0]
+    return _fill_series(db, [to_out(lesson, with_removed=True)])[0]
 
 
 def _get_owned_lesson(db: Session, teacher: TeacherProfile, lesson_id: int) -> Lesson:
@@ -103,6 +116,7 @@ def _get_owned_lesson(db: Session, teacher: TeacherProfile, lesson_id: int) -> L
         select(Lesson)
         .options(
             selectinload(Lesson.attendance).joinedload(Attendance.student).joinedload(StudentProfile.user),
+            selectinload(Lesson.removed_attendance).joinedload(Attendance.student).joinedload(StudentProfile.user),
             joinedload(Lesson.group),
         )
         .where(Lesson.id == lesson_id)
@@ -113,20 +127,8 @@ def _get_owned_lesson(db: Session, teacher: TeacherProfile, lesson_id: int) -> L
 
 
 def _sync_participants(db: Session, lesson: Lesson, students: list[StudentProfile]) -> list[StudentProfile]:
-    """Add missing participants; remove unmarked ones that were deselected."""
-    wanted = {s.id for s in students}
-    current = {a.student_id: a for a in lesson.attendance}
-    for sid, row in list(current.items()):
-        if sid not in wanted:
-            if row.status is not None:
-                raise BadRequest("Нельзя убрать ученика с уже отмеченной посещаемостью")
-            lesson.attendance.remove(row)
-    added = []
-    for s in students:
-        if s.id not in current:
-            lesson.attendance.append(Attendance(student_id=s.id))
-            added.append(s)
-    return added
+    """Active participants become exactly `students` (removal keeps marks; see services/participation.py)."""
+    return participation.sync_lesson(db, lesson, students)
 
 
 @router.get("/lessons", response_model=list[LessonOut])
@@ -155,7 +157,9 @@ def list_lessons(
     if group_id:
         q = q.where(Lesson.group_id == group_id)
     if student_id:
-        q = q.where(Lesson.id.in_(select(Attendance.lesson_id).where(Attendance.student_id == student_id)))
+        q = q.where(Lesson.id.in_(select(Attendance.lesson_id).where(
+            Attendance.student_id == student_id, Attendance.removed_at.is_(None)
+        )))
     if status_filter:
         q = q.where(Lesson.status == status_filter)
     return _fill_series(db, [to_out(lesson) for lesson in db.scalars(q).unique().all()])
@@ -261,12 +265,10 @@ def update_lesson(
     payload = data.model_dump(exclude_unset=True)
     student_ids = payload.pop("student_ids", None)
     if user.role == UserRole.TEACHER:
-        # A teacher may change the topic and add students; time, title, link,
-        # cancelling and removing participants belong to the administrator.
+        # A teacher may change the topic and the participants; time, title,
+        # link and cancelling belong to the administrator.
         if set(payload) - {"topic"}:
             raise Forbidden("Изменять время, название, ссылку и статус занятия может только администратор")
-        if student_ids is not None and not {a.student_id for a in lesson.attendance} <= set(student_ids):
-            raise Forbidden("Убирать учеников из занятия может только администратор")
     students = get_owned_students(db, teacher, student_ids) if student_ids is not None else None
     tz = get_zone(teacher.user.timezone)
     shift = wall_clock_delta(lesson.starts_at, payload["starts_at"], tz) if payload.get("starts_at") else None
@@ -290,6 +292,25 @@ def update_lesson(
 
     if rescheduled:
         _notify_schedule_change(db, lesson, rescheduled)
+    db.commit()
+    return _one(db, _get_owned_lesson(db, teacher, lesson_id))
+
+
+@router.post("/lessons/{lesson_id}/participants", response_model=LessonOut)
+def add_participants(lesson_id: int, data: ParticipantsChange, teacher: ActingTeacher, db: DB) -> LessonOut:
+    """Add students to this lesson only (a removed student comes back with their mark)."""
+    lesson = _get_owned_lesson(db, teacher, lesson_id)
+    participation.add_to_lesson(db, lesson, get_owned_students(db, teacher, data.student_ids))
+    db.commit()
+    return _one(db, _get_owned_lesson(db, teacher, lesson_id))
+
+
+@router.post("/lessons/{lesson_id}/participants/remove", response_model=LessonOut)
+def remove_participants(lesson_id: int, data: ParticipantsChange, teacher: ActingTeacher, db: DB) -> LessonOut:
+    """Take students off this lesson only: group membership, other lessons and the
+    attendance mark stay; a charged lesson goes back to the subscription."""
+    lesson = _get_owned_lesson(db, teacher, lesson_id)
+    participation.remove_from_lesson(db, lesson, set(data.student_ids))
     db.commit()
     return _one(db, _get_owned_lesson(db, teacher, lesson_id))
 

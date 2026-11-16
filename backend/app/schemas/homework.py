@@ -38,6 +38,10 @@ class HomeworkUpdate(BaseModel):
     add_group_ids: list[int] = []
 
 
+class HomeworkUnassign(BaseModel):
+    student_ids: list[int] = Field(min_length=1, max_length=500)
+
+
 class SubmissionCounts(BaseModel):
     total: int = 0
     new: int = 0
@@ -45,6 +49,7 @@ class SubmissionCounts(BaseModel):
     submitted: int = 0
     reviewed: int = 0
     needs_revision: int = 0
+    removed: int = 0  # excluded students (not in total or the statuses)
 
 
 class HomeworkListItem(BaseModel):
@@ -68,6 +73,7 @@ class SubmissionOut(BaseModel):
     submitted_at: datetime | None
     reviewed_at: datetime | None
     files: list[AttachmentOut]
+    removed_at: datetime | None = None  # excluded from the task; work and grade are kept
 
 
 class HomeworkDetail(BaseModel):

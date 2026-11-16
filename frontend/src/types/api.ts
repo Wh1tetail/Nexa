@@ -130,6 +130,32 @@ export interface Group {
   description: string | null;
   created_at: string;
   students: GroupMember[];
+  /** Scheduled lessons of the group from now on. */
+  upcoming_lessons: number;
+  /** After a change of members: lesson places added / released. */
+  lessons_assigned?: number | null;
+  lessons_released?: number | null;
+}
+
+/** Whose assignments to show: still assigned, excluded, or both. */
+export type ParticipantState = "active" | "removed" | "all";
+
+/** Taken off a lesson; the attendance mark is kept and comes back on re-adding. */
+export interface RemovedParticipant {
+  student_id: number;
+  student_name: string;
+  status: AttendanceStatus | null;
+  removed_at: string;
+}
+
+export interface TestParticipant {
+  student_id: number;
+  student_name: string;
+  /** Set when excluded from the test (attempts and results are kept). */
+  removed_at: string | null;
+  attempts_used: number;
+  last_status: AttemptStatus | null;
+  best_percent: number | null;
 }
 
 export interface Subscription {
@@ -174,6 +200,8 @@ export interface Lesson {
   series_position: number | null;
   series_total: number | null;
   attendance: AttendanceRow[];
+  /** Only in single-lesson responses. */
+  removed: RemovedParticipant[];
 }
 
 export interface AttendanceRecord {
@@ -227,6 +255,8 @@ export interface SubmissionCounts {
   submitted: number;
   reviewed: number;
   needs_revision: number;
+  /** Excluded students (not in total or the statuses). */
+  removed: number;
 }
 
 export interface HomeworkListItem {
@@ -250,6 +280,8 @@ export interface Submission {
   submitted_at: string | null;
   reviewed_at: string | null;
   files: Attachment[];
+  /** Excluded from the task; work and grade are kept. */
+  removed_at: string | null;
 }
 
 export interface HomeworkDetail {

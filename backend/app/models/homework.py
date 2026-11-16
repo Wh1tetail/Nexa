@@ -73,6 +73,8 @@ class HomeworkSubmission(Base, TimestampMixin):
     grade: Mapped[int | None] = mapped_column(Integer)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # excluded from the assignment: hidden from the student, work and grade kept
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     homework: Mapped[Homework] = relationship(back_populates="submissions")
     student: Mapped[StudentProfile] = relationship()

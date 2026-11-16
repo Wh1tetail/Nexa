@@ -42,6 +42,7 @@ def records_query(
             joinedload(Attendance.lesson),
             joinedload(Attendance.student).joinedload(StudentProfile.user),
         )
+        .where(Attendance.removed_at.is_(None))  # taken off the lesson: kept, but not counted
     )
     if teacher_id is not None:
         q = q.where(Lesson.teacher_id == teacher_id)

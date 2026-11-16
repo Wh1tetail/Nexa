@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, HelpCircle, Pencil, RotateCcw, Timer, Trash2, Users } from "lucide-react";
+import { ArrowLeft, HelpCircle, Pencil, RotateCcw, Timer, Trash2, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -10,11 +10,15 @@ import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useI18n } from "@/contexts/I18nContext";
+import { ParticipantList, type ParticipantRow } from "@/components/common/ParticipantList";
+import { RecipientPicker } from "@/components/common/RecipientPicker";
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { NativeSelect } from "@/components/ui/input";
 import { testsApi } from "@/services/api";
-import type { AttemptSummary } from "@/types/api";
+import type { AttemptSummary, ParticipantState } from "@/types/api";
 import { errorMessage } from "@/services/http";
 import { fmtDateTime } from "@/utils/format";
 import { scoreVariant } from "@/utils/status";
@@ -28,7 +32,46 @@ export default function TestResultsPage() {
   const [deleting, setDeleting] = useState(false);
   const [resetting, setResetting] = useState<AttemptSummary | null>(null);
   const test = useQuery({ queryKey: ["tests", id], queryFn: () => testsApi.get(id) });
-  const attempts = useQuery({ queryKey: ["tests", id, "attempts"], queryFn: () => testsApi.attempts(id) });
+  const [resultsState, setResultsState] = useState<ParticipantState>("all");
+  const [addOpen, setAddOpen] = useState(false);
+  const [toAdd, setToAdd] = useState({ studentIds: [] as number[], groupIds: [] as number[] });
+  const participants = useQuery({ queryKey: ["tests", id, "participants"], queryFn: () => testsApi.participants(id, "all") });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["tests"] });
+  const unassign = useMutation({
+    mutationFn: (ids: number[]) => testsApi.unassign(id, ids),
+    onSuccess: (_, ids) => {
+      refresh();
+      toast.success(t.participants.removedToast(ids.length));
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const assign = useMutation({
+    mutationFn: (r: { studentIds: number[]; groupIds: number[] }) => testsApi.assign(id, r.studentIds, r.groupIds),
+    onSuccess: (_, r) => {
+      refresh();
+      setAddOpen(false);
+      setToAdd({ studentIds: [], groupIds: [] });
+      toast.success(r.groupIds.length ? t.common.saved : t.participants.addedToast(r.studentIds.length));
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const removedIds = new Set((participants.data ?? []).filter((p) => p.removed_at).map((p) => p.student_id));
+  const participantRows: ParticipantRow[] = (participants.data ?? []).map((p) => ({
+    studentId: p.student_id,
+    name: p.student_name,
+    removedAt: p.removed_at,
+    meta: (
+      <>
+        {t.participants.attempts(p.attempts_used)}
+        {p.best_percent !== null && ` · ${t.participants.best(p.best_percent)}`}
+      </>
+    ),
+    aside: p.last_status ? <AttemptBadge status={p.last_status} /> : undefined,
+  }))
+  const attempts = useQuery({
+    queryKey: ["tests", id, "attempts", resultsState],
+    queryFn: () => testsApi.attempts(id, resultsState),
+  });
 
   const remove = useMutation({
     mutationFn: () => testsApi.remove(id),
@@ -90,8 +133,40 @@ export default function TestResultsPage() {
         <StatCard icon={Users} tone="primary" label={t.tests.score} value={avg !== null ? `${avg}%` : "—"} />
       </div>
 
+      <Card>
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+          <CardTitle>{t.participants.title}</CardTitle>
+          <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+            <UserPlus />
+            {t.participants.addStudents}
+          </Button>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-4">
+          <ParticipantList
+            rows={participantRows}
+            confirmTitle={t.participants.removeTestTitle}
+            confirmText={t.participants.removeTestText}
+            onRemove={(ids) => unassign.mutateAsync(ids)}
+            onRestore={(sid) => assign.mutateAsync({ studentIds: [sid], groupIds: [] })}
+            busy={unassign.isPending || assign.isPending}
+          />
+        </CardContent>
+      </Card>
+
       <Card className="overflow-hidden">
-        <CardHeader><CardTitle>{t.tests.results}</CardTitle></CardHeader>
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+          <CardTitle>{t.tests.results}</CardTitle>
+          <NativeSelect
+            value={resultsState}
+            onChange={(e) => setResultsState(e.target.value as ParticipantState)}
+            className="h-9 w-auto"
+            aria-label={t.participants.title}
+          >
+            {(["all", "active", "removed"] as const).map((s) => (
+              <option key={s} value={s}>{t.participants[s]}</option>
+            ))}
+          </NativeSelect>
+        </CardHeader>
         {attempts.data?.length ? (
           <Table>
             <TableHeader>
@@ -110,6 +185,7 @@ export default function TestResultsPage() {
                     <div className="flex items-center gap-3 whitespace-nowrap">
                       <Avatar name={a.student_name} className="size-8 text-[10px]" />
                       <span className="font-medium text-primary">{a.student_name}</span>
+                      {removedIds.has(a.student_id) && <Badge variant="neutral">{t.participants.removedBadge}</Badge>}
                       {d.max_attempts > 1 || attempts.data!.some((x) => x.student_id === a.student_id && x.number > 1) ? (
                         <span className="text-xs text-muted-foreground">{t.tests.attemptNo(a.number)}</span>
                       ) : null}
@@ -143,6 +219,30 @@ export default function TestResultsPage() {
           <EmptyState title={t.tests.attemptsEmpty} />
         )}
       </Card>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t.participants.addStudents}</DialogTitle></DialogHeader>
+          <DialogBody>
+            <RecipientPicker
+              studentIds={toAdd.studentIds}
+              groupIds={toAdd.groupIds}
+              onChange={setToAdd}
+              disabledStudentIds={(participants.data ?? []).filter((p) => !p.removed_at).map((p) => p.student_id)}
+            />
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>{t.common.cancel}</Button>
+            <Button
+              loading={assign.isPending}
+              disabled={!toAdd.studentIds.length && !toAdd.groupIds.length}
+              onClick={() => assign.mutate(toAdd)}
+            >
+              {t.participants.add}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!resetting}
