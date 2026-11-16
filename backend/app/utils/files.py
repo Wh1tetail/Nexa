@@ -44,6 +44,7 @@ ALLOWED: dict[str, tuple[str, set[str] | None]] = {
     "mp3": ("audio/mpeg", {"audio/mpeg"}),
     "m4a": ("audio/mp4", {"audio/mp4", "audio/m4a", "video/mp4"}),
     "wav": ("audio/wav", {"audio/x-wav", "audio/wav"}),
+    "ogg": ("audio/ogg", {"audio/ogg", "application/ogg", "video/ogg"}),
     "txt": ("text/plain", None),
 }
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowLeft, ArrowUp, Lock, Paperclip, Plus, Settings2, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, Headphones, Lock, Paperclip, Plus, Settings2, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -15,12 +15,15 @@ import { useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
 import { testsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
-import type { Attachment, QuestionInput, QuestionType } from "@/types/api";
+import { CONTENT_TYPES, type Attachment, type QuestionInput, type QuestionType } from "@/types/api";
+import { BlockEditor, GapsEditor, MatchingEditor, blankTask, cfgOf, taskConfigFromSaved, taskError } from "@/components/tests/TaskEditors";
 import { localInputToIso, toDateTimeInput } from "@/utils/format";
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz";
 
 function blankQuestion(type: QuestionType = "single_choice"): QuestionInput {
+  const task = blankTask(type);
+  if (task) return task;
   if (type === "true_false") return { type, text: "", options: [], correct_answer: ["true"], points: 1 };
   if (type === "short_answer") return { type, text: "", options: [], correct_answer: [], points: 1 };
   return {
@@ -38,6 +41,7 @@ function blankQuestion(type: QuestionType = "single_choice"): QuestionInput {
 function QuestionEditor({
   q,
   index,
+  number,
   total,
   locked,
   onChange,
@@ -48,6 +52,8 @@ function QuestionEditor({
 }: {
   q: QuestionInput;
   index: number;
+  /** number among real questions (blocks have none) */
+  number: number;
   total: number;
   locked: boolean;
   files: Attachment[];
@@ -58,8 +64,12 @@ function QuestionEditor({
 }) {
   const { t } = useI18n();
   const isChoice = q.type === "single_choice" || q.type === "multiple_choice";
+  const isBlock = CONTENT_TYPES.includes(q.type);
+  const fixedPoints = isBlock || q.type === "fill_gaps"; // computed: blocks 0, gaps = sum of gap points
 
   const setType = (type: QuestionType) => {
+    const task = blankTask(type);
+    if (task) return onChange({ ...task, text: q.text });
     const fresh = blankQuestion(type);
     onChange({ ...fresh, text: q.text, points: q.points, explanation: q.explanation, attachment_ids: q.attachment_ids, options: isChoice && (type === "single_choice" || type === "multiple_choice") ? q.options : fresh.options });
   };
@@ -69,16 +79,31 @@ function QuestionEditor({
   return (
     <Card className={cn("p-4 sm:p-5", error && "border-danger/50")}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="flex size-7 items-center justify-center rounded-lg bg-accent-soft text-xs font-semibold text-accent">{index + 1}</span>
-        <NativeSelect value={q.type} disabled={locked} onChange={(e) => setType(e.target.value as QuestionType)} className="h-9 w-auto min-w-[170px] flex-1 sm:flex-none">
-          {(["single_choice", "multiple_choice", "true_false", "short_answer"] as const).map((type) => (
-            <option key={type} value={type}>{t.status.questionType[type]}</option>
-          ))}
-        </NativeSelect>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          {t.tests.points}
-          <Input type="number" min={1} max={100} disabled={locked} value={q.points} onChange={(e) => onChange({ ...q, points: Math.max(1, Number(e.target.value)) })} className="h-9 w-16" />
-        </label>
+        {isBlock ? (
+          <span className="flex h-9 items-center gap-2 rounded-lg bg-accent-soft px-3 text-sm font-medium text-accent">
+            {q.type === "audio" ? <Headphones className="size-4" /> : <BookOpen className="size-4" />}
+            {t.status.questionType[q.type]}
+          </span>
+        ) : (
+          <>
+            <span className="flex size-7 items-center justify-center rounded-lg bg-accent-soft text-xs font-semibold text-accent">{number}</span>
+            <NativeSelect value={q.type} disabled={locked} onChange={(e) => setType(e.target.value as QuestionType)} className="h-9 w-auto min-w-[170px] flex-1 sm:flex-none">
+              {(["single_choice", "multiple_choice", "true_false", "short_answer", "fill_gaps", "matching"] as const).map((type) => (
+                <option key={type} value={type}>{t.status.questionType[type]}</option>
+              ))}
+            </NativeSelect>
+          </>
+        )}
+        {!isBlock && (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            {t.tests.points}
+            {fixedPoints ? (
+              <span className="tabular flex h-9 items-center px-1 text-sm font-medium text-primary">{q.points}</span>
+            ) : (
+              <Input type="number" min={1} max={100} disabled={locked} value={q.points} onChange={(e) => onChange({ ...q, points: Math.max(1, Number(e.target.value)) })} className="h-9 w-16" />
+            )}
+          </label>
+        )}
         <div className="ml-auto flex gap-1">
           <Button variant="ghost" size="icon-sm" disabled={locked || index === 0} onClick={() => onMove(-1)} aria-label="Up"><ArrowUp /></Button>
           <Button variant="ghost" size="icon-sm" disabled={locked || index === total - 1} onClick={() => onMove(1)} aria-label="Down"><ArrowDown /></Button>
@@ -86,14 +111,20 @@ function QuestionEditor({
         </div>
       </div>
 
-      <Textarea
-        className="mt-3 min-h-[64px]"
-        placeholder={t.tests.questionText}
-        value={q.text}
-        disabled={locked}
-        onChange={(e) => onChange({ ...q, text: e.target.value })}
-        maxLength={5000}
-      />
+      {isBlock ? (
+        <BlockEditor q={q} locked={locked} files={files} onChange={onChange} />
+      ) : (
+        <Textarea
+          className="mt-3 min-h-[64px]"
+          placeholder={q.type === "fill_gaps" ? "Complete the text using the correct words." : q.type === "matching" ? "Match the words with their translations." : t.tests.questionText}
+          value={q.text}
+          disabled={locked}
+          onChange={(e) => onChange({ ...q, text: e.target.value })}
+          maxLength={5000}
+        />
+      )}
+      {q.type === "fill_gaps" && <GapsEditor q={q} locked={locked} onChange={onChange} />}
+      {q.type === "matching" && <MatchingEditor q={q} locked={locked} onChange={onChange} />}
 
       {isChoice && (
         <div className="mt-3 grid gap-2">
@@ -172,7 +203,7 @@ function QuestionEditor({
           />
         </Field>
       )}
-      {files.length > 0 && (
+      {!isBlock && files.length > 0 && (
         <div className="mt-3">
           <p className="mb-1.5 text-xs text-muted-foreground">{t.tests.questionFiles}</p>
           <div className="flex flex-wrap gap-1.5">
@@ -204,15 +235,17 @@ function QuestionEditor({
         </div>
       )}
 
-      <Field label={t.tests.explanation} hint={t.tests.explanationHint} optional className="mt-3">
-        <Textarea
-          rows={2}
-          value={q.explanation ?? ""}
-          disabled={locked}
-          maxLength={5000}
-          onChange={(e) => onChange({ ...q, explanation: e.target.value })}
-        />
-      </Field>
+      {!isBlock && (
+        <Field label={t.tests.explanation} hint={t.tests.explanationHint} optional className="mt-3">
+          <Textarea
+            rows={2}
+            value={q.explanation ?? ""}
+            disabled={locked}
+            maxLength={5000}
+            onChange={(e) => onChange({ ...q, explanation: e.target.value })}
+          />
+        </Field>
+      )}
       {error && <p className="mt-3 text-xs text-danger">{error}</p>}
     </Card>
   );
@@ -268,6 +301,7 @@ export default function TestEditorPage() {
         points: q.points,
         explanation: q.explanation ?? "",
         attachment_ids: q.attachment_ids,
+        config: taskConfigFromSaved(q),
       })),
     );
     setAvailableFrom(d.available_from ? toDateTimeInput(new Date(d.available_from)) : "");
@@ -288,7 +322,15 @@ export default function TestEditorPage() {
     mutationFn: (f: Attachment) => testsApi.deleteFile(editId!, f.id),
     onSuccess: (_, f) => {
       // questions stop referring to it (the server does the same)
-      setQuestions((qs) => qs.map((q) => ({ ...q, attachment_ids: (q.attachment_ids ?? []).filter((x) => x !== f.id) })));
+      setQuestions((qs) =>
+        qs.map((q) => {
+          const c = cfgOf(q);
+          const config = q.config && (c.attachment_id === f.id || c.image_id === f.id)
+            ? { ...q.config, ...(c.attachment_id === f.id ? { attachment_id: null } : {}), ...(c.image_id === f.id ? { image_id: null } : {}) }
+            : q.config;
+          return { ...q, config, attachment_ids: (q.attachment_ids ?? []).filter((x) => x !== f.id) };
+        }),
+      );
       qc.invalidateQueries({ queryKey: ["tests", editId] });
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -334,8 +376,13 @@ export default function TestEditorPage() {
     const p = Number(passing);
     if (passing && (!Number.isInteger(p) || p < 1 || p > 100)) e.passing = t.tests.passingRange;
     if (availableFrom && due && availableFrom >= due) e.availableFrom = t.tests.openBeforeDue;
+    if (!questions.some((q) => !CONTENT_TYPES.includes(q.type))) e.questions = t.tests.minOneQuestion;
     questions.forEach((q, i) => {
-      if (!q.text.trim()) e[`q${i}`] = t.tests.questionText + ": " + t.common.required.toLowerCase();
+      const block = CONTENT_TYPES.includes(q.type);
+      const task = taskError(q, t);
+      if (!q.text.trim()) e[`q${i}`] = block ? t.tasks.titleNeeded : t.tests.questionText + ": " + t.common.required.toLowerCase();
+      else if (task) e[`q${i}`] = task;
+      else if (block || q.type === "fill_gaps" || q.type === "matching") return;
       else if ((q.type === "single_choice" || q.type === "multiple_choice") && q.options.some((o) => !o.text.trim())) e[`q${i}`] = t.tests.fillOptions;
       else if (q.type !== "short_answer" && !q.correct_answer.length) e[`q${i}`] = t.tests.markCorrect;
     });
@@ -440,12 +487,13 @@ export default function TestEditorPage() {
       </Card>
 
       <div className="space-y-3">
-        <h2 className="text-base font-semibold">{t.tests.questions} · {questions.length}</h2>
+        <h2 className="text-base font-semibold">{t.tests.questions} · {questions.filter((q) => !CONTENT_TYPES.includes(q.type)).length}</h2>
         {questions.map((q, i) => (
           <QuestionEditor
             key={i}
             q={q}
             index={i}
+            number={questions.slice(0, i + 1).filter((x) => !CONTENT_TYPES.includes(x.type)).length}
             total={questions.length}
             locked={locked}
             files={files}
@@ -456,10 +504,29 @@ export default function TestEditorPage() {
           />
         ))}
         {!locked && (
-          <Button variant="outline" className="w-full border-dashed" onClick={() => setQuestions((qs) => [...qs, blankQuestion(qs[qs.length - 1]?.type)])}>
-            <Plus />
-            {t.tests.addQuestion}
-          </Button>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+            <Button
+              variant="outline"
+              className="w-full border-dashed"
+              onClick={() =>
+                setQuestions((qs) => {
+                  const last = [...qs].reverse().find((x) => !CONTENT_TYPES.includes(x.type));
+                  return [...qs, blankQuestion(last?.type)];
+                })
+              }
+            >
+              <Plus />
+              {t.tests.addQuestion}
+            </Button>
+            <Button variant="outline" className="border-dashed" onClick={() => setQuestions((qs) => [...qs, blankQuestion("audio")])}>
+              <Headphones />
+              {t.tasks.addAudio}
+            </Button>
+            <Button variant="outline" className="border-dashed" onClick={() => setQuestions((qs) => [...qs, blankQuestion("reading")])}>
+              <BookOpen />
+              {t.tasks.addReading}
+            </Button>
+          </div>
         )}
       </div>
 

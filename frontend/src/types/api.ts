@@ -6,7 +6,41 @@ export type SubscriptionStatus = "active" | "expiring_soon" | "expired" | "froze
 export type LessonStatus = "scheduled" | "completed" | "cancelled";
 export type AttendanceStatus = "present" | "absent" | "late" | "excused";
 export type SubmissionStatus = "new" | "in_progress" | "submitted" | "reviewed" | "needs_revision";
-export type QuestionType = "single_choice" | "multiple_choice" | "true_false" | "short_answer";
+export type QuestionType =
+  | "single_choice"
+  | "multiple_choice"
+  | "true_false"
+  | "short_answer"
+  | "fill_gaps"
+  | "matching"
+  /** content blocks (not scored); the following questions refer to them */
+  | "audio"
+  | "reading";
+export const CONTENT_TYPES: QuestionType[] = ["audio", "reading"];
+export type FillMode = "input" | "dropdown" | "drag";
+
+/** Type settings as the API returns them (answers only when revealed). */
+export interface QuestionConfig {
+  // fill_gaps
+  segments?: string[];
+  gaps?: { hint: string | null; points: number }[];
+  mode?: FillMode;
+  bank?: string[];
+  case_sensitive?: boolean;
+  template?: string;
+  distractors?: string[];
+  /** fill_gaps: accepted answers per gap; matching: the right side per pair */
+  answers?: string[][] | string[];
+  // matching
+  lefts?: string[];
+  rights?: string[];
+  pairs?: { left: string; right: string }[];
+  // audio / reading blocks
+  attachment_id?: number;
+  max_plays?: number | null;
+  body?: string | null;
+  image_id?: number | null;
+}
 export type AttemptStatus = "in_progress" | "pending_review" | "graded";
 export type NotificationType =
   | "homework_assigned"
@@ -343,6 +377,7 @@ export interface Question {
   explanation: string | null;
   /** Ids of the test's files shown with this question. */
   attachment_ids: number[];
+  config: QuestionConfig;
 }
 
 export interface QuestionInput {
@@ -353,6 +388,15 @@ export interface QuestionInput {
   points: number;
   explanation?: string | null;
   attachment_ids?: number[];
+  /** fill_gaps: {template, gap_points, mode, case_sensitive, distractors}; matching: {pairs, distractors};
+   *  audio: {attachment_id, max_plays, body}; reading: {body, image_id} */
+  config?: Record<string, unknown>;
+}
+
+export interface AudioPlay {
+  plays: number;
+  max_plays: number | null;
+  allowed: boolean;
 }
 
 /** Teacher-controlled test settings. */
@@ -429,6 +473,8 @@ export interface AttemptDetail extends AttemptSummary {
   questions: Question[];
   answers: Answer[];
   files: Attachment[];
+  /** Audio block id -> times started in this attempt. */
+  plays: Record<string, number>;
 }
 
 export interface StudentTestItem {

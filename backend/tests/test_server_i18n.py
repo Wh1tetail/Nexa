@@ -132,7 +132,7 @@ def _user_id(email: str) -> int:
 
 def _literal_templates() -> set[str]:
     """First string argument of error/ValueError/M()/tr() calls in the app code."""
-    names = {"NotFound", "BadRequest", "Forbidden", "Conflict", "Unauthorized", "ValueError", "M", "tr", "AppError"}
+    names = {"NotFound", "BadRequest", "Forbidden", "Conflict", "Unauthorized", "ValueError", "TaskError", "M", "tr", "AppError"}
     found: set[str] = set()
     for path in pathlib.Path("app").rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))

@@ -52,6 +52,14 @@ class QuestionType(StrEnum):
     MULTIPLE_CHOICE = "multiple_choice"
     TRUE_FALSE = "true_false"
     SHORT_ANSWER = "short_answer"
+    FILL_GAPS = "fill_gaps"  # text with gaps; per-gap points
+    MATCHING = "matching"  # pairs left -> right; partial credit
+    # content blocks (not scored): the following questions refer to them
+    AUDIO = "audio"
+    READING = "reading"
+
+
+CONTENT_TYPES = frozenset({QuestionType.AUDIO, QuestionType.READING})
 
 
 class AttemptStatus(StrEnum):

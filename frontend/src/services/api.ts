@@ -6,6 +6,7 @@ import type {
   AttemptDetail,
   AttemptStatus,
   AttemptSummary,
+  AudioPlay,
   Attachment,
   AttendanceRecord,
   AttendanceStats,
@@ -295,6 +296,8 @@ export const meApi = {
   submitTest: (attemptId: number, answers: AnswerMap) =>
     post<AttemptDetail>(`/me/tests/attempts/${attemptId}/submit`, { answers: toAnswers(answers) }),
   attempt: (attemptId: number) => get<AttemptDetail>(`/me/tests/attempts/${attemptId}`),
+  /** Count one listening of an audio block (refused when its limit is used up). */
+  playAudio: (attemptId: number, questionId: number) => post<AudioPlay>(`/me/tests/attempts/${attemptId}/plays/${questionId}`),
   attendance: () => get<{ stats: AttendanceStats; lessons: MyLesson[] }>("/me/attendance"),
 };
 

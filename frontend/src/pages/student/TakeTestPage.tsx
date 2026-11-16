@@ -6,11 +6,13 @@ import { toast } from "sonner";
 
 import { ErrorState, PageSkeleton } from "@/components/common";
 import { QuestionView } from "@/components/tests/QuestionView";
+import { TestBody, hasReading, usedFileIds } from "@/components/tests/TestBody";
 import { TestMaterials } from "@/components/tests/TestMedia";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useI18n } from "@/contexts/I18nContext";
+import { CONTENT_TYPES } from "@/types/api";
 import { cn } from "@/lib/utils";
 import { meApi, type AnswerMap } from "@/services/api";
 import { errorMessage } from "@/services/http";
@@ -119,13 +121,15 @@ export default function TakeTestPage() {
   }
   if (attempt.status !== "in_progress") return <Navigate to={`/student/tests/attempts/${attempt.id}`} replace />;
 
-  const total = attempt.questions.length;
-  const answered = attempt.questions.filter((q) => (answers[q.id] ?? []).length > 0).length;
+  // audio / reading blocks are not questions; gaps and matching count once anything is filled in
+  const scored = attempt.questions.filter((q) => !CONTENT_TYPES.includes(q.type));
+  const total = scored.length;
+  const answered = scored.filter((q) => (answers[q.id] ?? []).some((v) => v.trim() !== "")).length;
   const mm = left !== null ? String(Math.floor(left / 60)).padStart(2, "0") : "";
   const ss = left !== null ? String(left % 60).padStart(2, "0") : "";
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className={cn("mx-auto", hasReading(attempt.questions) ? "max-w-6xl" : "max-w-3xl")}>
       <Link to="/student/tests" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary">
         <ArrowLeft className="size-4" />
         {t.tests.title}
@@ -158,20 +162,26 @@ export default function TakeTestPage() {
       </div>
 
       <div className="mt-6 grid gap-4">
-        <TestMaterials files={attempt.files} usedIds={attempt.questions.flatMap((q) => q.attachment_ids)} />
-        {attempt.questions.map((q, i) => (
-          <QuestionView
-            key={q.id}
-            index={i}
-            question={q}
-            files={attempt.files}
-            value={answers[q.id] ?? []}
-            onChange={(v) => {
-              dirty.current = true;
-              setAnswers((prev) => ({ ...prev, [q.id]: v }));
-            }}
-          />
-        ))}
+        <TestMaterials files={attempt.files} usedIds={usedFileIds(attempt.questions)} />
+        <TestBody
+          questions={attempt.questions}
+          files={attempt.files}
+          attemptId={attempt.id}
+          plays={attempt.plays}
+          live
+          renderQuestion={(q, i) => (
+            <QuestionView
+              index={i}
+              question={q}
+              files={attempt.files}
+              value={answers[q.id] ?? []}
+              onChange={(v) => {
+                dirty.current = true;
+                setAnswers((prev) => ({ ...prev, [q.id]: v }));
+              }}
+            />
+          )}
+        />
       </div>
 
       <Button size="lg" className="mt-6 w-full" onClick={() => setConfirm(true)} loading={submit.isPending}>

@@ -1,9 +1,11 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models.enums import AttemptStatus, QuestionType
+from app.models.enums import CONTENT_TYPES, AttemptStatus, QuestionType
 from app.schemas.homework import AttachmentOut
+from app.services.task_types import normalize_config
 
 
 class OptionIn(BaseModel):
@@ -16,10 +18,12 @@ class QuestionIn(BaseModel):
     text: str = Field(min_length=1, max_length=5000)
     options: list[OptionIn] = []
     correct_answer: list[str] = []
-    points: int = Field(default=1, gt=0, le=100)
+    points: int = Field(default=1, ge=0, le=100)
     explanation: str | None = Field(default=None, max_length=5000)
     # ids of the test's files shown with this question (picture, audio)
     attachment_ids: list[int] = Field(default_factory=list, max_length=10)
+    # fill_gaps / matching / audio / reading settings (see services/task_types.py)
+    config: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _validate(self):
@@ -42,6 +46,15 @@ class QuestionIn(BaseModel):
         elif t == QuestionType.SHORT_ANSWER:
             self.options = []
             self.correct_answer = [a.strip() for a in self.correct_answer if a.strip()]
+        if t in (QuestionType.FILL_GAPS, QuestionType.MATCHING) or t in CONTENT_TYPES:
+            self.options, self.correct_answer = [], []
+            self.config, fixed_points = normalize_config(t, self.config)
+            if fixed_points is not None:
+                self.points = fixed_points  # gaps: sum of their points; blocks: 0
+        else:
+            self.config = {}
+        if t not in CONTENT_TYPES and self.points < 1:
+            raise ValueError("Укажите баллы за вопрос")
         self.explanation = (self.explanation or "").strip() or None
         self.attachment_ids = list(dict.fromkeys(self.attachment_ids))
         return self
@@ -106,6 +119,8 @@ class QuestionOut(BaseModel):
     points: int
     explanation: str | None = None  # same visibility as correct_answer
     attachment_ids: list[int] = []
+    # public settings: gaps/word bank, matching lists, audio/reading block (answers only when revealed)
+    config: dict[str, Any] = {}
 
 
 class TestListItem(TestSettings):
@@ -169,6 +184,13 @@ class AttemptDetail(AttemptSummary):
     questions: list[QuestionOut]
     answers: list[AnswerOut]
     files: list[AttachmentOut] = []
+    plays: dict[int, int] = {}  # audio block id -> times started in this attempt
+
+
+class AudioPlay(BaseModel):
+    plays: int  # times started in this attempt
+    max_plays: int | None  # None = no limit
+    allowed: bool
 
 
 class AnswerIn(BaseModel):

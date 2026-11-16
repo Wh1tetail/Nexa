@@ -14,7 +14,7 @@ const isAudio = (f: Attachment) => f.mime_type.startsWith("audio/");
 
 /** Protected files need the Authorization header, so they are fetched as a blob
  *  and shown through an object URL (released when the component unmounts). */
-function useBlobUrl(file: Attachment) {
+export function useBlobUrl(file: Attachment) {
   const q = useQuery({
     queryKey: ["file-blob", file.id],
     queryFn: async () => (await http.get<Blob>(`/files/${file.id}`, { responseType: "blob" })).data,
@@ -28,7 +28,7 @@ function useBlobUrl(file: Attachment) {
   return { url, isLoading: q.isLoading, isError: q.isError };
 }
 
-function InlineMedia({ file }: { file: Attachment }) {
+export function InlineMedia({ file }: { file: Attachment }) {
   const { url, isLoading, isError } = useBlobUrl(file);
   if (isError) return <FileList files={[file]} />;
   if (isLoading || !url) return <Skeleton className={isAudio(file) ? "h-12 w-full" : "h-48 w-full"} />;

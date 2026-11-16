@@ -7,10 +7,12 @@ import { toast } from "sonner";
 import { ErrorState, PageSkeleton } from "@/components/common";
 import { AttemptBadge } from "@/components/common/StatusBadges";
 import { QuestionView } from "@/components/tests/QuestionView";
+import { TestBody, hasReading } from "@/components/tests/TestBody";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/contexts/I18nContext";
 import { testsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
@@ -64,7 +66,7 @@ export default function GradeAttemptPage() {
   const byQ = Object.fromEntries(a.answers.map((x) => [x.question_id, x]));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className={cn("mx-auto space-y-6", hasReading(a.questions) ? "max-w-6xl" : "max-w-3xl")}>
       <Link to={`/teacher/tests/${testId}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary">
         <ArrowLeft className="size-4" />
         {a.test_title}
@@ -85,13 +87,14 @@ export default function GradeAttemptPage() {
         </div>
       </Card>
 
-      <div className="grid gap-4">
-        {a.questions.map((qq, i) => {
+      <TestBody
+        questions={a.questions}
+        files={a.files}
+        renderQuestion={(qq, i) => {
           const ans = byQ[qq.id];
           const manual = qq.type === "short_answer";
           return (
             <QuestionView
-              key={qq.id}
               index={i}
               question={qq}
               files={a.files}
@@ -125,8 +128,8 @@ export default function GradeAttemptPage() {
               }
             />
           );
-        })}
-      </div>
+        }}
+      />
 
       <div className="sticky bottom-0 -mx-4 border-t bg-background/90 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <Button size="lg" className="w-full" loading={save.isPending} onClick={() => save.mutate()}>

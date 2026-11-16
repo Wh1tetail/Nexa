@@ -10,12 +10,12 @@ from app.api.deps import DB, CurrentStudent, StudentWithAccess
 from app.core.exceptions import BadRequest, NotFound
 from app.core.i18n import M
 from app.models import Attachment, Homework, HomeworkSubmission, StudentProfile, Subscription, Test, TestAttempt
-from app.models.enums import AttemptStatus, NotificationType, SubmissionStatus
+from app.models.enums import AttemptStatus, NotificationType, QuestionType, SubmissionStatus
 from app.models.test import test_assignments
 from app.schemas.homework import AttachmentOut, StudentHomework, SubmitRequest
 from app.schemas.lesson import StudentAttendanceSummary
 from app.schemas.subscription import SubscriptionOut
-from app.schemas.test import AttemptDetail, AttemptSummary, SaveProgress, StudentTestItem, SubmitAttempt
+from app.schemas.test import AttemptDetail, AttemptSummary, AudioPlay, SaveProgress, StudentTestItem, SubmitAttempt
 from app.services import attendance_service as att_svc
 from app.services import file_service
 from app.services import homework_service as hw_svc
@@ -258,6 +258,27 @@ def submit_test(attempt_id: int, data: SubmitAttempt, student: StudentWithAccess
     db.commit()
     db.refresh(attempt)
     return test_svc.attempt_detail(attempt, for_teacher=False)
+
+
+@router.post("/tests/attempts/{attempt_id}/plays/{question_id}", response_model=AudioPlay)
+def start_audio(attempt_id: int, question_id: int, student: StudentWithAccess, db: DB) -> AudioPlay:
+    """Count one listening of an audio block before it plays. During the test the
+    block's limit (if any) is enforced; after the test the audio plays freely."""
+    attempt = _own_attempt(db, student, attempt_id)
+    q = next((x for x in attempt.test.questions if x.id == question_id), None)
+    if q is None or q.type != QuestionType.AUDIO:
+        raise NotFound("Аудио не найдено")
+    limit = (q.config or {}).get("max_plays")
+    plays = dict(attempt.plays or {})
+    count = plays.get(str(q.id), 0)
+    if attempt.status != AttemptStatus.IN_PROGRESS:
+        return AudioPlay(plays=count, max_plays=limit, allowed=True)
+    if limit is not None and count >= limit:
+        raise BadRequest("Лимит прослушиваний исчерпан")
+    plays[str(q.id)] = count + 1
+    attempt.plays = plays  # new dict: JSONB change is detected
+    db.commit()
+    return AudioPlay(plays=count + 1, max_plays=limit, allowed=True)
 
 
 @router.get("/tests/attempts/{attempt_id}", response_model=AttemptDetail)

@@ -10,7 +10,7 @@ from app.api.deps import DB, CurrentTeacher, get_owned_student, resolve_recipien
 from app.core.exceptions import BadRequest, NotFound
 from app.core.i18n import M
 from app.models import Attachment, StudentProfile, TeacherProfile, Test, TestAttempt
-from app.models.enums import AttemptStatus, NotificationType
+from app.models.enums import CONTENT_TYPES, AttemptStatus, NotificationType
 from app.models.test import test_assignments
 from app.schemas.test import (
     TestParticipant,
@@ -88,7 +88,7 @@ def list_tests(teacher: CurrentTeacher, db: DB) -> list[TestListItem]:
             created_at=t.created_at,
             files_count=len(t.files),
             **svc.settings_of(t),
-            questions_count=len(t.questions),
+            questions_count=sum(1 for q in t.questions if q.type not in CONTENT_TYPES),
             assigned_count=len(t.students),
             completed_count=sum(1 for a in t.attempts if a.status != AttemptStatus.IN_PROGRESS),
             pending_review_count=sum(1 for a in t.attempts if a.status == AttemptStatus.PENDING_REVIEW),
@@ -187,13 +187,13 @@ def update_test(test_id: int, data: TestUpdate, teacher: CurrentTeacher, db: DB)
     svc.apply_settings(test, data)  # settings may change any time
     if test.attempts:
         # Questions are locked once someone started the test (results must stay consistent).
-        def shape(type_, text, options, correct, points, explanation, files):
-            return (type_, text, options, correct, points, explanation or None, list(files or []))
+        def shape(type_, text, options, correct, points, explanation, files, config):
+            return (type_, text, options, correct, points, explanation or None, list(files or []), config or {})
 
-        existing = [shape(q.type, q.text, q.options, q.correct_answer, q.points, q.explanation, q.attachment_ids)
-                    for q in test.questions]
+        existing = [shape(q.type, q.text, q.options, q.correct_answer, q.points, q.explanation, q.attachment_ids,
+                          q.config) for q in test.questions]
         incoming = [shape(q.type, q.text, [o.model_dump() for o in q.options], q.correct_answer, q.points,
-                          q.explanation, q.attachment_ids) for q in data.questions]
+                          q.explanation, q.attachment_ids, q.config) for q in data.questions]
         if existing != incoming:
             raise BadRequest("Вопросы нельзя изменить: тест уже начали проходить")
     else:

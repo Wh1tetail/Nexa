@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { ErrorState, PageSkeleton } from "@/components/common";
 import { AttemptBadge } from "@/components/common/StatusBadges";
 import { QuestionView } from "@/components/tests/QuestionView";
+import { TestBody, hasReading, usedFileIds } from "@/components/tests/TestBody";
 import { TestMaterials } from "@/components/tests/TestMedia";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ export default function AttemptResultPage() {
   const ring = pct === null ? "text-muted-foreground" : pct >= 80 ? "text-success" : pct >= 50 ? "text-warning" : "text-danger";
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className={cn("mx-auto", hasReading(a.questions) ? "max-w-6xl" : "max-w-3xl")}>
       <Link to="/student/tests" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary">
         <ArrowLeft className="size-4" />
         {t.tests.title}
@@ -129,17 +130,20 @@ export default function AttemptResultPage() {
       )}
 
       <div className="mt-6 grid gap-4">
-        <TestMaterials files={a.files} usedIds={a.questions.flatMap((x) => x.attachment_ids)} />
-        {a.questions.map((qq, i) => (
-          <QuestionView
-            key={qq.id}
-            index={i}
-            question={qq}
-            files={a.files}
-            value={byQ[qq.id]?.answer ?? []}
-            result={a.status === "graded" ? byQ[qq.id] : undefined}
-          />
-        ))}
+        <TestMaterials files={a.files} usedIds={usedFileIds(a.questions)} />
+        <TestBody
+          questions={a.questions}
+          files={a.files}
+          renderQuestion={(qq, i) => (
+            <QuestionView
+              index={i}
+              question={qq}
+              files={a.files}
+              value={byQ[qq.id]?.answer ?? []}
+              result={a.status === "graded" ? byQ[qq.id] : undefined}
+            />
+          )}
+        />
       </div>
     </div>
   );

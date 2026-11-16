@@ -3,6 +3,7 @@ import { CheckCircle2, Lightbulb, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Checkbox, RadioGroup, RadioGroupItem } from "@/components/ui/checkbox";
+import { GapsView, MatchingView } from "@/components/tests/TaskViews";
 import { MediaFiles } from "@/components/tests/TestMedia";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/contexts/I18nContext";
@@ -117,6 +118,8 @@ export function QuestionView({ index, question: q, value, onChange, result, foot
           </div>
         )}
 
+        {q.type === "fill_gaps" && <GapsView q={q} value={value} onChange={onChange} />}
+        {q.type === "matching" && <MatchingView q={q} value={value} onChange={onChange} />}
         {q.type === "short_answer" &&
           (readOnly ? (
             <div className="grid gap-2 text-sm">

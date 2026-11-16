@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.models import StudentProfile, Test, TestAnswer, TestAttempt, TestQuestion
 from app.core.exceptions import BadRequest
 from app.core.i18n import M
-from app.models.enums import AttemptStatus, NotificationType, QuestionType
+from app.models.enums import CONTENT_TYPES, AttemptStatus, NotificationType, QuestionType
 from app.models.test import test_assignments
 from app.schemas.test import (
     AnswerOut,
@@ -19,6 +19,7 @@ from app.schemas.test import (
     QuestionOut,
     StudentTestItem,
 )
+from app.services import task_types
 from app.services.notification_service import notify
 
 TIME_GRACE = timedelta(seconds=60)
@@ -29,11 +30,19 @@ def normalize_text(s: str) -> str:
 
 
 def check_attachment_ids(test: Test, questions: list[QuestionIn]) -> None:
-    """Questions may only show files of this very test."""
-    own = {f.id for f in test.files}
+    """Questions may only show files of this very test; an audio block needs an
+    audio file and a reading picture an image."""
+    own = {f.id: f for f in test.files}
     for q in questions:
-        if not set(q.attachment_ids) <= own:
+        if not set(q.attachment_ids) <= set(own):
             raise BadRequest("Файл к вопросу не найден среди материалов теста")
+        for fid in task_types.file_ids(q.type, q.config):
+            f = own.get(fid)
+            if f is None:
+                raise BadRequest("Файл к вопросу не найден среди материалов теста")
+            kind = "audio/" if q.type == QuestionType.AUDIO else "image/"
+            if not f.mime_type.startswith(kind):
+                raise BadRequest("Для аудиоблока нужен аудиофайл, для текста — изображение")
 
 
 def build_questions(test: Test, questions: list[QuestionIn]) -> None:
@@ -50,6 +59,7 @@ def build_questions(test: Test, questions: list[QuestionIn]) -> None:
                 points=q.points,
                 explanation=q.explanation,
                 attachment_ids=q.attachment_ids,
+                config=q.config,
             )
         )
 
@@ -80,6 +90,8 @@ def is_available(test: Test, now: datetime | None = None) -> bool:
 
 def auto_grade(question: TestQuestion, answer: list[str]) -> tuple[bool | None, float | None]:
     """Returns (is_correct, points). (None, None) means manual review needed."""
+    if question.type in (QuestionType.FILL_GAPS, QuestionType.MATCHING):
+        return task_types.grade(question.type, question.config, question.points, answer)
     if question.type == QuestionType.SHORT_ANSWER:
         given = normalize_text(answer[0]) if answer else ""
         accepted = {normalize_text(a) for a in question.correct_answer}
@@ -111,7 +123,11 @@ def save_answers(attempt: TestAttempt, answers: dict[int, list[str]]) -> None:
         if qid not in questions:
             continue
         q = questions[qid]
-        if q.type != QuestionType.SHORT_ANSWER:
+        if q.type in CONTENT_TYPES:
+            continue  # blocks take no answers
+        if q.type in (QuestionType.FILL_GAPS, QuestionType.MATCHING):
+            value = task_types.clean_answer(q.type, q.config, value)
+        elif q.type != QuestionType.SHORT_ANSWER:
             valid = {o["id"] for o in q.options}
             value = [v for v in dict.fromkeys(value) if v in valid]
             if q.type in (QuestionType.SINGLE_CHOICE, QuestionType.TRUE_FALSE):
@@ -128,13 +144,14 @@ def finalize(db: Session, attempt: TestAttempt, answers: dict[int, list[str]]) -
     save_answers(attempt, answers)
     db.flush()
     existing = {a.question_id: a for a in attempt.answers}
-    for q in attempt.test.questions:
+    scored = [q for q in attempt.test.questions if q.type not in CONTENT_TYPES]
+    for q in scored:
         if q.id not in existing:
             attempt.answers.append(TestAnswer(question_id=q.id, answer=[]))
     db.flush()
     by_q = {a.question_id: a for a in attempt.answers}
     needs_review = False
-    for q in attempt.test.questions:
+    for q in scored:
         ans = by_q[q.id]
         ans.is_correct, ans.points_awarded = auto_grade(q, ans.answer)
         if ans.points_awarded is None:
@@ -195,7 +212,9 @@ def passed(attempt: TestAttempt) -> bool | None:
     return pct >= attempt.test.passing_percent
 
 
-def question_out(q: TestQuestion, reveal: bool, option_order: random.Random | None = None) -> QuestionOut:
+def question_out(
+    q: TestQuestion, reveal: bool, option_order: random.Random | None = None, seed: str | None = None
+) -> QuestionOut:
     options = [OptionIn(**o) for o in q.options]
     if option_order is not None and q.type != QuestionType.TRUE_FALSE:
         option_order.shuffle(options)
@@ -209,6 +228,7 @@ def question_out(q: TestQuestion, reveal: bool, option_order: random.Random | No
         points=q.points,
         explanation=q.explanation if reveal else None,
         attachment_ids=list(q.attachment_ids or []),
+        config=task_types.public_config(q.type, q.config or {}, reveal, seed or f"q-{q.id}"),
     )
 
 
@@ -218,7 +238,19 @@ def ordered_questions(attempt: TestAttempt) -> list[tuple[TestQuestion, random.R
     test = attempt.test
     questions = list(test.questions)
     if test.shuffle_questions:
-        random.Random(f"q-{attempt.id}").shuffle(questions)
+        # audio / reading blocks stay in place; questions are shuffled only
+        # within the part that follows each block (they belong to it)
+        rng = random.Random(f"q-{attempt.id}")
+        out, part = [], []
+        for q in questions:
+            if q.type in CONTENT_TYPES:
+                rng.shuffle(part)
+                out += part + [q]
+                part = []
+            else:
+                part.append(q)
+        rng.shuffle(part)
+        questions = out + part
     return [
         (q, random.Random(f"o-{attempt.id}-{q.id}") if test.shuffle_options else None)
         for q in questions
@@ -269,7 +301,7 @@ def attempt_detail(a: TestAttempt, for_teacher: bool) -> AttemptDetail:
     if for_teacher:
         questions = [question_out(q, reveal) for q in a.test.questions]
     else:
-        questions = [question_out(q, reveal, order) for q, order in ordered_questions(a)]
+        questions = [question_out(q, reveal, order, seed=f"{a.id}-{q.id}") for q, order in ordered_questions(a)]
     return AttemptDetail(
         **summary.model_dump(),
         time_limit_minutes=a.test.time_limit_minutes,
@@ -279,6 +311,7 @@ def attempt_detail(a: TestAttempt, for_teacher: bool) -> AttemptDetail:
         questions=questions,
         answers=answers,
         files=[AttachmentOut.model_validate(f) for f in a.test.files],
+        plays={int(k): v for k, v in (a.plays or {}).items()},
     )
 
 
@@ -338,7 +371,7 @@ def student_item(test: Test, attempts: list[TestAttempt], extra: int = 0) -> Stu
         is_available=is_available(test, now),
         passing_percent=test.passing_percent,
         passed=passed(attempt) if attempt else None,
-        questions_count=len(test.questions),
+        questions_count=sum(1 for q in test.questions if q.type not in CONTENT_TYPES),
         is_overdue=bool(test.due_at and test.due_at < now and not done and not retake),
         attempt_id=attempt.id if attempt else None,
         attempt_status=attempt.status if attempt else None,

@@ -103,7 +103,8 @@ class TestQuestion(Base):
     and for automatic exact-match checking)."""
 
     __tablename__ = "test_questions"
-    __table_args__ = (CheckConstraint("points > 0", name="points_positive"),)
+    # content blocks (audio, reading) are worth 0 points
+    __table_args__ = (CheckConstraint("points >= 0", name="points_not_negative"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     test_id: Mapped[int] = mapped_column(ForeignKey("tests.id", ondelete="CASCADE"), index=True)
@@ -116,6 +117,8 @@ class TestQuestion(Base):
     explanation: Mapped[str | None] = mapped_column(Text)  # shown with the results
     # ids of the test's files shown with this question (picture, audio)
     attachment_ids: Mapped[list[int]] = mapped_column(JSONB, default=list, server_default="[]")
+    # type settings: gaps, matching pairs, audio file and play limit, reading text
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
 
     test: Mapped[Test] = relationship(back_populates="questions")
 
@@ -146,6 +149,8 @@ class TestAttempt(Base):
     graded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     score: Mapped[float | None] = mapped_column(Float)
     max_score: Mapped[float] = mapped_column(Float, default=0)
+    # audio blocks: {question_id: times started} (for the listening limit)
+    plays: Mapped[dict[str, int]] = mapped_column(JSONB, default=dict, server_default="{}")
 
     test: Mapped[Test] = relationship(back_populates="attempts")
     student: Mapped[StudentProfile] = relationship()
