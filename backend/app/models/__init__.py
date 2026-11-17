@@ -1,4 +1,5 @@
 """Import all models so Alembic autogenerate & relationship resolution see them."""
+from app.models.course import Course, CourseLesson, CourseLevel, CourseModule, LessonBlock
 from app.models.file import Attachment
 from app.models.homework import Homework, HomeworkSubmission
 from app.models.lesson import Attendance, Lesson
@@ -29,10 +30,15 @@ __all__ = [
     "Attachment",
     "AuthAttempt",
     "Attendance",
+    "Course",
+    "CourseLesson",
+    "CourseLevel",
+    "CourseModule",
     "Group",
     "Homework",
     "HomeworkSubmission",
     "Lesson",
+    "LessonBlock",
     "Message",
     "Notification",
     "PasswordResetToken",

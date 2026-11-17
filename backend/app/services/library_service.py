@@ -4,20 +4,19 @@ Library tests have no owning teacher (`Test.is_library`). Methodists and admins
 edit them; teachers see published ones and use them by copying into their own
 tests (the original is never changed by a teacher).
 """
-import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import BadRequest, NotFound
-from app.models import Attachment, Test, TestQuestion, TestSection, TestTag, User
+from app.models import Test, TestQuestion, TestSection, TestTag, User
 from app.models.enums import CONTENT_TYPES, QuestionType, UserRole
 from app.models.test import test_section_links
 from app.schemas.homework import AttachmentOut
 from app.schemas.library import LibraryItem, LibraryTestDetail, SectionOut, SectionRef, TagOut
+from app.services import file_service
 from app.services import test_service as svc
-from app.storage.base import get_storage
 
 EDITORS = (UserRole.METHODIST, UserRole.ADMIN)
 
@@ -231,7 +230,6 @@ def copy_test(db: Session, src: Test, *, uploader: User, teacher_id: int | None,
     """A full copy (questions, settings, files). teacher_id=None makes a library
     draft, otherwise a teacher's own test. Files are duplicated in the storage,
     so deleting one test never removes the other's files."""
-    storage = get_storage()
     copy = Test(
         teacher_id=teacher_id,
         is_library=teacher_id is None,
@@ -254,15 +252,7 @@ def copy_test(db: Session, src: Test, *, uploader: User, teacher_id: int | None,
     db.flush()
     id_map: dict[int, int] = {}
     for f in src.files:
-        data = b"".join(storage.open(f.storage_key))
-        ext = f.storage_key.rsplit(".", 1)[-1]
-        key = f"{datetime.now(UTC):%Y/%m}/{uuid.uuid4().hex}.{ext}"
-        storage.save(key, data, f.mime_type)
-        a = Attachment(uploaded_by_id=uploader.id, test_id=copy.id, original_name=f.original_name,
-                       storage_key=key, mime_type=f.mime_type, size_bytes=f.size_bytes)
-        db.add(a)
-        db.flush()
-        id_map[f.id] = a.id
+        id_map[f.id] = file_service.duplicate_attachment(db, f, uploader, test_id=copy.id).id
     for q in src.questions:
         config = dict(q.config or {})
         for k in ("attachment_id", "image_id"):

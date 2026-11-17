@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import { PageSkeleton } from "@/components/common";
 import { RequireAccess } from "@/components/common/AccessGate";
@@ -47,6 +47,10 @@ const AdminLessonsPage = lazy(() => import("@/pages/admin/AdminLessonsPage"));
 const AdminSubscriptionsPage = lazy(() => import("@/pages/admin/AdminSubscriptionsPage"));
 const LibraryPage = lazy(() => import("@/pages/library/LibraryPage"));
 const LibraryTestPage = lazy(() => import("@/pages/library/LibraryTestPage"));
+const CoursesPage = lazy(() => import("@/pages/courses/CoursesPage"));
+const CoursePage = lazy(() => import("@/pages/courses/CoursePage"));
+const LessonBuilderPage = lazy(() => import("@/pages/courses/LessonBuilderPage"));
+const LessonViewPage = lazy(() => import("@/pages/courses/LessonViewPage"));
 const SettingsPage = lazy(() => import("@/pages/shared/SettingsPage"));
 
 export default function App() {
@@ -98,6 +102,9 @@ export default function App() {
             <Route path="tests/:testId" element={<TestResultsPage />} />
             <Route path="tests/:testId/attempts/:attemptId" element={<GradeAttemptPage />} />
             <Route path="subscriptions" element={<SubscriptionsPage />} />
+            <Route path="courses" element={<CoursesPage />} />
+            <Route path="courses/:courseId" element={<CoursePage />} />
+            <Route path="courses/lessons/:lessonId" element={<LessonViewPage />} />
             <Route path="library" element={<LibraryPage />} />
             <Route path="library/tests/:testId" element={<LibraryTestPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
@@ -114,6 +121,10 @@ export default function App() {
             <Route path="groups" element={<AdminGroupsPage />} />
             <Route path="lessons" element={<AdminLessonsPage />} />
             <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+            <Route path="courses" element={<CoursesPage />} />
+            <Route path="courses/:courseId" element={<CoursePage />} />
+            <Route path="courses/lessons/:lessonId" element={<LessonViewPage />} />
+            <Route path="courses/lessons/:lessonId/edit" element={<LessonBuilderPage />} />
             <Route path="library" element={<LibraryPage />} />
             <Route path="library/tests/new" element={<TestEditorPage library />} />
             <Route path="library/tests/:testId" element={<LibraryTestPage />} />
@@ -125,10 +136,15 @@ export default function App() {
 
         <Route element={<ProtectedRoute roles={["methodist"]} />}>
           <Route path="/methodist" element={<DashboardLayout />}>
-            <Route index element={<LibraryPage />} />
-            <Route path="tests/new" element={<TestEditorPage library />} />
-            <Route path="tests/:testId" element={<LibraryTestPage />} />
-            <Route path="tests/:testId/edit" element={<TestEditorPage library />} />
+            <Route index element={<Navigate to="courses" replace />} />
+            <Route path="courses" element={<CoursesPage />} />
+            <Route path="courses/:courseId" element={<CoursePage />} />
+            <Route path="courses/lessons/:lessonId" element={<LessonViewPage />} />
+            <Route path="courses/lessons/:lessonId/edit" element={<LessonBuilderPage />} />
+            <Route path="library" element={<LibraryPage />} />
+            <Route path="library/tests/new" element={<TestEditorPage library />} />
+            <Route path="library/tests/:testId" element={<LibraryTestPage />} />
+            <Route path="library/tests/:testId/edit" element={<TestEditorPage library />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

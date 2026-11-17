@@ -63,6 +63,22 @@ class QuestionType(StrEnum):
 CONTENT_TYPES = frozenset({QuestionType.AUDIO, QuestionType.READING})
 
 
+class LessonBlockType(StrEnum):
+    """Blocks of a course lesson (see services/lesson_blocks.py)."""
+    TEXT = "text"
+    GRAMMAR = "grammar"
+    VOCABULARY = "vocabulary"
+    IMAGE = "image"
+    AUDIO = "audio"
+    VIDEO = "video"
+    READING = "reading"  # text + questions
+    LISTENING = "listening"  # audio + questions
+    QUIZ = "quiz"  # several questions of any kind
+    FILL_GAPS = "fill_gaps"
+    MULTIPLE_CHOICE = "multiple_choice"
+    MATCHING = "matching"
+
+
 class AttemptStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     PENDING_REVIEW = "pending_review"  # has short answers awaiting manual check

@@ -1,6 +1,7 @@
 """Test grading logic."""
 import random
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -88,7 +89,7 @@ def is_available(test: Test, now: datetime | None = None) -> bool:
     return test.available_from is None or test.available_from <= (now or datetime.now(UTC))
 
 
-def auto_grade(question: TestQuestion, answer: list[str]) -> tuple[bool | None, float | None]:
+def auto_grade(question: Any, answer: list[str]) -> tuple[bool | None, float | None]:
     """Returns (is_correct, points). (None, None) means manual review needed."""
     if question.type in (QuestionType.FILL_GAPS, QuestionType.MATCHING):
         return task_types.grade(question.type, question.config, question.points, answer)
@@ -116,6 +117,20 @@ def is_time_over(attempt: TestAttempt) -> bool:
     return bool(d and datetime.now(UTC) > d + TIME_GRACE)
 
 
+def clean_value(q: Any, value: list[str]) -> list[str]:
+    """A student's answer reduced to what the question accepts (q: a test question
+    or anything shaped like one, e.g. a lesson exercise)."""
+    if q.type in (QuestionType.FILL_GAPS, QuestionType.MATCHING):
+        return task_types.clean_answer(q.type, q.config, value)
+    if q.type == QuestionType.SHORT_ANSWER:
+        return [str(value[0])[:2000]] if value else []
+    valid = {o["id"] for o in q.options}
+    value = [v for v in dict.fromkeys(value) if v in valid]
+    if q.type in (QuestionType.SINGLE_CHOICE, QuestionType.TRUE_FALSE):
+        value = value[:1]
+    return value
+
+
 def save_answers(attempt: TestAttempt, answers: dict[int, list[str]]) -> None:
     questions = {q.id: q for q in attempt.test.questions}
     existing = {a.question_id: a for a in attempt.answers}
@@ -125,15 +140,7 @@ def save_answers(attempt: TestAttempt, answers: dict[int, list[str]]) -> None:
         q = questions[qid]
         if q.type in CONTENT_TYPES:
             continue  # blocks take no answers
-        if q.type in (QuestionType.FILL_GAPS, QuestionType.MATCHING):
-            value = task_types.clean_answer(q.type, q.config, value)
-        elif q.type != QuestionType.SHORT_ANSWER:
-            valid = {o["id"] for o in q.options}
-            value = [v for v in dict.fromkeys(value) if v in valid]
-            if q.type in (QuestionType.SINGLE_CHOICE, QuestionType.TRUE_FALSE):
-                value = value[:1]
-        else:
-            value = [value[0][:2000]] if value else []
+        value = clean_value(q, value)
         if qid in existing:
             existing[qid].answer = value
         else:

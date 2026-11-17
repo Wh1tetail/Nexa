@@ -11,7 +11,7 @@ import type { LibrarySection } from "@/types/api";
 /** Where the library lives for the current role. */
 export function useLibraryBase() {
   const role = useAuth().user?.role;
-  const base = role === "methodist" ? "/methodist" : role === "admin" ? "/admin/library" : "/teacher/library";
+  const base = role === "methodist" ? "/methodist/library" : role === "admin" ? "/admin/library" : "/teacher/library";
   return { base, editor: role === "methodist" || role === "admin", role };
 }
 

@@ -2,6 +2,13 @@
 import { http } from "@/services/http";
 import type {
   AdminStats,
+  BlockCheckResult,
+  CourseDetail,
+  CourseInput,
+  CourseItem,
+  CourseLessonDetail,
+  CourseLessonInput,
+  CourseLessonView,
   AdminUser,
   AttemptDetail,
   AttemptStatus,
@@ -61,6 +68,8 @@ const patch = async <T>(url: string, body?: unknown) => (await http.patch<T>(url
 const del = async (url: string) => {
   await http.delete(url);
 };
+/** DELETE that answers with data (e.g. the updated course tree). */
+const delData = async <T>(url: string) => (await http.delete<T>(url)).data;
 
 function clean<T extends object>(params: T): Partial<T> {
   return Object.fromEntries(
@@ -373,6 +382,41 @@ export const libraryApi = {
   copy: (id: number) => post<TestDetail>(`/library/tests/${id}/copy`),
   move: (test_ids: number[], section_id: number, from_section_id?: number) =>
     post(`/library/tests/move`, { test_ids, section_id, from_section_id: from_section_id ?? null }),
+};
+
+/** Courses / programmes: methodists and admins edit, teachers read published ones. */
+export const coursesApi = {
+  list: () => get<CourseItem[]>("/courses"),
+  get: (id: number) => get<CourseDetail>(`/courses/${id}`),
+  create: (data: CourseInput) => post<CourseDetail>("/courses", data),
+  update: (id: number, data: CourseInput) => put<CourseDetail>(`/courses/${id}`, data),
+  remove: (id: number) => del(`/courses/${id}`),
+  addLevel: (courseId: number, data: { level: EnglishLevel; title?: string | null }) =>
+    post<CourseDetail>(`/courses/${courseId}/levels`, data),
+  updateLevel: (id: number, data: { title?: string; description?: string | null; position?: number }) =>
+    patch<CourseDetail>(`/courses/levels/${id}`, data),
+  removeLevel: (id: number) => delData<CourseDetail>(`/courses/levels/${id}`),
+  addModule: (levelId: number, data: { title: string; description?: string | null }) =>
+    post<CourseDetail>(`/courses/levels/${levelId}/modules`, data),
+  updateModule: (id: number, data: { title?: string; description?: string | null; position?: number; level_id?: number }) =>
+    patch<CourseDetail>(`/courses/modules/${id}`, data),
+  removeModule: (id: number) => delData<CourseDetail>(`/courses/modules/${id}`),
+  /** Copy with all lessons (drafts): next to the original, or into level `targetId`. */
+  copyModule: (id: number, targetId?: number) => post<CourseDetail>(`/courses/modules/${id}/copy`, { target_id: targetId ?? null }),
+  addLesson: (moduleId: number, title: string) => post<CourseLessonDetail>(`/courses/modules/${moduleId}/lessons`, { title }),
+  lesson: (id: number) => get<CourseLessonDetail>(`/courses/lessons/${id}`),
+  saveLesson: (id: number, data: CourseLessonInput) => put<CourseLessonDetail>(`/courses/lessons/${id}`, data),
+  updateLesson: (id: number, data: { title?: string; published?: boolean; position?: number; module_id?: number }) =>
+    patch<CourseDetail>(`/courses/lessons/${id}`, data),
+  removeLesson: (id: number) => delData<CourseDetail>(`/courses/lessons/${id}`),
+  /** Draft copy: next to the original, or into module `targetId`. */
+  copyLesson: (id: number, targetId?: number) => post<CourseLessonDetail>(`/courses/lessons/${id}/copy`, { target_id: targetId ?? null }),
+  uploadFiles: (id: number, files: File[], onProgress?: (p: number) => void) =>
+    upload(`/courses/lessons/${id}/files`, files, onProgress),
+  deleteFile: (id: number, fileId: number) => del(`/courses/lessons/${id}/files/${fileId}`),
+  view: (id: number) => get<CourseLessonView>(`/courses/lessons/${id}/view`),
+  check: (lessonId: number, blockId: number, answers: Record<number, string[]>) =>
+    post<BlockCheckResult>(`/courses/lessons/${lessonId}/blocks/${blockId}/check`, { answers }),
 };
 
 export const adminApi = {

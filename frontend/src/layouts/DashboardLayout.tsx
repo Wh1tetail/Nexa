@@ -6,6 +6,7 @@ import {
   ClipboardList,
   CreditCard,
   LayoutDashboard,
+  GraduationCap,
   Library,
   LogOut,
   Menu,
@@ -77,11 +78,15 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
       { to: "/admin/groups", label: t.nav.groups, icon: UsersRound },
       { to: "/admin/lessons", label: t.nav.lessons, icon: CalendarCheck },
       { to: "/admin/subscriptions", label: t.nav.subscriptions, icon: CreditCard },
+      { to: "/admin/courses", label: t.nav.courses, icon: GraduationCap },
       { to: "/admin/library", label: t.nav.library, icon: Library },
     ];
   }
   if (role === "methodist") {
-    return [{ to: "/methodist", label: t.nav.library, icon: Library, end: false }];
+    return [
+      { to: "/methodist/courses", label: t.nav.courses, icon: GraduationCap },
+      { to: "/methodist/library", label: t.nav.library, icon: Library },
+    ];
   }
   if (role === "student") {
     return [
@@ -103,6 +108,7 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
     { to: "/teacher/lessons", label: t.nav.lessons, icon: CalendarCheck },
     { to: "/teacher/homework", label: t.nav.homework, icon: ClipboardList, section: "homework" },
     { to: "/teacher/tests", label: t.nav.tests, icon: BookOpenCheck, section: "tests" },
+    { to: "/teacher/courses", label: t.nav.courses, icon: GraduationCap },
     { to: "/teacher/library", label: t.nav.library, icon: Library },
     { to: "/teacher/analytics", label: t.nav.analytics, icon: BarChart3 },
     { to: "/teacher/subscriptions", label: t.nav.subscriptions, icon: CreditCard, section: "subscription" },

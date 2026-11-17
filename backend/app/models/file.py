@@ -6,13 +6,15 @@ from app.core.database import Base, TimestampMixin
 
 class Attachment(Base, TimestampMixin):
     """A stored file attached to exactly one owner: a homework (teacher material),
-    a homework submission (student work), a chat message or a test (materials)."""
+    a homework submission (student work), a chat message, a test (materials) or
+    a course lesson (materials)."""
 
     __tablename__ = "attachments"
     __table_args__ = (
         CheckConstraint(
             "(homework_id IS NOT NULL)::int + (submission_id IS NOT NULL)::int"
-            " + (message_id IS NOT NULL)::int + (test_id IS NOT NULL)::int = 1",
+            " + (message_id IS NOT NULL)::int + (test_id IS NOT NULL)::int"
+            " + (course_lesson_id IS NOT NULL)::int = 1",
             name="single_owner",
         ),
     )
@@ -32,6 +34,9 @@ class Attachment(Base, TimestampMixin):
     )
     test_id: Mapped[int | None] = mapped_column(
         ForeignKey("tests.id", ondelete="CASCADE"), index=True
+    )
+    course_lesson_id: Mapped[int | None] = mapped_column(
+        ForeignKey("course_lessons.id", ondelete="CASCADE"), index=True
     )
     original_name: Mapped[str] = mapped_column(String(255))
     storage_key: Mapped[str] = mapped_column(String(500), unique=True)

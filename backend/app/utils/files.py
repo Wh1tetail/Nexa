@@ -50,6 +50,12 @@ ALLOWED: dict[str, tuple[str, set[str] | None]] = {
 
 ALLOWED_EXTENSIONS = sorted(ALLOWED)
 
+# accepted only where a caller asks for them (course lesson materials)
+VIDEO: dict[str, tuple[str, set[str] | None]] = {
+    "mp4": ("video/mp4", {"video/mp4", "video/x-m4v"}),
+    "webm": ("video/webm", {"video/webm", "video/x-matroska"}),  # same container
+}
+
 
 @dataclass
 class ValidatedFile:
@@ -65,13 +71,16 @@ def safe_filename(name: str) -> str:
     return (name or "file")[:200]
 
 
-async def validate_upload(upload: UploadFile) -> ValidatedFile:
+async def validate_upload(
+    upload: UploadFile, extra: dict[str, tuple[str, set[str] | None]] | None = None
+) -> ValidatedFile:
+    allowed = {**ALLOWED, **(extra or {})}
     original = safe_filename(upload.filename or "file")
     ext = original.rsplit(".", 1)[-1].lower() if "." in original else ""
-    if ext not in ALLOWED:
+    if ext not in allowed:
         raise BadRequest(
             "Недопустимый формат файла «{name}». Разрешены: {allowed}",
-            name=original, allowed=", ".join(ALLOWED_EXTENSIONS),
+            name=original, allowed=", ".join(sorted(allowed)),
         )
 
     limit = settings.max_upload_bytes
@@ -86,7 +95,7 @@ async def validate_upload(upload: UploadFile) -> ValidatedFile:
     if size == 0:
         raise BadRequest("Файл «{name}» пустой", name=original)
 
-    canonical, accepted = ALLOWED[ext]
+    canonical, accepted = allowed[ext]
     if accepted is None:
         # text file: must decode as UTF-8 and must not be a known binary format
         if filetype.guess(data) is not None:

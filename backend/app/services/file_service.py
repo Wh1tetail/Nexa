@@ -35,6 +35,7 @@ def store_validated(
     submission_id: int | None = None,
     message_id: int | None = None,
     test_id: int | None = None,
+    course_lesson_id: int | None = None,
 ) -> Attachment:
     """Save an already validated file and add its row to the session (caller commits)."""
     now = datetime.now(UTC)
@@ -47,12 +48,28 @@ def store_validated(
         submission_id=submission_id,
         message_id=message_id,
         test_id=test_id,
+        course_lesson_id=course_lesson_id,
         original_name=vf.original_name,
         storage_key=key,
         mime_type=vf.mime_type,
         size_bytes=len(vf.data),
     )
     db.add(att)
+    return att
+
+
+def duplicate_attachment(db: Session, f: Attachment, uploader: User, **owner: int) -> Attachment:
+    """A copy of a stored file with its own storage object (deleting one never
+    removes the other), attached to `owner` (e.g. test_id=..., course_lesson_id=...)."""
+    storage = get_storage()
+    data = b"".join(storage.open(f.storage_key))
+    ext = f.storage_key.rsplit(".", 1)[-1]
+    key = f"{datetime.now(UTC):%Y/%m}/{uuid.uuid4().hex}.{ext}"
+    storage.save(key, data, f.mime_type)
+    att = Attachment(uploaded_by_id=uploader.id, original_name=f.original_name, storage_key=key,
+                     mime_type=f.mime_type, size_bytes=f.size_bytes, **owner)
+    db.add(att)
+    db.flush()
     return att
 
 
@@ -75,6 +92,7 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
     - student: materials of homework assigned to them, and their own submission files
     - chat files: only the two participants of the conversation (not even admins)
     - test materials: the test's teacher; a student once they have started the test
+    - course lesson materials: methodists; teachers once the lesson and course are published
     - admin: everything else
     """
     att = db.get(Attachment, attachment_id)
@@ -88,6 +106,16 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
         raise NotFound("Файл не найден")
     if user.role == UserRole.ADMIN:
         return att
+
+    if att.course_lesson_id is not None:  # course materials: editors; teachers once published
+        from app.models import CourseLesson
+
+        les = db.get(CourseLesson, att.course_lesson_id)
+        if user.role == UserRole.METHODIST:
+            return att
+        if user.role == UserRole.TEACHER and les.published and les.module.level.course.published:
+            return att
+        raise NotFound("Файл не найден")
 
     if att.test_id is not None:
         from app.models import Test, TestAttempt

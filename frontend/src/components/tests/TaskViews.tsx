@@ -24,7 +24,7 @@ const filled = (value: string[], n: number) => Array.from({ length: n }, (_, i) 
 
 /** Audio with an optional listening limit. Every start from the beginning is
  *  counted on the server first; resuming after a pause is free. */
-function LimitedAudio({
+export function LimitedAudio({
   file,
   attemptId,
   questionId,

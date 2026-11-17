@@ -24,12 +24,12 @@ function iconFor(mime: string) {
 }
 
 /** Client-side pre-validation (server re-validates extension, size and magic bytes). */
-export function validateFiles(files: File[], msg: Dict["files"]): { ok: File[]; errors: string[] } {
+export function validateFiles(files: File[], msg: Dict["files"], extraTypes: string[] = []): { ok: File[]; errors: string[] } {
   const ok: File[] = [];
   const errors: string[] = [];
   for (const f of files) {
     const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!ALLOWED_EXT.includes(ext)) errors.push(msg.badType(f.name));
+    if (!ALLOWED_EXT.includes(ext) && !extraTypes.includes(ext)) errors.push(msg.badType(f.name));
     else if (f.size > MAX_MB * 1024 * 1024) errors.push(msg.tooBig(f.name, MAX_MB));
     else if (f.size === 0) errors.push(msg.empty(f.name));
     else ok.push(f);
@@ -41,10 +41,16 @@ export function FileDropzone({
   onUpload,
   disabled,
   compact,
+  extraTypes = [],
+  hint,
 }: {
   onUpload: (files: File[], onProgress: (p: number) => void) => Promise<unknown>;
   disabled?: boolean;
   compact?: boolean;
+  /** extensions accepted here besides the usual ones (e.g. lesson videos: ["mp4", "webm"]) */
+  extraTypes?: string[];
+  /** replaces the list of allowed formats under the button */
+  hint?: string;
 }) {
   const { t } = useI18n();
   const input = useRef<HTMLInputElement>(null);
@@ -53,7 +59,7 @@ export function FileDropzone({
 
   async function handle(list: FileList | null) {
     if (!list?.length) return;
-    const { ok, errors } = validateFiles(Array.from(list), t.files);
+    const { ok, errors } = validateFiles(Array.from(list), t.files, extraTypes);
     errors.forEach((e) => toast.error(e));
     if (!ok.length) return;
     setProgress(0);
@@ -103,7 +109,7 @@ export function FileDropzone({
         <span className="text-sm font-medium text-primary">
           {progress !== null ? t.homework.uploading : t.homework.dropHint}
         </span>
-        <span className="text-xs text-muted-foreground">{t.homework.allowed}</span>
+        <span className="text-xs text-muted-foreground">{hint ?? t.homework.allowed}</span>
       </button>
       {progress !== null && (
         <div className="px-6 pb-4">
@@ -114,7 +120,7 @@ export function FileDropzone({
         ref={input}
         type="file"
         multiple
-        accept={ACCEPT}
+        accept={[ACCEPT, ...extraTypes.map((e) => `.${e}`)].join(",")}
         className="hidden"
         onChange={(e) => handle(e.target.files)}
       />

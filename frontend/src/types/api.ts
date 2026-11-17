@@ -732,3 +732,185 @@ export interface LibraryTestInput extends Partial<TestSettings> {
   tags: string[];
   published: boolean;
 }
+
+// ---------- courses / programmes ----------
+
+export type LessonBlockType =
+  | "text"
+  | "grammar"
+  | "vocabulary"
+  | "image"
+  | "audio"
+  | "video"
+  | "reading"
+  | "listening"
+  | "quiz"
+  | "fill_gaps"
+  | "multiple_choice"
+  | "matching";
+
+export const LESSON_BLOCK_TYPES: LessonBlockType[] = [
+  "text", "grammar", "vocabulary", "image", "audio", "video",
+  "reading", "listening", "quiz", "fill_gaps", "multiple_choice", "matching",
+];
+/** Blocks with questions that can be checked. */
+export const EXERCISE_BLOCKS: LessonBlockType[] = ["reading", "listening", "quiz", "fill_gaps", "multiple_choice", "matching"];
+
+export interface VocabularyWord {
+  word: string;
+  translation: string | null;
+  transcription: string | null;
+  example: string | null;
+}
+
+/** Block settings (`questions` travel separately). Fields depend on the type. */
+export interface LessonBlockContent {
+  body?: string | null;
+  examples?: string[];
+  words?: VocabularyWord[];
+  attachment_id?: number | null;
+  image_id?: number | null;
+  caption?: string | null;
+  transcript?: string | null;
+  max_plays?: number | null;
+  /** video: an embedded YouTube/Vimeo video */
+  provider?: "youtube" | "vimeo";
+  video_id?: string;
+  /** video, input only: a link the server turns into provider + video_id */
+  url?: string;
+}
+
+export interface LessonSummary {
+  id: number;
+  title: string;
+  published: boolean;
+  position: number;
+  duration_minutes: number | null;
+  blocks_count: number;
+  updated_at: string | null;
+}
+
+export interface CourseModule {
+  id: number;
+  level_id: number;
+  title: string;
+  description: string | null;
+  position: number;
+  lessons: LessonSummary[];
+}
+
+export interface CourseLevel {
+  id: number;
+  course_id: number;
+  level: EnglishLevel;
+  title: string;
+  description: string | null;
+  position: number;
+  modules: CourseModule[];
+}
+
+export interface CourseItem {
+  id: number;
+  title: string;
+  description: string | null;
+  published: boolean;
+  author_name: string | null;
+  level_codes: EnglishLevel[];
+  modules_count: number;
+  /** lessons the viewer can see (teachers: published only) */
+  lessons_count: number;
+  draft_lessons_count: number;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface CourseDetail extends CourseItem {
+  levels: CourseLevel[];
+}
+
+export interface CourseInput {
+  title: string;
+  description?: string | null;
+  published?: boolean;
+  levels?: EnglishLevel[];
+}
+
+export interface LessonPath {
+  course_id: number;
+  course_title: string;
+  course_published: boolean;
+  level_id: number;
+  level: EnglishLevel;
+  level_title: string;
+  module_id: number;
+  module_title: string;
+  prev_id: number | null;
+  next_id: number | null;
+}
+
+/** A block as the builder edits it (questions with answers). */
+export interface LessonBlockEdit {
+  id: number;
+  position: number;
+  type: LessonBlockType;
+  title: string | null;
+  content: LessonBlockContent;
+  questions: QuestionInput[];
+}
+
+/** A block as students see it (no answers). */
+export interface LessonBlockView {
+  id: number;
+  position: number;
+  type: LessonBlockType;
+  title: string | null;
+  content: LessonBlockContent;
+  questions: Question[];
+}
+
+export interface CourseLessonDetail {
+  id: number;
+  title: string;
+  description: string | null;
+  duration_minutes: number | null;
+  published: boolean;
+  updated_at: string | null;
+  path: LessonPath;
+  files: Attachment[];
+  blocks: LessonBlockEdit[];
+}
+
+export interface CourseLessonView {
+  id: number;
+  title: string;
+  description: string | null;
+  duration_minutes: number | null;
+  published: boolean;
+  path: LessonPath;
+  files: Attachment[];
+  blocks: LessonBlockView[];
+}
+
+export interface LessonBlockInput {
+  id?: number | null;
+  type: LessonBlockType;
+  title?: string | null;
+  content: LessonBlockContent;
+  questions: QuestionInput[];
+}
+
+export interface CourseLessonInput {
+  title: string;
+  description?: string | null;
+  duration_minutes?: number | null;
+  published: boolean;
+  blocks: LessonBlockInput[];
+}
+
+export interface BlockCheckResult {
+  results: { question_id: number; answer: string[]; is_correct: boolean; points_awarded: number; max_points: number }[];
+  /** the questions with correct answers and explanations */
+  questions: Question[];
+  score: number;
+  max_score: number;
+}
