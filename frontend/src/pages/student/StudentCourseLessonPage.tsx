@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { EmptyState, ErrorState, PageSkeleton } from "@/components/common";
 import { LessonBlockView, LessonRunnerProvider, type LessonRunner } from "@/components/courses/LessonBlockView";
 import { LessonStatusIcon } from "@/components/courses/CourseProgressView";
+import { showAwards } from "@/components/gamification/Gamification";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -51,7 +52,9 @@ export default function StudentCourseLessonPage() {
       qc.setQueryData(key, d);
       qc.invalidateQueries({ queryKey: ["my-courses"] });
       qc.invalidateQueries({ queryKey: ["my-course-progress"] });
+      qc.invalidateQueries({ queryKey: ["gamification"] });
       toast.success(t.myCourses.finishedToast);
+      showAwards(d.awards, t);
     },
     onError: (e) => toast.error(errorMessage(e)),
   });

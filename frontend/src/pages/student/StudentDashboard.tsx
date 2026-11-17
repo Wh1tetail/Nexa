@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { BookOpenCheck, CalendarCheck, CheckCircle2, ClipboardList, GraduationCap, Lock, Video } from "lucide-react";
+import { BookOpenCheck, CalendarCheck, CheckCircle2, ClipboardList, GraduationCap, Lock, Video, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { EmptyState, ErrorState, PageSkeleton, StatCard } from "@/components/common";
@@ -9,13 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/contexts/I18nContext";
-import { dashboardApi } from "@/services/api";
+import { dashboardApi, gamificationApi } from "@/services/api";
 import { fmtDate, fmtTime, fmtWeekday } from "@/utils/format";
 import { scoreVariant } from "@/utils/status";
 
 export default function StudentDashboard() {
   const { t, locale } = useI18n();
   const q = useQuery({ queryKey: ["dashboard", "student"], queryFn: dashboardApi.student });
+  const xp = useQuery({ queryKey: ["gamification", "me"], queryFn: gamificationApi.me });
 
   if (q.isLoading) return <PageSkeleton />;
   if (q.isError || !q.data) return <ErrorState onRetry={() => q.refetch()} />;
@@ -43,6 +44,13 @@ export default function StudentDashboard() {
             <span className="text-muted-foreground">{t.dashboard.level}:</span>
             <span className="font-semibold text-primary">{d.english_level}</span>
           </div>
+          {xp.data && (
+            <Link to="/student/achievements" className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm transition-colors hover:border-accent/50">
+              <Zap className="size-4 text-warning-strong" />
+              <span className="font-semibold tabular text-primary">{t.gamification.xpTotal(xp.data.xp_total)}</span>
+              <span className="text-muted-foreground">· {t.gamification.level(xp.data.level)}</span>
+            </Link>
+          )}
           <div className="flex min-w-0 items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm">
             <span className="text-muted-foreground">{t.dashboard.teacher}:</span>
             <span className="truncate font-semibold text-primary">{d.teacher_name ?? t.dashboard.noTeacher}</span>

@@ -168,6 +168,9 @@ def grade_attempt(attempt_id: int, data: GradeRequest, teacher: CurrentTeacher, 
     attempt.graded_at = datetime.now(UTC)
     if not was_graded:
         svc.notify_graded(db, attempt)
+    from app.services import gamification
+
+    gamification.on_test_graded(db, attempt)  # XP once per test; a later better grade can add the bonus
     db.commit()
     return svc.attempt_detail(attempt, for_teacher=True)
 

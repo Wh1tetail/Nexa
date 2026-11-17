@@ -174,6 +174,14 @@ CATALOG: dict[str, dict[str, str]] = {
     "Срок сдачи теста истёк": {"kk": "Тестті тапсыру мерзімі өтті", "en": "The test deadline has passed"},
     "Тест уже завершён": {"kk": "Тест аяқталып қойған", "en": "The test is already finished"},
     "Раздел не найден": {"kk": "Бөлім табылмады", "en": "Section not found"},
+    # gamification
+    "Новое достижение": {"kk": "Жаңа жетістік", "en": "New achievement"},
+    "Первый урок": {"kk": "Алғашқы сабақ", "en": "First lesson"},
+    "Первый тест": {"kk": "Алғашқы тест", "en": "First test"},
+    "Идеальный результат": {"kk": "Мінсіз нәтиже", "en": "Perfect score"},
+    "7 дней подряд": {"kk": "Қатарынан 7 күн", "en": "7-day streak"},
+    "10 уроков": {"kk": "10 сабақ", "en": "10 lessons"},
+    "Уровень пройден": {"kk": "Деңгей өтілді", "en": "Level completed"},
     # courses
     "Выберите уровень или модуль": {"kk": "Деңгейді немесе модульді таңдаңыз", "en": "Choose a level or a module"},
     "Выберите учеников или группы": {"kk": "Оқушыларды немесе топтарды таңдаңыз", "en": "Choose students or groups"},

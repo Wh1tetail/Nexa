@@ -16,6 +16,7 @@ import {
   Send,
   Settings,
   TrendingUp,
+  Trophy,
   Users,
   UsersRound,
   type LucideIcon,
@@ -82,6 +83,7 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
       { to: "/admin/subscriptions", label: t.nav.subscriptions, icon: CreditCard },
       { to: "/admin/courses", label: t.nav.courses, icon: GraduationCap },
       { to: "/admin/library", label: t.nav.library, icon: Library },
+      { to: "/admin/gamification", label: t.nav.gamification, icon: Trophy },
     ];
   }
   if (role === "methodist") {
@@ -99,6 +101,7 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
       { to: "/student/course-lessons", label: t.nav.myLessons, icon: BookOpen },
       { to: "/student/tests", label: t.nav.tests, icon: BookOpenCheck, section: "tests" },
       { to: "/student/progress", label: t.nav.progress, icon: TrendingUp },
+      { to: "/student/achievements", label: t.nav.achievements, icon: Trophy },
       { to: "/student/schedule", label: t.nav.schedule, icon: CalendarDays, section: "lessons" },
       { to: "/student/attendance", label: t.nav.attendance, icon: CalendarCheck },
       { to: "/student/subscription", label: t.nav.subscription, icon: CreditCard, section: "subscription" },

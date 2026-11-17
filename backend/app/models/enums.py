@@ -79,6 +79,24 @@ class LessonBlockType(StrEnum):
     MATCHING = "matching"
 
 
+class XPReason(StrEnum):
+    """What XP is given for; each (student, reason, object) is paid once."""
+    LESSON = "lesson"  # a course lesson completed
+    TEST = "test"  # a test graded (once per test)
+    TEST_BONUS = "test_bonus"  # a test result at or above the bonus threshold
+    MODULE = "module"  # every lesson of a module completed
+    LEVEL = "level"  # every lesson of a course level completed
+
+
+class AchievementCode(StrEnum):
+    FIRST_LESSON = "first_lesson"
+    FIRST_TEST = "first_test"
+    PERFECT_SCORE = "perfect_score"
+    STREAK_7 = "streak_7"
+    LESSONS_10 = "lessons_10"
+    LEVEL_COMPLETED = "level_completed"
+
+
 class AttemptStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     PENDING_REVIEW = "pending_review"  # has short answers awaiting manual check

@@ -302,6 +302,9 @@ def check_block(db: Session, student: StudentProfile, lesson_id: int, block_id: 
     p.lesson_title = les.title
     p.score_percent = _score_percent(les, p)
     p.updated_at = now()
+    from app.services import gamification
+
+    gamification.mark_activity(db, student)
     return CheckResult(results=[QuestionResult(**r) for r in raw], questions=lb.view_questions(b.id, b.content, True),
                        score=score, max_score=max_score)
 

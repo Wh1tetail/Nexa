@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.models.enums import EnglishLevel
 from app.schemas.course import CheckResult, LessonView
+from app.schemas.gamification import Awards
 
 LessonState = Literal["not_started", "in_progress", "completed"]
 Scope = Literal["level", "module"]
@@ -163,6 +164,7 @@ class StudentLessonView(BaseModel):
     exercises_done: int
     blocks: list[BlockState]
     plays: dict[int, int]
+    awards: Awards | None = None  # set by "complete": XP and achievements earned just now
 
 
 class PlayOut(BaseModel):

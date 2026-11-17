@@ -187,6 +187,11 @@ def finalize(db: Session, attempt: TestAttempt, answers: dict[int, list[str]]) -
     )
     if not needs_review:
         notify_graded(db, attempt)
+    from app.services import gamification
+
+    gamification.mark_activity(db, student)  # a learning day
+    if not needs_review:
+        gamification.on_test_graded(db, attempt)
 
 
 def recompute_score(attempt: TestAttempt) -> None:

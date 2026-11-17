@@ -669,6 +669,35 @@ API: `/api/v1/courses` — список и `POST`; `/{id}` GET/PUT/DELETE; `/{id
 
 API: преподаватель — `/api/v1/course-assignments` (POST назначить, GET список, `/{id}` GET/PATCH/DELETE, `/{id}/students` POST, `/{id}/students/{student_id}` DELETE, `/students` — сводка, `/students/{id}/progress`); ученик — `/api/v1/me/courses`, `/me/courses/{assignment_id}`, `/me/course-lessons`, `/me/course-lessons/{id}` (+ `/blocks/{block_id}/check`, `/plays/{block_id}`, `/complete`), `/me/course-progress`. Тесты: `tests/test_course_assignments.py`.
 
+## Этап 19 — XP, достижения и настройки начисления
+
+- **XP** начисляются только за подтверждённые результаты: завершённый урок курса (+10), выполненный тест (+5, один раз на тест — когда попытка оценена: сразу или после проверки преподавателем), бонус за результат теста от 90% (+5), пройденный модуль (+30) и уровень курса (+100) — когда завершены все его опубликованные уроки. Каждое начисление — строка с уникальным ключом «ученик + за что + объект», вставка через `ON CONFLICT DO NOTHING`, а завершение урока блокирует строку прогресса: повторные и одновременные запросы ничего не добавляют.
+- **Уровень** в геймификации считается по XP (0, 100, 300, 600, 1000… XP), серия — по дням с учёбой в часовом поясе ученика.
+- **Достижения**: «Первый урок», «Первый тест», «Идеальный результат» (100% в тесте или в упражнениях урока), «7 дней подряд», «10 уроков», «Уровень пройден». У каждого — название, описание, иконка, условие и дата получения; для незаработанных виден прогресс (например, 3 из 10). О новом достижении приходит уведомление.
+- **Ученик**: раздел «Достижения» (`/student/achievements`) — XP, уровень и прогресс до следующего, серия дней, награды, история начислений и правила; на главной — значок «XP · уровень»; после завершения урока — «+N XP».
+- **Преподаватель** видит XP и награды ученика во вкладке «Курсы» профиля ученика.
+- **Администратор** настраивает начисление в «Баллы и достижения» (`/admin/gamification`): XP за урок, модуль, уровень, тест, бонус и порог бонуса. Новые значения действуют для следующих начислений, уже начисленное не пересчитывается. Результаты, полученные до этого этапа, XP задним числом не получают.
+
+Миграция `0013`: `xp_transactions` (уникальный ключ на ученика/причину/объект), `student_achievements` (одно на ученика и код), `student_activity_days`, `app_settings`. Существующие данные не меняются.
+
+API: `GET /api/v1/me/gamification`; `GET /api/v1/students/{id}/gamification` (преподаватель — свои ученики); `GET/PUT /api/v1/admin/gamification`; `POST /me/course-lessons/{id}/complete` возвращает `awards`. Тесты: `tests/test_gamification.py`.
+
+## Обязательные сценарии ТЗ — где проверены
+
+| # | Сценарий | Автотест |
+|---|----------|----------|
+| 1 | Добавление ученика в группу назначает будущие занятия | `test_assignments.py::test_new_group_member_gets_upcoming_group_lessons_only`, `test_lessons_from_a_chosen_date_or_none` |
+| 2 | Удаление из одного занятия не удаляет из группы | `test_assignments.py::test_remove_from_one_lesson_keeps_group_mark_and_refunds` |
+| 3 | Удаление из теста сохраняет результаты | `test_assignments.py::test_excluding_from_a_test_keeps_results` |
+| 4 | Удаление из ДЗ сохраняет отправленные файлы | `test_assignments.py::test_excluding_from_homework_keeps_work` |
+| 5 | Назначение курса группе создаёт назначения ученикам | `test_course_assignments.py::test_assign_to_group_and_students_without_duplicates`, `test_groups_cancelling_and_history` |
+| 6 | Прогресс сохраняется между сессиями | `test_course_assignments.py::test_lesson_work_is_saved_and_completed_once` |
+| 7 | XP не начисляется повторно | `test_gamification.py::test_lesson_module_level_xp_paid_once`, `test_test_xp_bonus_and_review` |
+| 8 | Аудио воспроизводится без скачивания | `test_task_types.py::test_listening_limit` (+ встроенный плеер без кнопки скачивания, проверено в браузере) |
+| 9 | Reading Task корректно отображается | `test_task_types.py::test_blocks_and_new_types_are_stored_and_hidden_from_students`, `test_scoring_gaps_matching_and_reading_questions` |
+| 10 | Fill in the Gaps проверяется автоматически | `test_task_types.py::test_scoring_gaps_matching_and_reading_questions`, `test_case_sensitive_gaps_and_word_bank_modes` |
+| 11 | Библиотека тестов доступна по правам | `test_library.py::test_rights`, `test_drafts_are_hidden_until_published` |
+
 ## Запуск на VPS с доменом
 
 Нужен **VPS** (виртуальный сервер) на Ubuntu 22.04/24.04 с доступом по SSH: обычный «shared»-хостинг для сайтов на PHP/WordPress не подойдёт — сайту нужны Docker, Python и PostgreSQL. Достаточно 2 ГБ памяти, 1–2 ядер и 20–40 ГБ диска (у Hostinger — тарифы «VPS KVM»).

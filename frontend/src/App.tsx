@@ -57,6 +57,8 @@ const StudentCoursesPage = lazy(() => import("@/pages/student/StudentCoursesPage
 const StudentCoursePage = lazy(() => import("@/pages/student/StudentCoursesPage").then((m) => ({ default: m.StudentCoursePage })));
 const StudentLessonsPage = lazy(() => import("@/pages/student/StudentCoursesPage").then((m) => ({ default: m.StudentLessonsPage })));
 const StudentCourseLessonPage = lazy(() => import("@/pages/student/StudentCourseLessonPage"));
+const AchievementsPage = lazy(() => import("@/pages/student/AchievementsPage"));
+const GamificationSettingsPage = lazy(() => import("@/pages/admin/GamificationSettingsPage"));
 const SettingsPage = lazy(() => import("@/pages/shared/SettingsPage"));
 
 export default function App() {
@@ -87,6 +89,7 @@ export default function App() {
             <Route path="attendance" element={<RequireAccess><StudentAttendance /></RequireAccess>} />
             <Route path="subscription" element={<StudentSubscription />} />
             <Route path="progress" element={<StudentProgressPage />} />
+            <Route path="achievements" element={<AchievementsPage />} />
             <Route path="courses" element={<RequireAccess><StudentCoursesPage /></RequireAccess>} />
             <Route path="courses/:assignmentId" element={<RequireAccess><StudentCoursePage /></RequireAccess>} />
             <Route path="course-lessons" element={<RequireAccess><StudentLessonsPage /></RequireAccess>} />
@@ -133,6 +136,7 @@ export default function App() {
             <Route path="groups" element={<AdminGroupsPage />} />
             <Route path="lessons" element={<AdminLessonsPage />} />
             <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+            <Route path="gamification" element={<GamificationSettingsPage />} />
             <Route path="courses" element={<CoursesPage />} />
             <Route path="courses/:courseId" element={<CoursePage />} />
             <Route path="courses/lessons/:lessonId" element={<LessonViewPage />} />

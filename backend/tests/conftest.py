@@ -157,3 +157,51 @@ def clear_subscriptions(student: StudentProfile) -> None:
     with SessionLocal() as db:
         db.query(Subscription).filter_by(student_id=student.id).delete()
         db.commit()
+
+
+# ---------- courses (stages 18-19) ----------
+
+COURSES_API = "/api/v1"
+MP3 = b"ID3\x03\x00\x00\x00\x00\x00\x0f" + b"\x00" * 64
+CHOICE = {"type": "single_choice", "text": "She ___ to school.", "points": 1, "correct_answer": ["a"],
+          "options": [{"id": "a", "text": "goes"}, {"id": "b", "text": "go"}]}
+GAPS = {"type": "fill_gaps", "text": "Complete", "config": {"template": "I {am} Anna."}}
+
+
+@pytest.fixture
+def course(client, school):
+    """A published course: A1 / Module 1 (Lesson 1 with exercises and a listening, Lesson 2 text only),
+    Module 2 (one lesson) and a draft lesson."""
+    make_user(UserRole.METHODIST, "method@test.io", name="Mila Methodist")
+    hm = login(client, "method@test.io")
+    c = client.post(f"{COURSES_API}/courses", headers=hm, json={"title": "General English", "levels": ["A1"], "published": True}).json()
+    a1 = c["levels"][0]["id"]
+    tree = client.post(f"{COURSES_API}/courses/levels/{a1}/modules", headers=hm, json={"title": "Introduction"}).json()
+    tree = client.post(f"{COURSES_API}/courses/levels/{a1}/modules", headers=hm, json={"title": "Daily Life"}).json()
+    m1, m2 = (m["id"] for m in tree["levels"][0]["modules"])
+
+    def lesson(module, title, blocks, published=True):
+        les = client.post(f"{COURSES_API}/courses/modules/{module}/lessons", headers=hm, json={"title": title}).json()
+        r = client.put(f"{COURSES_API}/courses/lessons/{les['id']}", headers=hm,
+                       json={"title": title, "published": published, "blocks": blocks(les["id"])})
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    def first_blocks(lid):
+        f = client.post(f"{COURSES_API}/courses/lessons/{lid}/files", headers=hm,
+                        files=[("files", ("hello.mp3", MP3, "audio/mpeg"))]).json()[0]["id"]
+        return [{"type": "text", "content": {"body": "Hello"}},
+                {"type": "quiz", "questions": [CHOICE, GAPS]},
+                {"type": "listening", "content": {"attachment_id": f, "max_plays": 2}, "questions": [CHOICE]}]
+
+    l1 = lesson(m1, "Greetings", first_blocks)
+    l2 = lesson(m1, "Countries", lambda _: [{"type": "text", "content": {"body": "Spain"}}])
+    l3 = lesson(m2, "Routine", lambda _: [{"type": "text", "content": {"body": "Every day"}}])
+    draft = lesson(m1, "Draft", lambda _: [{"type": "text", "content": {"body": "x"}}], published=False)
+    group = client.post(f"{COURSES_API}/groups", headers=school["aa"], json={"name": "A1 mornings", "student_ids": [school["s1"].id]}).json()
+    return {**school, "hm": hm, "course": c["id"], "a1": a1, "m1": m1, "m2": m2,
+            "l1": l1, "l2": l2, "l3": l3, "draft": draft, "group": group["id"]}
+
+
+def _assign(client, h, course, **body):
+    return client.post(f"{COURSES_API}/course-assignments", headers=h, json={"course_id": course["course"], **body})

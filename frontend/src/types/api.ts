@@ -1050,6 +1050,8 @@ export interface StudentLessonView {
   exercises_done: number;
   blocks: LessonBlockState[];
   plays: Record<string, number>;
+  /** set by "complete": XP and achievements earned just now */
+  awards?: Awards | null;
 }
 
 export interface CourseProgressItem {
@@ -1075,4 +1077,50 @@ export interface CourseProgress {
   exercises_done: number;
   avg_score: number | null;
   items: CourseProgressItem[];
+}
+
+// ---------- gamification ----------
+
+export type XPReason = "lesson" | "test" | "test_bonus" | "module" | "level";
+export type AchievementCode = "first_lesson" | "first_test" | "perfect_score" | "streak_7" | "lessons_10" | "level_completed";
+
+export interface XPSettings {
+  lesson: number;
+  test: number;
+  test_bonus: number;
+  /** % from which the test bonus is paid */
+  bonus_threshold: number;
+  module: number;
+  level: number;
+}
+
+export interface Achievement {
+  code: AchievementCode;
+  earned_at: string | null;
+  progress: number | null;
+  target: number | null;
+}
+
+export interface XPEntry {
+  reason: XPReason;
+  points: number;
+  title: string;
+  created_at: string;
+}
+
+export interface Gamification {
+  xp_total: number;
+  level: number;
+  level_xp: number;
+  next_level_xp: number;
+  streak_days: number;
+  achievements: Achievement[];
+  recent: XPEntry[];
+  settings: XPSettings;
+}
+
+/** What an action has just earned. */
+export interface Awards {
+  xp: number;
+  achievements: AchievementCode[];
 }

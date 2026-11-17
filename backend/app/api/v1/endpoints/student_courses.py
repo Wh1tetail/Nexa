@@ -12,7 +12,9 @@ from app.schemas.course_assignment import (
     StudentLessonRow,
     StudentLessonView,
 )
+from app.schemas.gamification import Awards
 from app.services import course_progress as cp
+from app.services import gamification
 
 router = APIRouter(prefix="/me", tags=["student-courses"])
 
@@ -55,9 +57,15 @@ def play(lesson_id: int, block_id: int, student: StudentWithAccess, db: DB) -> P
 @router.post("/course-lessons/{lesson_id}/complete", response_model=StudentLessonView)
 def complete(lesson_id: int, student: StudentWithAccess, db: DB) -> StudentLessonView:
     """Finish the lesson once all its exercises are checked (repeating it changes nothing)."""
-    cp.complete_lesson(db, student, lesson_id)
+    first = cp.complete_lesson(db, student, lesson_id)
+    awards = Awards()
+    if first:
+        les, _ = cp.lesson_access(db, student, lesson_id)
+        awards = gamification.on_lesson_completed(db, student, les)
     db.commit()
-    return cp.lesson_view(db, student, lesson_id)
+    view = cp.lesson_view(db, student, lesson_id)
+    view.awards = awards
+    return view
 
 
 @router.get("/course-progress", response_model=CourseProgressOut)

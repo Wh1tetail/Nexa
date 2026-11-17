@@ -10,6 +10,7 @@ from app.models.course import (
     LessonProgress,
 )
 from app.models.file import Attachment
+from app.models.gamification import AppSetting, StudentAchievement, StudentActivityDay, XPTransaction
 from app.models.homework import Homework, HomeworkSubmission
 from app.models.lesson import Attendance, Lesson
 from app.models.message import AuthAttempt, Message
@@ -36,6 +37,7 @@ from app.models.user import (
 )
 
 __all__ = [
+    "AppSetting",
     "Attachment",
     "AuthAttempt",
     "Attendance",
@@ -54,6 +56,8 @@ __all__ = [
     "Message",
     "Notification",
     "PasswordResetToken",
+    "StudentAchievement",
+    "StudentActivityDay",
     "StudentProfile",
     "Subscription",
     "TeacherProfile",
@@ -64,6 +68,7 @@ __all__ = [
     "TestSection",
     "TestTag",
     "User",
+    "XPTransaction",
     "group_students",
     "test_assignments",
     "test_section_links",

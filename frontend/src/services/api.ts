@@ -2,6 +2,8 @@
 import { http } from "@/services/http";
 import type {
   AdminStats,
+  Gamification,
+  XPSettings,
   AssignCourseInput,
   AssignCourseResult,
   CourseAssignmentDetail,
@@ -455,6 +457,14 @@ export const myCoursesApi = {
   play: (lessonId: number, blockId: number) => post<{ plays: number; max_plays: number | null }>(`/me/course-lessons/${lessonId}/plays/${blockId}`),
   complete: (lessonId: number) => post<StudentLessonView>(`/me/course-lessons/${lessonId}/complete`),
   progress: () => get<CourseProgress>("/me/course-progress"),
+};
+
+/** XP and achievements. */
+export const gamificationApi = {
+  me: () => get<Gamification>("/me/gamification"),
+  student: (studentId: number) => get<Gamification>(`/students/${studentId}/gamification`),
+  settings: () => get<XPSettings>("/admin/gamification"),
+  saveSettings: (data: XPSettings) => put<XPSettings>("/admin/gamification", data),
 };
 
 export const adminApi = {
