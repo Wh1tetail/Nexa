@@ -250,6 +250,27 @@ def create_teacher(data: TeacherCreate, _: AdminUser, db: DB, background: Backgr
     return TeacherOut(id=profile.id, user_id=user.id, full_name=user.full_name, email=user.email, students_count=0)
 
 
+@router.post("/methodists", response_model=AdminUserOut, status_code=status.HTTP_201_CREATED)
+def create_methodist(data: TeacherCreate, _: AdminUser, db: DB, background: BackgroundTasks) -> AdminUserOut:
+    """A methodist builds the shared test library (no students, groups or lessons)."""
+    if student_service.email_taken(db, data.email):
+        raise Conflict("Пользователь с таким email уже существует")
+    user = User(
+        email=data.email.lower(),
+        password_hash=hash_password(data.password or secrets.token_urlsafe(32)),
+        full_name=data.full_name.strip(),
+        phone=data.phone,
+        role=UserRole.METHODIST,
+        locale=request_lang.get(),
+    )
+    db.add(user)
+    db.flush()
+    if data.send_invite:
+        student_service.send_invitation(db, user, None, background)
+    db.commit()
+    return _user_out(user, {})
+
+
 @router.get("/students", response_model=list[StudentBrief])
 def list_all_students(_: AdminUser, db: DB, search: str | None = None) -> list[StudentBrief]:
     return student_service.briefs(db, repo.list_for_teacher(db, None, search))

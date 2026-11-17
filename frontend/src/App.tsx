@@ -45,6 +45,8 @@ const AnalyticsPage = lazy(() => import("@/pages/teacher/AnalyticsPage"));
 const AdminGroupsPage = lazy(() => import("@/pages/admin/AdminGroupsPage"));
 const AdminLessonsPage = lazy(() => import("@/pages/admin/AdminLessonsPage"));
 const AdminSubscriptionsPage = lazy(() => import("@/pages/admin/AdminSubscriptionsPage"));
+const LibraryPage = lazy(() => import("@/pages/library/LibraryPage"));
+const LibraryTestPage = lazy(() => import("@/pages/library/LibraryTestPage"));
 const SettingsPage = lazy(() => import("@/pages/shared/SettingsPage"));
 
 export default function App() {
@@ -96,6 +98,8 @@ export default function App() {
             <Route path="tests/:testId" element={<TestResultsPage />} />
             <Route path="tests/:testId/attempts/:attemptId" element={<GradeAttemptPage />} />
             <Route path="subscriptions" element={<SubscriptionsPage />} />
+            <Route path="library" element={<LibraryPage />} />
+            <Route path="library/tests/:testId" element={<LibraryTestPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="messages/:studentId" element={<MessagesPage />} />
@@ -110,6 +114,21 @@ export default function App() {
             <Route path="groups" element={<AdminGroupsPage />} />
             <Route path="lessons" element={<AdminLessonsPage />} />
             <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+            <Route path="library" element={<LibraryPage />} />
+            <Route path="library/tests/new" element={<TestEditorPage library />} />
+            <Route path="library/tests/:testId" element={<LibraryTestPage />} />
+            <Route path="library/tests/:testId/edit" element={<TestEditorPage library />} />
+            <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute roles={["methodist"]} />}>
+          <Route path="/methodist" element={<DashboardLayout />}>
+            <Route index element={<LibraryPage />} />
+            <Route path="tests/new" element={<TestEditorPage library />} />
+            <Route path="tests/:testId" element={<LibraryTestPage />} />
+            <Route path="tests/:testId/edit" element={<TestEditorPage library />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

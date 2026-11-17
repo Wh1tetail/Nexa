@@ -21,6 +21,12 @@ import type {
   HomeworkListItem,
   InviteResponse,
   Lesson,
+  LibraryFilters,
+  LibraryItem,
+  LibrarySection,
+  LibraryTag,
+  LibraryTestDetail,
+  LibraryTestInput,
   LessonStatus,
   Me,
   MyLesson,
@@ -346,6 +352,29 @@ export interface AdminUserFilters {
   active?: boolean;
 }
 
+/** Shared test library (methodists and admins edit, teachers browse and copy). */
+export const libraryApi = {
+  sections: () => get<LibrarySection[]>("/library/sections"),
+  createSection: (name: string, parent_id: number | null) => post<LibrarySection>("/library/sections", { name, parent_id }),
+  updateSection: (id: number, data: { name?: string; parent_id?: number | null; move_to_root?: boolean }) =>
+    patch<LibrarySection>(`/library/sections/${id}`, data),
+  removeSection: (id: number) => del(`/library/sections/${id}`),
+  tags: () => get<LibraryTag[]>("/library/tags"),
+  tests: (f: LibraryFilters = {}) => get<LibraryItem[]>("/library/tests", clean(f)),
+  get: (id: number) => get<LibraryTestDetail>(`/library/tests/${id}`),
+  create: (data: LibraryTestInput) => post<LibraryTestDetail>("/library/tests", data),
+  update: (id: number, data: LibraryTestInput) => put<LibraryTestDetail>(`/library/tests/${id}`, data),
+  remove: (id: number) => del(`/library/tests/${id}`),
+  uploadFiles: (id: number, files: File[], onProgress?: (p: number) => void) =>
+    upload(`/library/tests/${id}/files`, files, onProgress),
+  deleteFile: (id: number, fileId: number) => del(`/library/tests/${id}/files/${fileId}`),
+  duplicate: (id: number) => post<LibraryTestDetail>(`/library/tests/${id}/duplicate`),
+  /** A teacher's own editable copy of a published test. */
+  copy: (id: number) => post<TestDetail>(`/library/tests/${id}/copy`),
+  move: (test_ids: number[], section_id: number, from_section_id?: number) =>
+    post(`/library/tests/move`, { test_ids, section_id, from_section_id: from_section_id ?? null }),
+};
+
 export const adminApi = {
   stats: () => get<AdminStats>("/admin/stats"),
   users: (f: AdminUserFilters = {}) => get<AdminUser[]>("/admin/users", clean(f)),
@@ -362,6 +391,8 @@ export const adminApi = {
   createTeacher: (data: { email: string; full_name: string; phone?: string | null; password?: string | null; send_invite?: boolean }) =>
     post<TeacherBrief>("/admin/teachers", data),
   createStudent: (data: StudentInput & { teacher_id: number | null }) => post<StudentProfile>("/admin/students", data),
+  createMethodist: (data: { email: string; full_name: string; phone?: string | null; password?: string | null; send_invite?: boolean }) =>
+    post<AdminUser>("/admin/methodists", data),
   reassign: (studentId: number, teacherId: number) =>
     post<StudentProfile>(`/admin/students/${studentId}/teacher/${teacherId}`),
 };

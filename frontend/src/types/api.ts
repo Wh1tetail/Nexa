@@ -1,6 +1,6 @@
 // Types mirror backend Pydantic schemas (app/schemas/*).
 
-export type Role = "student" | "teacher" | "admin";
+export type Role = "student" | "teacher" | "admin" | "methodist";
 export type EnglishLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 export type SubscriptionStatus = "active" | "expiring_soon" | "expired" | "frozen";
 export type LessonStatus = "scheduled" | "completed" | "cancelled";
@@ -667,4 +667,68 @@ export interface TeacherOverview {
   avg_homework: number | null;
   attendance_rate: number | null;
   rows: StudentOverviewRow[];
+}
+
+// ---------- shared test library ----------
+
+export interface LibrarySection {
+  id: number;
+  parent_id: number | null;
+  name: string;
+  position: number;
+  /** tests in this section itself */
+  direct_count: number;
+  /** including subsections */
+  tests_count: number;
+}
+
+export interface LibraryTag {
+  id: number;
+  name: string;
+  tests_count: number;
+}
+
+export interface LibraryItem {
+  id: number;
+  title: string;
+  description: string | null;
+  level: EnglishLevel | null;
+  published: boolean;
+  author_id: number | null;
+  author_name: string | null;
+  sections: { id: number; name: string }[];
+  tags: string[];
+  questions_count: number;
+  question_types: QuestionType[];
+  time_limit_minutes: number | null;
+  created_at: string;
+  updated_at: string | null;
+  /** personal copies made by teachers */
+  copies: number;
+}
+
+export interface LibraryTestDetail extends LibraryItem, TestSettings {
+  questions: Question[];
+  files: Attachment[];
+}
+
+export interface LibraryFilters {
+  search?: string;
+  level?: EnglishLevel | "";
+  section_id?: number | "";
+  tag?: string;
+  question_type?: QuestionType | "";
+  author_id?: number | "";
+  published?: boolean | "";
+}
+
+export interface LibraryTestInput extends Partial<TestSettings> {
+  title: string;
+  description?: string | null;
+  time_limit_minutes?: number | null;
+  questions: QuestionInput[];
+  level: EnglishLevel | null;
+  section_ids: number[];
+  tags: string[];
+  published: boolean;
 }

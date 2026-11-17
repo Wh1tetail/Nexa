@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     files,
     groups,
     homework,
+    library,
     lessons,
     messages,
     notifications,
@@ -20,6 +21,6 @@ from app.api.v1.endpoints import (
 api_router = APIRouter()
 for module in (
     auth, dashboard, students, groups, subscriptions, lessons,
-    homework, tests, student, notifications, messages, files, admin, analytics,
+    homework, tests, student, notifications, messages, files, admin, analytics, library,
 ):
     api_router.include_router(module.router)

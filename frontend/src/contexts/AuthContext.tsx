@@ -22,6 +22,7 @@ const AuthContext = createContext<AuthValue | null>(null);
 
 export function homePath(role: Role) {
   if (role === "admin") return "/admin";
+  if (role === "methodist") return "/methodist";
   return role === "student" ? "/student" : "/teacher";
 }
 

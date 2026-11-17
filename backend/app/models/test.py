@@ -19,8 +19,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
-from app.models.enums import AttemptStatus, QuestionType, str_enum
-from app.models.user import StudentProfile, TeacherProfile
+from app.models.enums import AttemptStatus, EnglishLevel, QuestionType, str_enum
+from app.models.user import StudentProfile, TeacherProfile, User
 
 if TYPE_CHECKING:
     from app.models.file import Attachment
@@ -53,12 +53,25 @@ class Test(Base, TimestampMixin):
             "passing_percent IS NULL OR passing_percent BETWEEN 1 AND 100", name="passing_percent_range"
         ),
         CheckConstraint("max_attempts BETWEEN 1 AND 10", name="max_attempts_range"),
+        # a teacher's own test, or a library test (shared, no owning teacher)
+        CheckConstraint(
+            "(is_library AND teacher_id IS NULL) OR (NOT is_library AND teacher_id IS NOT NULL)",
+            name="owner_kind",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    teacher_id: Mapped[int] = mapped_column(
+    teacher_id: Mapped[int | None] = mapped_column(
         ForeignKey("teacher_profiles.id", ondelete="CASCADE"), index=True
     )
+    # --- shared library (methodists / admins); teachers use it by copying ---
+    is_library: Mapped[bool] = mapped_column(default=False, server_default="false", index=True)
+    published: Mapped[bool] = mapped_column(default=False, server_default="false")  # visible to teachers
+    author_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    level: Mapped[EnglishLevel | None] = mapped_column(str_enum(EnglishLevel, "english_level"))
+    # a copy remembers where it came from (library test or another test)
+    source_test_id: Mapped[int | None] = mapped_column(ForeignKey("tests.id", ondelete="SET NULL"))
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text)
     time_limit_minutes: Mapped[int | None] = mapped_column(Integer)
@@ -73,7 +86,10 @@ class Test(Base, TimestampMixin):
     # how many times a student may take it (the best result counts)
     max_attempts: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
-    teacher: Mapped[TeacherProfile] = relationship()
+    teacher: Mapped[TeacherProfile | None] = relationship()
+    author: Mapped["User | None"] = relationship(foreign_keys=[author_id])
+    sections: Mapped[list["TestSection"]] = relationship(secondary="test_section_links", order_by="TestSection.name")
+    tags: Mapped[list["TestTag"]] = relationship(secondary="test_tag_links", order_by="TestTag.name")
     questions: Mapped[list["TestQuestion"]] = relationship(
         back_populates="test", cascade="all, delete-orphan", order_by="TestQuestion.position"
     )
@@ -178,3 +194,39 @@ class TestAnswer(Base):
 
     attempt: Mapped[TestAttempt] = relationship(back_populates="answers")
     question: Mapped[TestQuestion] = relationship()
+
+
+class TestSection(Base, TimestampMixin):
+    """Library section; sections nest (Grammar -> Present Simple). A test may sit
+    in several sections."""
+    __test__ = False
+    __tablename__ = "test_sections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("test_sections.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+test_section_links = Table(
+    "test_section_links",
+    Base.metadata,
+    Column("test_id", ForeignKey("tests.id", ondelete="CASCADE"), primary_key=True),
+    Column("section_id", ForeignKey("test_sections.id", ondelete="CASCADE"), primary_key=True, index=True),
+)
+
+
+class TestTag(Base):
+    __test__ = False
+    __tablename__ = "test_tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), unique=True)  # stored lower-case
+
+
+test_tag_links = Table(
+    "test_tag_links",
+    Base.metadata,
+    Column("test_id", ForeignKey("tests.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("test_tags.id", ondelete="CASCADE"), primary_key=True, index=True),
+)

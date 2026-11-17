@@ -4,6 +4,7 @@ import {
   CreditCard,
   GraduationCap,
   KeyRound,
+  Library,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -48,7 +49,7 @@ function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const { t } = useI18n();
   const invalidate = useInvalidate();
   const teachers = useQuery({ queryKey: ["admin", "teachers"], queryFn: adminApi.teachers, enabled: open });
-  const [role, setRole] = useState<"student" | "teacher">("student");
+  const [role, setRole] = useState<"student" | "teacher" | "methodist">("student");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -76,6 +77,10 @@ function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
       const base = { email: email.trim(), full_name: fullName.trim(), phone: phone.trim() || null, password: invite ? null : password, send_invite: invite };
       if (role === "teacher") {
         await adminApi.createTeacher(base);
+        return null;
+      }
+      if (role === "methodist") {
+        await adminApi.createMethodist(base);
         return null;
       }
       const s = await adminApi.createStudent({ ...base, english_level: level, group_ids: [], teacher_id: teacherId ? Number(teacherId) : null });
@@ -109,12 +114,14 @@ function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
           <DialogTitle>{t.admin.createUser}</DialogTitle>
         </DialogHeader>
         <DialogBody className="grid gap-4 sm:grid-cols-2">
-          <Tabs value={role} onValueChange={(v) => setRole(v as "student" | "teacher")} className="sm:col-span-2">
+          <Tabs value={role} onValueChange={(v) => setRole(v as typeof role)} className="sm:col-span-2">
             <TabsList className="w-full">
               <TabsTrigger value="student" className="flex-1"><GraduationCap className="size-4" />{t.admin.role.student}</TabsTrigger>
               <TabsTrigger value="teacher" className="flex-1"><Presentation className="size-4" />{t.admin.role.teacher}</TabsTrigger>
+              <TabsTrigger value="methodist" className="flex-1"><Library className="size-4" />{t.admin.role.methodist}</TabsTrigger>
             </TabsList>
           </Tabs>
+          {role === "methodist" && <p className="text-sm text-muted-foreground sm:col-span-2">{t.library.methodistHint}</p>}
           <Field label={t.students.fullName} error={errors.fullName} className="sm:col-span-2">
             <Input value={fullName} onChange={(e) => setFullName(e.target.value)} aria-invalid={!!errors.fullName} maxLength={200} />
           </Field>
@@ -429,7 +436,7 @@ export default function AdminPage() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  const roleVariant = { admin: "primary", teacher: "default", student: "neutral" } as const;
+  const roleVariant = { admin: "primary", teacher: "default", student: "neutral", methodist: "warning" } as const;
 
   return (
     <div className="space-y-6">
@@ -457,6 +464,7 @@ export default function AdminPage() {
             <TabsTrigger value="">{t.admin.allRoles}</TabsTrigger>
             <TabsTrigger value="teacher">{t.admin.teachers}</TabsTrigger>
             <TabsTrigger value="student">{t.admin.students}</TabsTrigger>
+            <TabsTrigger value="methodist">{t.admin.role.methodist}</TabsTrigger>
             <TabsTrigger value="admin">{t.admin.role.admin}</TabsTrigger>
           </TabsList>
         </Tabs>

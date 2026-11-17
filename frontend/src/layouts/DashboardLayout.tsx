@@ -6,6 +6,7 @@ import {
   ClipboardList,
   CreditCard,
   LayoutDashboard,
+  Library,
   LogOut,
   Menu,
   MessageSquare,
@@ -76,7 +77,11 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
       { to: "/admin/groups", label: t.nav.groups, icon: UsersRound },
       { to: "/admin/lessons", label: t.nav.lessons, icon: CalendarCheck },
       { to: "/admin/subscriptions", label: t.nav.subscriptions, icon: CreditCard },
+      { to: "/admin/library", label: t.nav.library, icon: Library },
     ];
+  }
+  if (role === "methodist") {
+    return [{ to: "/methodist", label: t.nav.library, icon: Library, end: false }];
   }
   if (role === "student") {
     return [
@@ -98,6 +103,7 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
     { to: "/teacher/lessons", label: t.nav.lessons, icon: CalendarCheck },
     { to: "/teacher/homework", label: t.nav.homework, icon: ClipboardList, section: "homework" },
     { to: "/teacher/tests", label: t.nav.tests, icon: BookOpenCheck, section: "tests" },
+    { to: "/teacher/library", label: t.nav.library, icon: Library },
     { to: "/teacher/analytics", label: t.nav.analytics, icon: BarChart3 },
     { to: "/teacher/subscriptions", label: t.nav.subscriptions, icon: CreditCard, section: "subscription" },
   ];
@@ -197,7 +203,7 @@ export function DashboardLayout() {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r bg-background px-4 py-5 lg:flex">
         <Logo to={base} className="px-2" />
         <p className="mt-1 px-2 text-xs text-muted-foreground">
-          {user?.role === "student" ? t.nav.studentArea : user?.role === "admin" ? "Admin" : t.nav.teacherArea}
+          {user?.role === "student" ? t.nav.studentArea : user?.role === "admin" ? "Admin" : user?.role === "methodist" ? t.admin.role.methodist : t.nav.teacherArea}
         </p>
         <div className="mt-8 flex-1 overflow-y-auto">
           <SidebarNav />

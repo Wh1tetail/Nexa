@@ -93,6 +93,10 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
         from app.models import Test, TestAttempt
 
         test = db.get(Test, att.test_id)
+        if test.is_library:  # shared library: editors always, teachers once published
+            if user.role == UserRole.METHODIST or (user.role == UserRole.TEACHER and test.published):
+                return att
+            raise NotFound("Файл не найден")
         if user.role == UserRole.TEACHER and user.teacher_profile and test.teacher_id == user.teacher_profile.id:
             return att
         # students only once they have started the test (no peeking at a listening task)

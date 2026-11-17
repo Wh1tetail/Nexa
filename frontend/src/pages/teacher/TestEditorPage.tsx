@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, Headphones, Lock, Paperclip, Plus, Settings2, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, Headphones, Library, Lock, Paperclip, Plus, Settings2, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,9 +13,24 @@ import { Checkbox, RadioGroup, RadioGroupItem } from "@/components/ui/checkbox";
 import { Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
-import { testsApi } from "@/services/api";
+import { flattenSections, useLibraryBase } from "@/pages/library/shared";
+import { libraryApi, testsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
-import { CONTENT_TYPES, type Attachment, type QuestionInput, type QuestionType } from "@/types/api";
+import {
+  CONTENT_TYPES,
+  ENGLISH_LEVELS,
+  type Attachment,
+  type EnglishLevel,
+  type LibraryTestDetail,
+  type QuestionInput,
+  type QuestionType,
+  type TestDetail,
+} from "@/types/api";
+
+/** A teacher's test or a library test, as the editor reads them. */
+type Loaded = Omit<TestDetail, "student_ids" | "has_attempts" | "due_at"> &
+  Partial<Pick<TestDetail, "student_ids" | "has_attempts" | "due_at">> &
+  Partial<Pick<LibraryTestDetail, "level" | "sections" | "tags" | "published">>;
 import { BlockEditor, GapsEditor, MatchingEditor, blankTask, cfgOf, taskConfigFromSaved, taskError } from "@/components/tests/TaskEditors";
 import { localInputToIso, toDateTimeInput } from "@/utils/format";
 
@@ -263,13 +278,26 @@ function Toggle({ label, hint, checked, onChange }: { label: string; hint: strin
   );
 }
 
-export default function TestEditorPage() {
+/** Editor for a teacher's own test, or (library) a shared library test of a methodist / admin. */
+export default function TestEditorPage({ library = false }: { library?: boolean }) {
   const { testId } = useParams();
   const editId = testId ? Number(testId) : null;
   const { t } = useI18n();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const existing = useQuery({ queryKey: ["tests", editId], queryFn: () => testsApi.get(editId!), enabled: !!editId });
+  const { base: libBase } = useLibraryBase();
+  const testKey = library ? ["library", "test", editId] : ["tests", editId];
+  const existing = useQuery({
+    queryKey: testKey,
+    // both shapes share the editable fields; the extra ones are optional here
+    queryFn: async () => (library ? await libraryApi.get(editId!) : await testsApi.get(editId!)) as Loaded,
+    enabled: !!editId,
+  });
+  const sectionsQ = useQuery({ queryKey: ["library", "sections"], queryFn: libraryApi.sections, enabled: library });
+  const [level, setLevel] = useState<EnglishLevel | "">("");
+  const [sectionIds, setSectionIds] = useState<number[]>([]);
+  const [tags, setTags] = useState("");
+  const [published, setPublished] = useState(false);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -310,16 +338,22 @@ export default function TestEditorPage() {
     setShuffleQuestions(d.shuffle_questions);
     setShuffleOptions(d.shuffle_options);
     setShowAnswers(d.show_correct_answers);
-    setRecipients({ studentIds: d.student_ids, groupIds: [] });
+    setRecipients({ studentIds: d.student_ids ?? [], groupIds: [] });
+    setLevel(d.level ?? "");
+    setSectionIds((d.sections ?? []).map((x) => x.id));
+    setTags((d.tags ?? []).join(", "));
+    setPublished(!!d.published);
   }, [existing.data]);
 
-  const locked = !!existing.data?.has_attempts;
+  const locked = !library && !!existing.data?.has_attempts;
   const files = existing.data?.files ?? [];
 
   const uploadFiles = (list: File[], onProgress: (p: number) => void) =>
-    testsApi.uploadFiles(editId!, list, onProgress).then(() => qc.invalidateQueries({ queryKey: ["tests", editId] }));
+    (library ? libraryApi.uploadFiles(editId!, list, onProgress) : testsApi.uploadFiles(editId!, list, onProgress)).then(() =>
+      qc.invalidateQueries({ queryKey: testKey }),
+    );
   const removeFile = useMutation({
-    mutationFn: (f: Attachment) => testsApi.deleteFile(editId!, f.id),
+    mutationFn: (f: Attachment) => (library ? libraryApi.deleteFile(editId!, f.id) : testsApi.deleteFile(editId!, f.id)),
     onSuccess: (_, f) => {
       // questions stop referring to it (the server does the same)
       setQuestions((qs) =>
@@ -331,13 +365,13 @@ export default function TestEditorPage() {
           return { ...q, config, attachment_ids: (q.attachment_ids ?? []).filter((x) => x !== f.id) };
         }),
       );
-      qc.invalidateQueries({ queryKey: ["tests", editId] });
+      qc.invalidateQueries({ queryKey: testKey });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async (): Promise<{ id: number }> => {
       const body = {
         title: title.trim(),
         description: description.trim() || null,
@@ -359,12 +393,23 @@ export default function TestEditorPage() {
         student_ids: recipients.studentIds,
         group_ids: recipients.groupIds,
       };
+      if (library) {
+        const { due_at: _due, student_ids: _s, group_ids: _g, ...rest } = body;
+        const lib = {
+          ...rest,
+          level: level || null,
+          section_ids: sectionIds,
+          tags: tags.split(",").map((x) => x.trim()).filter(Boolean),
+          published,
+        };
+        return editId ? libraryApi.update(editId, lib) : libraryApi.create(lib);
+      }
       return editId ? testsApi.update(editId, body) : testsApi.create(body);
     },
     onSuccess: (test) => {
-      qc.invalidateQueries({ queryKey: ["tests"] });
-      toast.success(editId ? t.tests.saved : t.tests.created);
-      navigate(`/teacher/tests/${test.id}`, { replace: true });
+      qc.invalidateQueries({ queryKey: library ? ["library"] : ["tests"] });
+      toast.success(editId ? t.tests.saved : library ? t.library.created : t.tests.created);
+      navigate(library ? `${libBase}/tests/${test.id}` : `/teacher/tests/${test.id}`, { replace: true });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -407,11 +452,14 @@ export default function TestEditorPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Link to={editId ? `/teacher/tests/${editId}` : "/teacher/tests"} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary">
+      <Link
+        to={library ? (editId ? `${libBase}/tests/${editId}` : libBase) : editId ? `/teacher/tests/${editId}` : "/teacher/tests"}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary"
+      >
         <ArrowLeft className="size-4" />
-        {t.tests.title}
+        {library ? t.library.title : t.tests.title}
       </Link>
-      <h1 className="page-title">{editId ? t.tests.editTitle : t.tests.createTitle}</h1>
+      <h1 className="page-title">{editId ? t.tests.editTitle : library ? t.library.newTest : t.tests.createTitle}</h1>
 
       {locked && (
         <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm text-warning-strong">
@@ -431,9 +479,11 @@ export default function TestEditorPage() {
           <Field label={t.tests.timeLimit} optional>
             <Input type="number" min={1} max={600} placeholder={t.tests.noLimit} value={limit} onChange={(e) => setLimit(e.target.value)} />
           </Field>
-          <Field label={t.tests.dueAt} optional>
-            <Input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
-          </Field>
+          {!library && (
+            <Field label={t.tests.dueAt} optional>
+              <Input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
+            </Field>
+          )}
         </CardContent>
       </Card>
 
@@ -530,17 +580,58 @@ export default function TestEditorPage() {
         )}
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>{t.tests.assign}</CardTitle></CardHeader>
-        <CardContent>
-          <RecipientPicker
-            studentIds={recipients.studentIds}
-            groupIds={recipients.groupIds}
-            onChange={setRecipients}
-            disabledStudentIds={editId ? existing.data?.student_ids : []}
-          />
-        </CardContent>
-      </Card>
+      {library ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Library className="size-4 text-accent" />
+              {t.library.meta}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Field label={t.library.level}>
+              <NativeSelect value={level} onChange={(e) => setLevel(e.target.value as EnglishLevel | "")}>
+                <option value="">{t.library.noLevel}</option>
+                {ENGLISH_LEVELS.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label={t.library.tags} hint={t.library.tagsHint} optional>
+              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="present simple, routine" />
+            </Field>
+            <Field label={t.library.sections} hint={t.library.sectionsHint} className="sm:col-span-2">
+              <div className="grid max-h-64 gap-0.5 overflow-y-auto rounded-xl border p-2 sm:grid-cols-2">
+                {flattenSections(sectionsQ.data ?? []).map((sec) => (
+                  <label key={sec.id} style={{ paddingLeft: 6 + sec.depth * 14 }}
+                    className={cn("flex cursor-pointer items-center gap-2 rounded-lg py-1 pr-2 text-sm hover:bg-secondary", sec.depth === 0 && "font-medium")}>
+                    <Checkbox
+                      checked={sectionIds.includes(sec.id)}
+                      onCheckedChange={(v) => setSectionIds((ids) => (v ? [...ids, sec.id] : ids.filter((x) => x !== sec.id)))}
+                    />
+                    <span className="truncate">{sec.name}</span>
+                  </label>
+                ))}
+              </div>
+            </Field>
+            <div className="sm:col-span-2">
+              <Toggle label={t.library.publish} hint={t.library.publishHint} checked={published} onChange={setPublished} />
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader><CardTitle>{t.tests.assign}</CardTitle></CardHeader>
+          <CardContent>
+            <RecipientPicker
+              studentIds={recipients.studentIds}
+              groupIds={recipients.groupIds}
+              onChange={setRecipients}
+              disabledStudentIds={editId ? existing.data?.student_ids : []}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="sticky bottom-0 -mx-4 flex gap-2 border-t bg-background/90 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
         <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => navigate(-1)}>{t.common.cancel}</Button>

@@ -173,6 +173,8 @@ CATALOG: dict[str, dict[str, str]] = {
     "Тест ещё не открыт": {"kk": "Тест әлі ашылмаған", "en": "The test is not open yet"},
     "Срок сдачи теста истёк": {"kk": "Тестті тапсыру мерзімі өтті", "en": "The test deadline has passed"},
     "Тест уже завершён": {"kk": "Тест аяқталып қойған", "en": "The test is already finished"},
+    "Раздел не найден": {"kk": "Бөлім табылмады", "en": "Section not found"},
+    "Раздел нельзя вложить в самого себя": {"kk": "Бөлімді өзіне салуға болмайды", "en": "A section can't be placed inside itself"},
     "Аудио не найдено": {"kk": "Аудио табылмады", "en": "Audio not found"},
     "Баллы за пропуск — от 1 до 20": {"kk": "Бір бос орын үшін ұпай — 1-ден 20-ға дейін", "en": "Points per gap: 1 to 20"},
     "Выберите аудиофайл": {"kk": "Аудиофайлды таңдаңыз", "en": "Choose an audio file"},

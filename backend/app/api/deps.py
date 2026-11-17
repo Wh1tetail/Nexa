@@ -120,6 +120,9 @@ def get_student_with_access(student: CurrentStudent, db: DB) -> StudentProfile:
 
 StudentWithAccess = Annotated[StudentProfile, Depends(get_student_with_access)]
 AdminUser = Annotated[User, Depends(require_roles(UserRole.ADMIN))]
+# shared test library: methodists and admins edit; teachers also read (and copy)
+LibraryEditor = Annotated[User, Depends(require_roles(UserRole.METHODIST, UserRole.ADMIN))]
+LibraryReader = Annotated[User, Depends(require_roles(UserRole.TEACHER, UserRole.METHODIST, UserRole.ADMIN))]
 StaffUser = Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER))]
 
 

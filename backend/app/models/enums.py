@@ -7,6 +7,7 @@ class UserRole(StrEnum):
     STUDENT = "student"
     TEACHER = "teacher"
     ADMIN = "admin"
+    METHODIST = "methodist"  # curriculum author: shared test library (and later courses)
 
 
 class EnglishLevel(StrEnum):
