@@ -51,6 +51,12 @@ const CoursesPage = lazy(() => import("@/pages/courses/CoursesPage"));
 const CoursePage = lazy(() => import("@/pages/courses/CoursePage"));
 const LessonBuilderPage = lazy(() => import("@/pages/courses/LessonBuilderPage"));
 const LessonViewPage = lazy(() => import("@/pages/courses/LessonViewPage"));
+const AssignmentsPage = lazy(() => import("@/pages/courses/AssignmentsPage"));
+const AssignmentDetailPage = lazy(() => import("@/pages/courses/AssignmentDetailPage"));
+const StudentCoursesPage = lazy(() => import("@/pages/student/StudentCoursesPage"));
+const StudentCoursePage = lazy(() => import("@/pages/student/StudentCoursesPage").then((m) => ({ default: m.StudentCoursePage })));
+const StudentLessonsPage = lazy(() => import("@/pages/student/StudentCoursesPage").then((m) => ({ default: m.StudentLessonsPage })));
+const StudentCourseLessonPage = lazy(() => import("@/pages/student/StudentCourseLessonPage"));
 const SettingsPage = lazy(() => import("@/pages/shared/SettingsPage"));
 
 export default function App() {
@@ -81,6 +87,10 @@ export default function App() {
             <Route path="attendance" element={<RequireAccess><StudentAttendance /></RequireAccess>} />
             <Route path="subscription" element={<StudentSubscription />} />
             <Route path="progress" element={<StudentProgressPage />} />
+            <Route path="courses" element={<RequireAccess><StudentCoursesPage /></RequireAccess>} />
+            <Route path="courses/:assignmentId" element={<RequireAccess><StudentCoursePage /></RequireAccess>} />
+            <Route path="course-lessons" element={<RequireAccess><StudentLessonsPage /></RequireAccess>} />
+            <Route path="course-lessons/:lessonId" element={<RequireAccess><StudentCourseLessonPage /></RequireAccess>} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
@@ -105,6 +115,8 @@ export default function App() {
             <Route path="courses" element={<CoursesPage />} />
             <Route path="courses/:courseId" element={<CoursePage />} />
             <Route path="courses/lessons/:lessonId" element={<LessonViewPage />} />
+            <Route path="course-assignments" element={<AssignmentsPage />} />
+            <Route path="course-assignments/:assignmentId" element={<AssignmentDetailPage />} />
             <Route path="library" element={<LibraryPage />} />
             <Route path="library/tests/:testId" element={<LibraryTestPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />

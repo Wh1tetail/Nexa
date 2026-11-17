@@ -17,10 +17,11 @@ SECTION_OF: dict[NotificationType, str] = {
     NotificationType.TEST_COMPLETED: "tests",
     NotificationType.TEST_GRADED: "tests",
     NotificationType.LESSON_CHANGED: "lessons",
+    NotificationType.COURSE_ASSIGNED: "courses",
     NotificationType.SUBSCRIPTION_EXPIRING: "subscription",
     NotificationType.SUBSCRIPTION_EXPIRED: "subscription",
 }
-SECTIONS = ("homework", "tests", "lessons", "subscription")
+SECTIONS = ("homework", "tests", "lessons", "courses", "subscription")
 
 
 def types_of(section: str) -> list[NotificationType]:

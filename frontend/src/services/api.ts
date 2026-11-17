@@ -2,6 +2,16 @@
 import { http } from "@/services/http";
 import type {
   AdminStats,
+  AssignCourseInput,
+  AssignCourseResult,
+  CourseAssignmentDetail,
+  CourseAssignmentItem,
+  CourseProgress,
+  CourseStudentProgressRow,
+  StudentCourseDetail,
+  StudentCourseItem,
+  StudentLessonRow,
+  StudentLessonView,
   BlockCheckResult,
   CourseDetail,
   CourseInput,
@@ -259,7 +269,7 @@ export interface TestInput extends Partial<TestSettings> {
   group_ids: number[];
 }
 
-export type NotificationSection = "homework" | "tests" | "lessons" | "subscription";
+export type NotificationSection = "homework" | "tests" | "lessons" | "courses" | "subscription";
 
 export const testsApi = {
   list: () => get<TestListItem[]>("/tests"),
@@ -417,6 +427,34 @@ export const coursesApi = {
   view: (id: number) => get<CourseLessonView>(`/courses/lessons/${id}/view`),
   check: (lessonId: number, blockId: number, answers: Record<number, string[]>) =>
     post<BlockCheckResult>(`/courses/lessons/${lessonId}/blocks/${blockId}/check`, { answers }),
+};
+
+/** Teacher: course levels / modules given to students and groups. */
+export const courseAssignmentsApi = {
+  assign: (data: AssignCourseInput) => post<AssignCourseResult>("/course-assignments", data),
+  list: (includeRemoved = false) => get<CourseAssignmentItem[]>("/course-assignments", { include_removed: includeRemoved }),
+  get: (id: number) => get<CourseAssignmentDetail>(`/course-assignments/${id}`),
+  update: (id: number, data: { starts_at?: string | null; due_at?: string | null; clear_due?: boolean }) =>
+    patch<CourseAssignmentDetail>(`/course-assignments/${id}`, data),
+  cancel: (id: number) => del(`/course-assignments/${id}`),
+  addStudents: (id: number, student_ids: number[]) => post<CourseAssignmentDetail>(`/course-assignments/${id}/students`, { student_ids }),
+  removeStudent: (id: number, studentId: number) => delData<CourseAssignmentDetail>(`/course-assignments/${id}/students/${studentId}`),
+  students: () => get<CourseStudentProgressRow[]>("/course-assignments/students"),
+  studentProgress: (studentId: number) => get<CourseProgress>(`/course-assignments/students/${studentId}/progress`),
+};
+
+/** Student: assigned courses, lessons and progress. */
+export const myCoursesApi = {
+  list: () => get<StudentCourseItem[]>("/me/courses"),
+  get: (assignmentId: number) => get<StudentCourseDetail>(`/me/courses/${assignmentId}`),
+  lessons: () => get<StudentLessonRow[]>("/me/course-lessons"),
+  lesson: (lessonId: number) => get<StudentLessonView>(`/me/course-lessons/${lessonId}`),
+  check: (lessonId: number, blockId: number, answers: Record<number, string[]>) =>
+    post<BlockCheckResult>(`/me/course-lessons/${lessonId}/blocks/${blockId}/check`, { answers }),
+  /** Count one listening (refused once the block's limit is used). */
+  play: (lessonId: number, blockId: number) => post<{ plays: number; max_plays: number | null }>(`/me/course-lessons/${lessonId}/plays/${blockId}`),
+  complete: (lessonId: number) => post<StudentLessonView>(`/me/course-lessons/${lessonId}/complete`),
+  progress: () => get<CourseProgress>("/me/course-progress"),
 };
 
 export const adminApi = {

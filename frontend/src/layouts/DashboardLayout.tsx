@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BookOpen,
   BookOpenCheck,
   CalendarCheck,
   CalendarDays,
@@ -12,6 +13,7 @@ import {
   Menu,
   MessageSquare,
   Lock,
+  Send,
   Settings,
   TrendingUp,
   Users,
@@ -63,7 +65,7 @@ function useNav(): NavItem[] {
   const counts = useSectionCounts(participant).data;
   const items = navFor(user?.role, t, unread);
   const closed = user?.role === "student" && user.access_active === false;
-  const gated = new Set(["/student/homework", "/student/tests", "/student/schedule", "/student/attendance"]);
+  const gated = new Set(["/student/homework", "/student/tests", "/student/schedule", "/student/attendance", "/student/courses", "/student/course-lessons"]);
   return items.map((i) => ({
     ...i,
     ...(i.section ? { badge: counts?.[i.section] ?? 0 } : {}),
@@ -93,6 +95,8 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
       { to: "/student", label: t.nav.dashboard, icon: LayoutDashboard, end: true },
       { to: "/student/homework", label: t.nav.homework, icon: ClipboardList, section: "homework" },
       { to: "/student/messages", label: t.nav.messages, icon: MessageSquare, badge: unread },
+      { to: "/student/courses", label: t.nav.myCourses, icon: GraduationCap, section: "courses" },
+      { to: "/student/course-lessons", label: t.nav.myLessons, icon: BookOpen },
       { to: "/student/tests", label: t.nav.tests, icon: BookOpenCheck, section: "tests" },
       { to: "/student/progress", label: t.nav.progress, icon: TrendingUp },
       { to: "/student/schedule", label: t.nav.schedule, icon: CalendarDays, section: "lessons" },
@@ -109,6 +113,7 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
     { to: "/teacher/homework", label: t.nav.homework, icon: ClipboardList, section: "homework" },
     { to: "/teacher/tests", label: t.nav.tests, icon: BookOpenCheck, section: "tests" },
     { to: "/teacher/courses", label: t.nav.courses, icon: GraduationCap },
+    { to: "/teacher/course-assignments", label: t.nav.courseAssignments, icon: Send },
     { to: "/teacher/library", label: t.nav.library, icon: Library },
     { to: "/teacher/analytics", label: t.nav.analytics, icon: BarChart3 },
     { to: "/teacher/subscriptions", label: t.nav.subscriptions, icon: CreditCard, section: "subscription" },

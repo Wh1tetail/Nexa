@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ProgressView } from "@/components/analytics/ProgressView";
+import { CourseProgressView } from "@/components/courses/CourseProgressView";
 import { toast } from "sonner";
 
 import { EmptyState, ErrorState, PageSkeleton, StatCard, StatsSkeleton } from "@/components/common";
@@ -19,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/contexts/I18nContext";
-import { analyticsApi, lessonsApi, studentsApi, testsApi } from "@/services/api";
+import { analyticsApi, courseAssignmentsApi, lessonsApi, studentsApi, testsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
 import { fmtDate, fmtDateTime, toDateInput } from "@/utils/format";
 import { scoreVariant } from "@/utils/status";
@@ -131,6 +132,7 @@ export default function StudentProfilePage() {
         <TabsList>
           <TabsTrigger value="overview">{t.students.overview}</TabsTrigger>
           <TabsTrigger value="progress">{t.analytics.progressTab}</TabsTrigger>
+          <TabsTrigger value="courses">{t.myCourses.progressTitle}</TabsTrigger>
           <TabsTrigger value="homework">{t.nav.homework}</TabsTrigger>
           <TabsTrigger value="tests">{t.nav.tests}</TabsTrigger>
           <TabsTrigger value="attendance">{t.nav.attendance}</TabsTrigger>
@@ -198,6 +200,10 @@ export default function StudentProfilePage() {
 
         <TabsContent value="progress">
           <StudentProgressTab studentId={id} />
+        </TabsContent>
+
+        <TabsContent value="courses">
+          <StudentCoursesTab studentId={id} />
         </TabsContent>
 
         <TabsContent value="homework">
@@ -305,4 +311,11 @@ function StudentProgressTab({ studentId }: { studentId: number }) {
   if (q.isLoading) return <StatsSkeleton />;
   if (q.isError || !q.data) return <ErrorState onRetry={() => q.refetch()} />;
   return <ProgressView data={q.data} />;
+}
+
+function StudentCoursesTab({ studentId }: { studentId: number }) {
+  const q = useQuery({ queryKey: ["course-assignments", "student", studentId], queryFn: () => courseAssignmentsApi.studentProgress(studentId) });
+  if (q.isLoading) return <StatsSkeleton />;
+  if (q.isError || !q.data) return <ErrorState onRetry={() => q.refetch()} />;
+  return <CourseProgressView data={q.data} />;
 }

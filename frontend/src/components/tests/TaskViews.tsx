@@ -23,18 +23,17 @@ const filled = (value: string[], n: number) => Array.from({ length: n }, (_, i) 
 // ---------- audio and reading blocks ----------
 
 /** Audio with an optional listening limit. Every start from the beginning is
- *  counted on the server first; resuming after a pause is free. */
+ *  counted on the server first (`count` returns the listens used); resuming
+ *  after a pause is free. */
 export function LimitedAudio({
   file,
-  attemptId,
-  questionId,
+  count,
   maxPlays,
   initialPlays,
   live,
 }: {
   file: Attachment;
-  attemptId?: number;
-  questionId: number;
+  count?: () => Promise<number>;
   maxPlays: number | null;
   initialPlays: number;
   live: boolean;
@@ -49,11 +48,10 @@ export function LimitedAudio({
 
   async function onPlay(e: React.SyntheticEvent<HTMLAudioElement>) {
     const audio = e.currentTarget;
-    if (!live || !attemptId || !fresh.current || pending.current) return;
+    if (!live || !count || !fresh.current || pending.current) return;
     pending.current = true;
     try {
-      const r = await meApi.playAudio(attemptId, questionId);
-      setPlays(r.plays);
+      setPlays(await count());
       fresh.current = false;
     } catch (err) {
       audio.pause();
@@ -121,8 +119,7 @@ export function BlockView({
           {file ? (
             <LimitedAudio
               file={file}
-              attemptId={attemptId}
-              questionId={q.id}
+              count={attemptId ? () => meApi.playAudio(attemptId, q.id).then((r) => r.plays) : undefined}
               maxPlays={c.max_plays ?? null}
               initialPlays={plays[String(q.id)] ?? 0}
               live={live}

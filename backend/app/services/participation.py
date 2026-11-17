@@ -128,6 +128,10 @@ def change_group_members(
         assign_group_lessons(db, group, added, lessons_from)
     if removed:
         release_group_lessons(db, group, removed)
+    # the group's course assignments follow its members
+    from app.services.course_progress import sync_group_members
+
+    sync_group_members(db, group, added, removed)
     return added, removed
 
 

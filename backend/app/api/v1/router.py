@@ -4,6 +4,7 @@ from app.api.v1.endpoints import (
     admin,
     analytics,
     auth,
+    course_assignments,
     courses,
     dashboard,
     files,
@@ -14,6 +15,7 @@ from app.api.v1.endpoints import (
     messages,
     notifications,
     student,
+    student_courses,
     students,
     subscriptions,
     tests,
@@ -23,5 +25,6 @@ api_router = APIRouter()
 for module in (
     auth, dashboard, students, groups, subscriptions, lessons,
     homework, tests, student, notifications, messages, files, admin, analytics, library, courses,
+    course_assignments, student_courses,
 ):
     api_router.include_router(module.router)

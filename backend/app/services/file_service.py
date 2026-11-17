@@ -92,7 +92,8 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
     - student: materials of homework assigned to them, and their own submission files
     - chat files: only the two participants of the conversation (not even admins)
     - test materials: the test's teacher; a student once they have started the test
-    - course lesson materials: methodists; teachers once the lesson and course are published
+    - course lesson materials: methodists; teachers once the lesson and course are published;
+      students while the lesson is in one of their started assignments
     - admin: everything else
     """
     att = db.get(Attachment, attachment_id)
@@ -115,6 +116,11 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
             return att
         if user.role == UserRole.TEACHER and les.published and les.module.level.course.published:
             return att
+        if user.role == UserRole.STUDENT and user.student_profile and _student_access(db, user):
+            from app.services.course_progress import can_open_lesson_file
+
+            if can_open_lesson_file(db, user.student_profile, les.id):
+                return att
         raise NotFound("Файл не найден")
 
     if att.test_id is not None:

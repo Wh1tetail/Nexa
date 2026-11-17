@@ -112,7 +112,7 @@ def test_read_in_time_or_disabled_means_no_email(client, school):
     r = client.patch(f"{API}/auth/me", headers=school["h2"], json={"email_prefs": {"tests": False}})
     assert r.status_code == 200
     assert r.json()["email_prefs"] == {"messages": True, "homework": True, "tests": False,
-                                       "lessons": True, "subscription": True}
+                                       "lessons": True, "courses": True, "subscription": True}
     with SessionLocal() as db:
         notify(db, [s1_user, s2_user], NotificationType.TEST_ASSIGNED, "Новый тест")
         db.commit()

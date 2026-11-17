@@ -175,6 +175,21 @@ CATALOG: dict[str, dict[str, str]] = {
     "Тест уже завершён": {"kk": "Тест аяқталып қойған", "en": "The test is already finished"},
     "Раздел не найден": {"kk": "Бөлім табылмады", "en": "Section not found"},
     # courses
+    "Выберите уровень или модуль": {"kk": "Деңгейді немесе модульді таңдаңыз", "en": "Choose a level or a module"},
+    "Выберите учеников или группы": {"kk": "Оқушыларды немесе топтарды таңдаңыз", "en": "Choose students or groups"},
+    "Срок должен быть позже даты начала": {"kk": "Мерзім басталу күнінен кейін болуы керек", "en": "The deadline must be after the start"},
+    "В выбранной части курса пока нет опубликованных уроков": {
+        "kk": "Курстың таңдалған бөлігінде әзірге жарияланған сабақтар жоқ",
+        "en": "The chosen part of the course has no published lessons yet",
+    },
+    "Сначала выполните все упражнения урока": {"kk": "Алдымен сабақтың барлық жаттығуларын орындаңыз", "en": "Do all the exercises of the lesson first"},
+    "Назначение не найдено": {"kk": "Тағайындау табылмады", "en": "Assignment not found"},
+    "Эта часть курса назначена ученикам — удалить её нельзя. Можно снять уроки с публикации": {
+        "kk": "Курстың бұл бөлігі оқушыларға тағайындалған — оны жоюға болмайды. Сабақтарды жариялаудан алып тастауға болады",
+        "en": "This part of the course is assigned to students and can't be deleted. You can unpublish its lessons",
+    },
+    "Новый курс: {course}": {"kk": "Жаңа курс: {course}", "en": "New course: {course}"},
+    "Назначено: {part}": {"kk": "Тағайындалды: {part}", "en": "Assigned: {part}"},
     "Курс не найден": {"kk": "Курс табылмады", "en": "Course not found"},
     "Уровень не найден": {"kk": "Деңгей табылмады", "en": "Level not found"},
     "Модуль не найден": {"kk": "Модуль табылмады", "en": "Module not found"},

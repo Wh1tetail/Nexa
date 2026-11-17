@@ -38,7 +38,7 @@ def test_unread_counters_per_section(client, school):
         "student_ids": [school["s1"].id]})
     h = school["h1"]
     counts = client.get(f"{API}/notifications/unread-by-section", headers=h).json()
-    assert counts == {"homework": 1, "tests": 1, "lessons": 0, "subscription": 0}
+    assert counts == {"homework": 1, "tests": 1, "lessons": 0, "courses": 0, "subscription": 0}
 
     # opening the section marks only its notifications as seen
     assert client.post(f"{API}/notifications/read-section", headers=h, json={"section": "tests"}).json() == {"count": 1}

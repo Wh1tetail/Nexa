@@ -24,6 +24,7 @@ from app.schemas.course import (
     QuestionResult,
 )
 from app.schemas.homework import AttachmentOut
+from app.services import course_progress as cp
 from app.services import course_service as cs
 from app.services import file_service
 from app.services import lesson_blocks as lb
@@ -74,6 +75,7 @@ def update_course(course_id: int, data: CourseIn, user: LibraryEditor, db: DB) -
 @router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_course(course_id: int, user: LibraryEditor, db: DB) -> Response:
     course = cs.get_course(db, user, course_id)
+    cp.assert_not_assigned(db, course_id=course.id)
     cs.delete_lesson_files(db, cs.lessons_of_course(course))
     db.delete(course)
     db.commit()
@@ -110,6 +112,7 @@ def update_level(level_id: int, data: LevelUpdate, user: LibraryEditor, db: DB) 
 @router.delete("/levels/{level_id}", response_model=CourseDetail)
 def delete_level(level_id: int, user: LibraryEditor, db: DB) -> CourseDetail:
     lv = cs.get_level(db, user, level_id)
+    cp.assert_not_assigned(db, level_id=lv.id)
     course = lv.course
     cs.delete_lesson_files(db, [x for m in lv.modules for x in m.lessons])
     course.levels.remove(lv)
@@ -154,6 +157,7 @@ def update_module(module_id: int, data: ModuleUpdate, user: LibraryEditor, db: D
 @router.delete("/modules/{module_id}", response_model=CourseDetail)
 def delete_module(module_id: int, user: LibraryEditor, db: DB) -> CourseDetail:
     m = cs.get_module(db, user, module_id)
+    cp.assert_not_assigned(db, module_id=m.id)
     lv = m.level
     cs.delete_lesson_files(db, list(m.lessons))
     lv.modules.remove(m)

@@ -62,7 +62,7 @@ export interface TokenPair {
 }
 
 /** Categories of e-mail notifications the user can switch off. */
-export const EMAIL_CATEGORIES = ["messages", "homework", "tests", "lessons", "subscription"] as const;
+export const EMAIL_CATEGORIES = ["messages", "homework", "tests", "lessons", "courses", "subscription"] as const;
 export type EmailCategory = (typeof EMAIL_CATEGORIES)[number];
 
 export interface Me {
@@ -913,4 +913,166 @@ export interface BlockCheckResult {
   questions: Question[];
   score: number;
   max_score: number;
+}
+
+// ---------- course assignments and progress ----------
+
+export type LessonState = "not_started" | "in_progress" | "completed";
+export type CourseScope = "level" | "module";
+
+export interface AssignCourseInput {
+  course_id: number;
+  level_id?: number | null;
+  module_id?: number | null;
+  student_ids: number[];
+  group_ids: number[];
+  starts_at?: string | null;
+  due_at?: string | null;
+}
+
+export interface AssignCourseResult {
+  assignment_ids: number[];
+  /** students who got it now */
+  assigned: number;
+  /** students who already had this part of the course */
+  skipped: number;
+}
+
+export interface CourseAssignmentItem {
+  id: number;
+  course_id: number;
+  course_title: string;
+  scope: CourseScope;
+  scope_title: string;
+  level: EnglishLevel;
+  group_id: number | null;
+  group_name: string | null;
+  students_count: number;
+  starts_at: string;
+  due_at: string | null;
+  removed_at: string | null;
+  created_at: string;
+  lessons_total: number;
+  avg_percent: number | null;
+  completed_count: number;
+}
+
+export interface CourseAssignmentStudentRow {
+  student_id: number;
+  full_name: string;
+  removed_at: string | null;
+  lessons_completed: number;
+  lessons_total: number;
+  percent: number;
+  avg_score: number | null;
+  last_activity: string | null;
+}
+
+export interface CourseAssignmentDetail extends CourseAssignmentItem {
+  students: CourseAssignmentStudentRow[];
+}
+
+export interface CourseStudentProgressRow {
+  student_id: number;
+  full_name: string;
+  english_level: EnglishLevel;
+  assignments: number;
+  lessons_completed: number;
+  lessons_total: number;
+  percent: number;
+  avg_score: number | null;
+  last_activity: string | null;
+}
+
+export interface StudentLessonItem {
+  id: number;
+  title: string;
+  duration_minutes: number | null;
+  status: LessonState;
+  score_percent: number | null;
+  completed_at: string | null;
+}
+
+export interface StudentCourseModule {
+  id: number;
+  title: string;
+  description: string | null;
+  completed: boolean;
+  lessons: StudentLessonItem[];
+}
+
+export interface StudentCourseItem {
+  assignment_id: number;
+  course_id: number;
+  course_title: string;
+  course_description: string | null;
+  scope: CourseScope;
+  scope_title: string;
+  level: EnglishLevel;
+  teacher_name: string | null;
+  starts_at: string;
+  due_at: string | null;
+  /** the start date has come */
+  started: boolean;
+  overdue: boolean;
+  lessons_total: number;
+  lessons_completed: number;
+  percent: number;
+  next_lesson_id: number | null;
+}
+
+export interface StudentCourseDetail extends StudentCourseItem {
+  modules: StudentCourseModule[];
+}
+
+export interface StudentLessonRow extends StudentLessonItem {
+  assignment_id: number;
+  course_title: string;
+  module_title: string;
+  level: EnglishLevel;
+}
+
+export interface LessonBlockState {
+  block_id: number;
+  answers: Record<string, string[]>;
+  result: BlockCheckResult | null;
+  attempts: number;
+  best_percent: number | null;
+}
+
+export interface StudentLessonView {
+  lesson: CourseLessonView;
+  assignment_id: number;
+  status: LessonState;
+  completed_at: string | null;
+  score_percent: number | null;
+  exercises_total: number;
+  exercises_done: number;
+  blocks: LessonBlockState[];
+  plays: Record<string, number>;
+}
+
+export interface CourseProgressItem {
+  course_id: number;
+  course_title: string;
+  level: EnglishLevel;
+  level_title: string;
+  lessons_total: number;
+  lessons_completed: number;
+  percent: number;
+  modules_total: number;
+  modules_completed: number;
+  avg_score: number | null;
+  /** the course map */
+  modules: StudentCourseModule[];
+}
+
+export interface CourseProgress {
+  english_level: EnglishLevel;
+  lessons_completed: number;
+  lessons_remaining: number;
+  modules_completed: number;
+  exercises_done: number;
+  avg_score: number | null;
+  items: CourseProgressItem[];
 }

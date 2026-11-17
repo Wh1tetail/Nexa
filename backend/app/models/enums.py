@@ -93,6 +93,7 @@ class NotificationType(StrEnum):
     TEST_COMPLETED = "test_completed"
     TEST_GRADED = "test_graded"
     LESSON_CHANGED = "lesson_changed"
+    COURSE_ASSIGNED = "course_assigned"
     SUBSCRIPTION_EXPIRING = "subscription_expiring"
     SUBSCRIPTION_EXPIRED = "subscription_expired"
     SYSTEM = "system"

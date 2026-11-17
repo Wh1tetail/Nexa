@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, FileWarning, RotateCcw } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Markdown } from "@/components/tests/Markdown";
@@ -16,7 +16,29 @@ import { cn } from "@/lib/utils";
 import { BLOCK_ICONS, embedUrl } from "@/pages/courses/shared";
 import { coursesApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
-import type { Attachment, BlockCheckResult, LessonBlockView as Block } from "@/types/api";
+import type { Attachment, BlockCheckResult, LessonBlockState, LessonBlockView as Block } from "@/types/api";
+
+/** How a lesson is being worked through: preview / teacher view (nothing is
+ *  saved) or a student's lesson (checks, results and listens are kept). */
+export interface LessonRunner {
+  check: (blockId: number, answers: Record<number, string[]>) => Promise<BlockCheckResult>;
+  /** saved work per block (student) */
+  saved?: Record<number, LessonBlockState>;
+  /** listens used per block (student); with `countPlay` listening limits apply */
+  plays?: Record<number, number>;
+  countPlay?: (blockId: number) => Promise<number>;
+  onChecked?: (blockId: number) => void;
+}
+
+const RunnerContext = createContext<LessonRunner | null>(null);
+
+export function LessonRunnerProvider({ runner, children }: { runner: LessonRunner; children: ReactNode }) {
+  return <RunnerContext.Provider value={runner}>{children}</RunnerContext.Provider>;
+}
+
+function useRunner(lessonId: number): LessonRunner {
+  return useContext(RunnerContext) ?? { check: (blockId, answers) => coursesApi.check(lessonId, blockId, answers) };
+}
 
 function BlockHeader({ block }: { block: Block }) {
   const { t } = useI18n();
@@ -56,13 +78,20 @@ function Transcript({ text }: { text: string }) {
   );
 }
 
-function Audio({ file, maxPlays }: { file?: Attachment; maxPlays?: number | null }) {
+function Audio({ file, maxPlays, blockId, runner }: { file?: Attachment; maxPlays?: number | null; blockId: number; runner: LessonRunner }) {
   const { t } = useI18n();
   if (!file) return <Missing />;
+  const live = !!runner.countPlay;
   return (
     <div className="grid gap-1.5">
-      <LimitedAudio file={file} questionId={0} maxPlays={null} initialPlays={0} live={false} />
-      {maxPlays ? <p className="text-xs text-muted-foreground">{t.courses.playsLimit(maxPlays)}</p> : null}
+      <LimitedAudio
+        file={file}
+        count={runner.countPlay ? () => runner.countPlay!(blockId) : undefined}
+        maxPlays={maxPlays ?? null}
+        initialPlays={runner.plays?.[blockId] ?? 0}
+        live={live}
+      />
+      {maxPlays && !live ? <p className="text-xs text-muted-foreground">{t.courses.playsLimit(maxPlays)}</p> : null}
     </div>
   );
 }
@@ -76,11 +105,18 @@ function VideoFile({ file }: { file: Attachment }) {
 /** Answers -> check on the server -> results with the correct answers; can be tried again. */
 function Exercise({ lessonId, block, layout }: { lessonId: number; block: Block; layout?: "stack" }) {
   const { t } = useI18n();
-  const [answers, setAnswers] = useState<Record<number, string[]>>({});
-  const [result, setResult] = useState<BlockCheckResult | null>(null);
+  const runner = useRunner(lessonId);
+  const saved = runner.saved?.[block.id];
+  const [answers, setAnswers] = useState<Record<number, string[]>>(() =>
+    Object.fromEntries(Object.entries(saved?.answers ?? {}).map(([k, v]) => [Number(k), v])),
+  );
+  const [result, setResult] = useState<BlockCheckResult | null>(saved?.result ?? null);
   const check = useMutation({
-    mutationFn: () => coursesApi.check(lessonId, block.id, answers),
-    onSuccess: setResult,
+    mutationFn: () => runner.check(block.id, answers),
+    onSuccess: (r) => {
+      setResult(r);
+      runner.onChecked?.(block.id);
+    },
     onError: (e) => toast.error(errorMessage(e)),
   });
   return (
@@ -111,6 +147,9 @@ function Exercise({ lessonId, block, layout }: { lessonId: number; block: Block;
             <Badge variant={result.score === result.max_score ? "success" : result.score > 0 ? "warning" : "danger"} className="tabular">
               {t.courses.result(result.score, result.max_score)}
             </Badge>
+            {saved && saved.attempts > 1 && saved.best_percent !== null && (
+              <span className="text-xs text-muted-foreground">{t.myCourses.best(saved.best_percent)}</span>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -143,6 +182,7 @@ function Shell({ block, children, className }: { block: Block; children: ReactNo
 /** One lesson block as a student sees it. */
 export function LessonBlockView({ lessonId, block, files }: { lessonId: number; block: Block; files: Attachment[] }) {
   const { t } = useI18n();
+  const runner = useRunner(lessonId);
   const c = block.content;
   const file = (id?: number | null) => (id ? files.find((f) => f.id === id) : undefined);
 
@@ -198,7 +238,7 @@ export function LessonBlockView({ lessonId, block, files }: { lessonId: number; 
       return (
         <Shell block={block} className="border-accent/20 bg-accent-soft/30">
           {c.body && <p className="mb-3 whitespace-pre-wrap text-sm text-muted-foreground">{c.body}</p>}
-          <Audio file={file(c.attachment_id)} />
+          <Audio file={file(c.attachment_id)} blockId={block.id} runner={runner} />
           {c.transcript && <Transcript text={c.transcript} />}
         </Shell>
       );
@@ -244,7 +284,7 @@ export function LessonBlockView({ lessonId, block, files }: { lessonId: number; 
         <div className="grid gap-3">
           <Shell block={block} className="border-accent/20 bg-accent-soft/30">
             {c.body && <p className="mb-3 whitespace-pre-wrap text-sm text-muted-foreground">{c.body}</p>}
-            <Audio file={file(c.attachment_id)} maxPlays={c.max_plays} />
+            <Audio file={file(c.attachment_id)} maxPlays={c.max_plays} blockId={block.id} runner={runner} />
             {c.transcript && <Transcript text={c.transcript} />}
           </Shell>
           <Exercise lessonId={lessonId} block={block} />

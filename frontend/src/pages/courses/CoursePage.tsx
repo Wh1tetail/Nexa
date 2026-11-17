@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Send,
   Settings2,
   Trash2,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { EmptyState, ErrorState, Field, PageSkeleton } from "@/components/common";
+import { AssignCourseDialog, type AssignTarget } from "@/components/courses/AssignCourseDialog";
 import { Toggle } from "@/components/tests/QuestionEditor";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -317,12 +319,15 @@ function ModuleCard({
   total,
   onDialog,
   courseId,
+  onAssign,
 }: {
   module: CourseModule;
   index: number;
   total: number;
   onDialog: (d: Dlg) => void;
   courseId: number;
+  /** teachers: assign this module */
+  onAssign?: () => void;
 }) {
   const { t } = useI18n();
   const { editor } = useCoursesBase();
@@ -338,6 +343,9 @@ function ModuleCard({
           <h3 className="mt-0.5 break-words text-base font-semibold text-primary">{module.title}</h3>
           {module.description && <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{module.description}</p>}
         </div>
+        {onAssign && (
+          <Button size="sm" variant="soft" className="shrink-0" onClick={onAssign}><Send />{t.courseAssign.assign}</Button>
+        )}
         {editor && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -387,6 +395,7 @@ export default function CoursePage() {
   const q = useQuery({ queryKey: ["courses", id], queryFn: () => coursesApi.get(id) });
   const [tab, setTab] = useState<string>("");
   const [dlg, setDlg] = useState<Dlg | null>(null);
+  const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
   const close = () => setDlg(null);
 
   const levels = q.data?.levels ?? [];
@@ -527,9 +536,24 @@ export default function CoursePage() {
                   <Button size="sm" onClick={() => setDlg({ kind: "addModule", levelId: lv.id })}><Plus />{t.courses.addModule}</Button>
                 </div>
               )}
+              {!editor && lv.modules.length > 0 && (
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={() => setAssignTarget({ courseId: id, levelId: lv.id, label: `${c.title} · ${lv.title}` })}>
+                    <Send />{t.courseAssign.assignLevel}
+                  </Button>
+                </div>
+              )}
               {lv.modules.length ? (
                 lv.modules.map((m, i) => (
-                  <ModuleCard key={m.id} module={m} index={i} total={lv.modules.length} onDialog={setDlg} courseId={id} />
+                  <ModuleCard
+                    key={m.id}
+                    module={m}
+                    index={i}
+                    total={lv.modules.length}
+                    onDialog={setDlg}
+                    courseId={id}
+                    onAssign={editor ? undefined : () => setAssignTarget({ courseId: id, moduleId: m.id, label: `${lv.title} · ${m.title}` })}
+                  />
                 ))
               ) : (
                 <Card><EmptyState icon={Layers} title={t.courses.noModules} /></Card>
@@ -539,6 +563,7 @@ export default function CoursePage() {
         </Tabs>
       )}
 
+      {!editor && <AssignCourseDialog target={assignTarget} onClose={() => setAssignTarget(null)} />}
       {editor && (
         <>
           <SettingsDialog course={c} open={dlg?.kind === "settings"} onClose={close} />
