@@ -162,12 +162,15 @@ def grade_attempt(attempt_id: int, data: GradeRequest, teacher: CurrentTeacher, 
         ans.teacher_comment = g.teacher_comment
     if any(a.points_awarded is None for a in attempt.answers):
         raise BadRequest("Оцените все ответы, требующие проверки")
-    svc.recompute_score(attempt)
+    old_score = attempt.score
+    svc.recompute_score(attempt)  # any answer may be re-scored, auto-graded ones included
     was_graded = attempt.status == AttemptStatus.GRADED
     attempt.status = AttemptStatus.GRADED
     attempt.graded_at = datetime.now(UTC)
     if not was_graded:
         svc.notify_graded(db, attempt)
+    elif attempt.score != old_score:
+        svc.notify_graded(db, attempt, changed=True)
     from app.services import gamification
 
     gamification.on_test_graded(db, attempt)  # XP once per test; a later better grade can add the bonus

@@ -1032,6 +1032,8 @@ const en: Dict = {
     grade: "Review",
     gradeTitle: "Review answers",
     saveGrade: "Save grade",
+    saveGradeChanges: "Save changes",
+    regradeHint: "You can change the points for any question, including auto-graded ones. The total is recalculated and the student is notified.",
     graded: "Grade saved",
     manual: "Manual review",
     attemptsEmpty: "Nobody has taken the test yet",

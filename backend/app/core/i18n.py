@@ -287,6 +287,7 @@ CATALOG: dict[str, dict[str, str]] = {
     "{name} завершил(а) тест «{title}»": {"kk": "{name} «{title}» тестін аяқтады", "en": "{name} completed the test \"{title}\""},
     "{name} завершил(а) тест «{title}» — требуется проверка": {"kk": "{name} «{title}» тестін аяқтады — тексеру қажет", "en": "{name} completed the test \"{title}\" — needs review"},
     "Результаты теста": {"kk": "Тест нәтижелері", "en": "Test results"},
+    "Оценка за тест изменена": {"kk": "Тест бағасы өзгертілді", "en": "Test grade changed"},
     "Тест можно пройти ещё раз": {"kk": "Тестті қайта тапсыруға болады", "en": "You can take the test again"},
     "Занятие изменено": {"kk": "Сабақ өзгертілді", "en": "Lesson changed"},
     "Занятия отменены": {"kk": "Сабақтар болдырылмады", "en": "Lessons cancelled"},

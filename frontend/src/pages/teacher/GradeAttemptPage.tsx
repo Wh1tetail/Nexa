@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, PenLine } from "lucide-react";
+import { ArrowLeft, Info, PenLine } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -41,10 +41,7 @@ export default function GradeAttemptPage() {
       testsApi.grade(
         id,
         q.data!.answers
-          .filter((a) => {
-            const qq = q.data!.questions.find((x) => x.id === a.question_id)!;
-            return qq.type === "short_answer" || a.points_awarded === null;
-          })
+          .filter((a) => q.data!.questions.some((x) => x.id === a.question_id))
           .map((a) => ({
             answer_id: a.id,
             points_awarded: Number(grades[a.id]?.points || 0),
@@ -87,12 +84,18 @@ export default function GradeAttemptPage() {
         </div>
       </Card>
 
+      {a.status !== "in_progress" && (
+        <p className="flex items-start gap-2 rounded-xl bg-secondary px-4 py-3 text-sm text-muted-foreground">
+          <Info className="mt-0.5 size-4 shrink-0 text-accent" />
+          {t.tests.regradeHint}
+        </p>
+      )}
+
       <TestBody
         questions={a.questions}
         files={a.files}
         renderQuestion={(qq, i) => {
           const ans = byQ[qq.id];
-          const manual = qq.type === "short_answer";
           return (
             <QuestionView
               index={i}
@@ -101,8 +104,13 @@ export default function GradeAttemptPage() {
               value={ans?.answer ?? []}
               result={ans && ans.points_awarded !== null ? ans : undefined}
               footer={
-                ans && manual ? (
-                  <div className="mt-4 grid gap-2 rounded-xl border border-dashed p-3 sm:grid-cols-[120px_1fr]">
+                ans ? (
+                  <div
+                    className={cn(
+                      "mt-4 grid gap-2 rounded-xl border border-dashed p-3 sm:grid-cols-[120px_1fr]",
+                      qq.type === "short_answer" && "border-accent/50 bg-accent-soft/30",
+                    )}
+                  >
                     <label className="grid gap-1 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1"><PenLine className="size-3" />{t.tests.points} (0–{qq.points})</span>
                       <Input
@@ -133,7 +141,7 @@ export default function GradeAttemptPage() {
 
       <div className="sticky bottom-0 -mx-4 border-t bg-background/90 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <Button size="lg" className="w-full" loading={save.isPending} onClick={() => save.mutate()}>
-          {t.tests.saveGrade}
+          {a.status === "graded" ? t.tests.saveGradeChanges : t.tests.saveGrade}
         </Button>
       </div>
     </div>

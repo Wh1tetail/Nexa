@@ -198,13 +198,13 @@ def recompute_score(attempt: TestAttempt) -> None:
     attempt.score = float(sum(a.points_awarded or 0 for a in attempt.answers))
 
 
-def notify_graded(db: Session, attempt: TestAttempt) -> None:
+def notify_graded(db: Session, attempt: TestAttempt, changed: bool = False) -> None:
     pct = percent(attempt)
     notify(
         db,
         [attempt.student.user_id],
         NotificationType.TEST_GRADED,
-        M("Результаты теста"),
+        M("Оценка за тест изменена") if changed else M("Результаты теста"),
         f"«{attempt.test.title}»: {pct}%",
         f"/student/tests/attempts/{attempt.id}",
     )
