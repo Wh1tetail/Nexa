@@ -1,30 +1,16 @@
-import {
-  ArrowRight,
-  BookOpenCheck,
-  CalendarCheck,
-  Check,
-  ClipboardList,
-  CreditCard,
-  Mail,
-  Menu,
-  Phone,
-  Sparkles,
-  UserRound,
-  Users,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
+import { Menu } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Logo } from "@/components/common";
+import { BrandMark } from "@/components/common/BrandMark";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { homePath, useAuth } from "@/contexts/AuthContext";
 import { LOCALES, useI18n } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
+
+import "./landing.css";
 
 /** School contacts shown on the landing page. */
 const WHATSAPP_URL = "https://wa.me/message/BKGS736WHM6NI1";
@@ -38,6 +24,7 @@ function LanguageToggle() {
       {LOCALES.map((l) => (
         <button
           key={l.code}
+          type="button"
           onClick={() => setLocale(l.code)}
           aria-label={l.name}
           title={l.name}
@@ -53,59 +40,24 @@ function LanguageToggle() {
   );
 }
 
-function HeroMockup() {
-  const { t } = useI18n();
-  return (
-    <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-      <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-accent/20 via-accent/5 to-transparent blur-2xl" />
-      <Card className="p-5 shadow-lift sm:p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground">{t.subscription.title}</p>
-            <p className="mt-1 font-semibold text-primary">12 / 16 {t.subscription.left.toLowerCase()}</p>
-          </div>
-          <span className="rounded-full bg-success-soft px-2.5 py-1 text-xs font-medium text-success-strong">
-            {t.status.subscription.active}
-          </span>
-        </div>
-        <Progress value={68} className="mt-4" indicatorClassName="bg-success" />
-        <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-          {[
-            ["24", t.attendance.visited],
-            ["92%", t.attendance.rate],
-            ["B1", t.dashboard.level],
-          ].map(([v, l]) => (
-            <div key={l} className="rounded-xl bg-secondary p-3">
-              <p className="text-lg font-semibold text-primary">{v}</p>
-              <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{l}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
-      <Card className="absolute -bottom-8 -left-2 hidden w-60 p-4 shadow-lift sm:block lg:-left-10">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-success-soft text-success-strong">
-            <Check className="size-4" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-primary">Essay: My last vacation</p>
-            <p className="text-xs text-muted-foreground">{t.status.submission.reviewed} · 9/10</p>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-}
+/** A real screenshot of the student account, in the light and the dark theme (the page shows the one that matches). */
+const LEVELS = ["A1", "A2", "B1", "B2", "C1"];
 
-function Feature({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
+const SIZES: Record<string, [number, number]> = { cabinet: [2880, 1800], lesson: [1800, 900], achievements: [2260, 1412] };
+
+function Screen({ name, alt, eager }: { name: string; alt: string; eager?: boolean }) {
+  const [width, height] = SIZES[name];
+  const common = { width, height, alt, decoding: "async" as const };
   return (
-    <Card className="p-6 transition-shadow hover:shadow-lift">
-      <span className="flex size-11 items-center justify-center rounded-xl bg-accent-soft text-accent">
-        <Icon className="size-5" />
-      </span>
-      <h3 className="mt-5 font-semibold">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>
-    </Card>
+    <div className="l-frame" data-slot={name} data-kind="product" data-alt={alt}>
+      <img
+        className="shot--light"
+        src={`/landing/${name}-light.webp`}
+        {...common}
+        {...(eager ? { fetchPriority: "high" as const } : { loading: "lazy" as const })}
+      />
+      <img className="shot--dark" src={`/landing/${name}-dark.webp`} loading="lazy" {...common} />
+    </div>
   );
 }
 
@@ -117,202 +69,191 @@ export default function LandingPage() {
   const l = t.landing;
 
   const nav = [
-    ["#features", l.navFeatures],
+    ["#features", l.navSteps],
     ["#format", l.navFormat],
     ["#contacts", l.navContacts],
   ];
+  const formats = [
+    [l.fmt1Title, l.fmt1Text],
+    [l.fmt2Title, l.fmt2Text],
+    [l.fmt3Title, l.fmt3Text],
+  ];
 
   return (
-    <div className="min-h-dvh bg-background">
-      <header className="sticky top-0 z-30 border-b border-transparent bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
-        <div className="container flex h-16 items-center gap-6">
+    <div className="landing">
+      <div className="l-banner">
+        <p className="l-wrap">
+          <span>{l.banner}</span>
+          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">{l.bannerLink}</a>
+        </p>
+      </div>
+
+      <header className="l-nav">
+        <div className="l-wrap l-nav__bar">
           <Logo />
-          <nav className="hidden flex-1 items-center gap-6 text-sm text-muted-foreground md:flex">
+          <nav className="l-nav__links" aria-label={l.stepsLabel}>
             {nav.map(([href, label]) => (
-              <a key={href} href={href} className="transition-colors hover:text-primary">
-                {label}
-              </a>
+              <a key={href} href={href}>{label}</a>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="l-nav__end">
             <LanguageToggle />
             <ThemeToggle />
-            <Button variant="ghost" asChild className="hidden sm:inline-flex">
-              <Link to={cabinet}>{user ? user.full_name.split(" ")[0] : l.login}</Link>
-            </Button>
-            <Button asChild className="hidden sm:inline-flex">
-              <a href="#cta">{l.startLearning}</a>
-            </Button>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMenu((v) => !v)} aria-label={t.nav.menu}>
+            <Link to={cabinet} className="l-btn l-btn--quiet l-btn--sm l-hide-md">
+              {user ? user.full_name.split(" ")[0] : l.login}
+            </Link>
+            <a href="#cta" className="l-btn l-btn--sm l-hide-md">{l.startLearning}</a>
+            <Button variant="ghost" size="icon" className="l-show-md" onClick={() => setMenu((v) => !v)} aria-label={t.nav.menu} aria-expanded={menu}>
               <Menu className="!size-5" />
             </Button>
           </div>
         </div>
         {menu && (
-          <div className="container animate-fade-in border-t pb-4 md:hidden">
-            <nav className="grid py-2">
+          <div className="l-wrap l-nav__menu l-show-md">
+            <nav>
               {nav.map(([href, label]) => (
-                <a key={href} href={href} onClick={() => setMenu(false)} className="rounded-lg px-2 py-3 text-sm font-medium text-primary hover:bg-secondary">
-                  {label}
-                </a>
+                <a key={href} href={href} onClick={() => setMenu(false)} className="l-menu-link">{label}</a>
               ))}
             </nav>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" asChild>
-                <Link to={cabinet}>{l.login}</Link>
-              </Button>
-              <Button asChild>
-                <a href="#cta" onClick={() => setMenu(false)}>{l.startLearning}</a>
-              </Button>
+            <div className="l-nav__menu-actions">
+              <Link to={cabinet} className="l-btn l-btn--quiet">{l.login}</Link>
+              <a href="#cta" onClick={() => setMenu(false)} className="l-btn">{l.startLearning}</a>
             </div>
           </div>
         )}
       </header>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-x-0 top-0 -z-10 h-[520px] bg-gradient-to-b from-secondary to-background" />
-        <div className="container grid items-center gap-14 py-14 sm:py-20 lg:grid-cols-[1.1fr_1fr] lg:py-28">
-          <div className="animate-fade-in">
-            <span className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1 text-xs font-medium text-accent shadow-sm">
-              <Sparkles className="size-3.5" />
-              {l.heroBadge}
-            </span>
-            <h1 className="mt-5 text-balance text-4xl font-semibold leading-[1.08] sm:text-5xl lg:text-6xl">
-              {l.heroTitle}
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">{l.heroText}</p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" asChild>
-                <a href="#cta">
-                  {l.startLearning}
-                  <ArrowRight />
-                </a>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link to={cabinet}>{l.login}</Link>
-              </Button>
+      <main>
+        <section className="l-hero">
+          <div className="l-wrap l-grid">
+            <div className="l-hero__text">
+              <h1>{l.heroTitle}</h1>
+              <p className="l-lead">{l.heroText}</p>
+              <div className="l-hero__actions">
+                <a href="#cta" className="l-btn">{l.startLearning}</a>
+                <Link to={cabinet} className="l-btn l-btn--quiet">{l.login}</Link>
+              </div>
             </div>
-            <dl className="mt-12 grid max-w-md grid-cols-3 gap-6">
-              {[
-                ["1 200+", l.stat1],
-                ["4.9", l.stat2],
-                ["6", l.stat3],
-              ].map(([v, k]) => (
-                <div key={k}>
-                  <dt className="text-2xl font-semibold text-primary">{v}</dt>
-                  <dd className="mt-1 text-xs leading-snug text-muted-foreground">{k}</dd>
-                </div>
-              ))}
-            </dl>
+            <figure className="l-hero__shot">
+              <Screen name="cabinet" alt={l.heroCaption} eager />
+              <figcaption className="l-caption">{l.heroCaption}</figcaption>
+            </figure>
           </div>
-          <HeroMockup />
-        </div>
-      </section>
+        </section>
 
-      {/* Features */}
-      <section id="features" className="scroll-mt-16 py-16 sm:py-24">
-        <div className="container">
-          <div className="max-w-2xl">
-            <h2 className="text-3xl font-semibold sm:text-4xl">{l.featuresTitle}</h2>
-            <p className="mt-3 text-muted-foreground">{l.featuresText}</p>
-          </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Feature icon={UserRound} title={l.f1Title} text={l.f1Text} />
-            <Feature icon={ClipboardList} title={l.f2Title} text={l.f2Text} />
-            <Feature icon={BookOpenCheck} title={l.f3Title} text={l.f3Text} />
-            <Feature icon={CreditCard} title={l.f4Title} text={l.f4Text} />
-          </div>
-        </div>
-      </section>
+        <ol className="l-steps" id="features" aria-label={l.stepsLabel}>
+          <li className="l-step">
+            <div className="l-wrap l-grid">
+              <div className="l-step__head">
+                <h2>{l.s1Title}</h2>
+                <p className="l-body">{l.s1Text}</p>
+                <p>
+                  <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="l-link">{l.s1Link}</a>
+                </p>
+              </div>
+              <figure className="l-levels">
+                <ol>
+                  {LEVELS.map((lv) => (
+                    <li key={lv}>{lv}</li>
+                  ))}
+                </ol>
+                <figcaption className="l-caption">{l.s1Levels}</figcaption>
+              </figure>
+            </div>
+          </li>
 
-      {/* Format */}
-      <section id="format" className="scroll-mt-16 bg-secondary py-16 sm:py-24">
-        <div className="container">
-          <div className="max-w-2xl">
-            <h2 className="text-3xl font-semibold sm:text-4xl">{l.formatTitle}</h2>
-            <p className="mt-3 text-muted-foreground">{l.formatText}</p>
-          </div>
-          <div className="mt-10 grid gap-4 lg:grid-cols-3">
-            {[
-              { icon: UserRound, title: l.fmt1Title, text: l.fmt1Text, featured: false },
-              { icon: Users, title: l.fmt2Title, text: l.fmt2Text, featured: true },
-              { icon: Zap, title: l.fmt3Title, text: l.fmt3Text, featured: false },
-            ].map(({ icon: Icon, title, text, featured }) => (
-              <Card key={title} className={cn("flex flex-col p-7", featured && "border-accent/40 ring-1 ring-accent/30")}>
-                <Icon className={cn("size-6", featured ? "text-accent" : "text-primary")} />
-                <h3 className="mt-5 text-lg font-semibold">{title}</h3>
-                <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{text}</p>
-                <ul className="mt-6 grid gap-2.5 text-sm">
-                  {[l.fmtPoint1, l.fmtPoint2, l.fmtPoint3].map((p) => (
-                    <li key={p} className="flex items-center gap-2 text-primary">
-                      <Check className="size-4 text-success" />
-                      {p}
+          <li className="l-step" id="format">
+            <div className="l-wrap l-grid">
+              <div className="l-split-head">
+                <h2>{l.s2Title}</h2>
+                <p className="l-body">{l.s2Text}</p>
+              </div>
+              <div className="l-rows-wrap">
+                <ul className="l-rows l-grid">
+                  {formats.map(([title, text]) => (
+                    <li key={title}>
+                      <h3>{title}</h3>
+                      <p>{text}</p>
                     </li>
                   ))}
                 </ul>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section id="cta" className="scroll-mt-16 py-16 sm:py-24">
-        <div className="container">
-          <div className="relative overflow-hidden rounded-3xl bg-brand px-6 py-12 text-center sm:px-12 sm:py-16">
-            <div className="absolute -right-20 -top-20 size-72 rounded-full bg-accent/40 blur-3xl" />
-            <div className="absolute -bottom-24 -left-10 size-72 rounded-full bg-accent/20 blur-3xl" />
-            <div className="relative">
-              <CalendarCheck className="mx-auto size-10 text-white/80" />
-              <h2 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">{l.ctaTitle}</h2>
-              <p className="mx-auto mt-3 max-w-lg text-white/70">{l.ctaText}</p>
-              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Button size="lg" asChild>
-                  <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">{l.ctaButton}</a>
-                </Button>
-                <Button size="lg" variant="outline" className="border-white/20 bg-white/10 text-white hover:bg-white/20" asChild>
-                  <Link to={cabinet}>{l.login}</Link>
-                </Button>
+                <p className="l-note">{l.s2Note}</p>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
+          </li>
 
-      {/* Footer */}
-      <footer id="contacts" className="border-t bg-background">
-        <div className="container grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="lg:col-span-2">
-            <Logo />
-            <p className="mt-3 max-w-sm text-sm text-muted-foreground">{t.appTagline}</p>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-primary">{l.contactsTitle}</p>
-            <ul className="mt-4 grid gap-3 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <Phone className="size-4 shrink-0" />
-                <a href={`tel:${CONTACT_PHONE.replace(/\s/g, "")}`} className="hover:text-primary">{CONTACT_PHONE}</a>
-              </li>
-              <li className="flex min-w-0 items-center gap-2">
-                <Mail className="size-4 shrink-0" />
-                <a href={`mailto:${CONTACT_EMAIL}`} className="min-w-0 break-all hover:text-primary">{CONTACT_EMAIL}</a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-primary">{l.hours}</p>
-            <div className="mt-4 grid gap-2 text-sm">
-              <a href="#features" className="text-muted-foreground hover:text-primary">{l.navFeatures}</a>
-              <a href="#format" className="text-muted-foreground hover:text-primary">{l.navFormat}</a>
-              <Link to="/login" className="text-muted-foreground hover:text-primary">{l.login}</Link>
+          <li className="l-step">
+            <div className="l-wrap l-grid">
+              <div className="l-step__head l-step__head--wide">
+                <h2>{l.s3Title}</h2>
+                <p className="l-body">{l.s3Text}</p>
+              </div>
+              <figure className="l-showcase">
+                <Screen name="lesson" alt={l.s3Caption} />
+                <figcaption className="l-caption">{l.s3Caption}</figcaption>
+              </figure>
+            </div>
+          </li>
+
+          <li className="l-step">
+            <div className="l-wrap l-grid">
+              <div className="l-pair-text">
+                <h2>{l.s4Title}</h2>
+                <p className="l-body">{l.s4Text}</p>
+              </div>
+              <figure className="l-pair-shot">
+                <Screen name="achievements" alt={l.s4Caption} />
+                <figcaption className="l-caption">{l.s4Caption}</figcaption>
+              </figure>
+            </div>
+          </li>
+        </ol>
+
+        <section className="l-close" id="cta">
+          <div className="l-wrap l-grid">
+            <div className="l-close__text">
+              <h2>{l.ctaTitle}</h2>
+              <p className="l-lead">{l.ctaText}</p>
+              <div className="l-hero__actions">
+                <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="l-btn">{l.ctaButton}</a>
+                <Link to={cabinet} className="l-btn l-btn--quiet">{l.login}</Link>
+              </div>
+            </div>
+            <div className="l-close__contacts" id="contacts">
+              <h3>{l.contactsTitle}</h3>
+              <dl>
+                <div>
+                  <dt>{l.hoursLabel}</dt>
+                  <dd>{l.hours}</dd>
+                </div>
+                <div>
+                  <dt>{l.phoneLabel}</dt>
+                  <dd><a href={`tel:${CONTACT_PHONE.replace(/\s/g, "")}`} className="l-link">{CONTACT_PHONE}</a></dd>
+                </div>
+                <div>
+                  <dt>{l.emailLabel}</dt>
+                  <dd><a href={`mailto:${CONTACT_EMAIL}`} className="l-link">{CONTACT_EMAIL}</a></dd>
+                </div>
+              </dl>
             </div>
           </div>
-        </div>
-        <div className="border-t">
-          <p className="container py-5 text-xs text-muted-foreground">
-            © {new Date().getFullYear()} {t.appName}. {l.rights}
-          </p>
+        </section>
+      </main>
+
+      <footer className="l-footer">
+        <div className="l-wrap">
+          <Link to="/" className="l-mast" aria-label={t.appName}>
+            <BrandMark className="l-mast__mark" />
+            <span className="l-mast__word">{t.appName}</span>
+          </Link>
+          <div className="l-footer__row">
+            <p>{t.appTagline}. © {new Date().getFullYear()} {t.appName}</p>
+            <nav className="l-footer__links" aria-label={t.appName}>
+              <a href="#features">{l.navSteps}</a>
+              <a href="#format">{l.navFormat}</a>
+              <Link to="/login">{l.login}</Link>
+            </nav>
+          </div>
         </div>
       </footer>
     </div>
