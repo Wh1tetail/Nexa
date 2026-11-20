@@ -9,6 +9,7 @@ const ru = {
   common: {
     somethingWrong: "Что-то пошло не так",
     offline: "Нет соединения с сервером",
+    timeout: "Сервер не ответил вовремя. Проверьте интернет и попробуйте ещё раз",
     save: "Сохранить",
     saving: "Сохранение…",
     cancel: "Отмена",
@@ -60,6 +61,7 @@ const ru = {
   },
 
   files: {
+    open: (name: string) => `Открыть «${name}»`,
     badType: (name: string) => `«${name}»: недопустимый формат`,
     tooBig: (name: string, mb: number) => `«${name}»: больше ${mb} МБ`,
     empty: (name: string) => `«${name}»: пустой файл`,

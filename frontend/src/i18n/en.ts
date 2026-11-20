@@ -8,6 +8,7 @@ const en: Dict = {
   common: {
     somethingWrong: "Something went wrong",
     offline: "No connection to the server",
+    timeout: "The server did not answer in time. Check your connection and try again",
     save: "Save",
     saving: "Saving…",
     cancel: "Cancel",
@@ -59,6 +60,7 @@ const en: Dict = {
   },
 
   files: {
+    open: (name: string) => `Open “${name}”`,
     badType: (name: string) => `"${name}": this file type is not allowed`,
     tooBig: (name: string, mb: number) => `"${name}": larger than ${mb} MB`,
     empty: (name: string) => `"${name}": the file is empty`,

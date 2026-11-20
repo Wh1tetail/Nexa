@@ -1,32 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
 import { Paperclip } from "lucide-react";
-import { useEffect, useMemo } from "react";
 
 import { FileList } from "@/components/common/Files";
+import { isPreviewableImage, useBlobUrl } from "@/components/common/useBlobUrl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/contexts/I18nContext";
-import { http } from "@/services/http";
 import type { Attachment } from "@/types/api";
 
-const isImage = (f: Attachment) => f.mime_type.startsWith("image/") && f.mime_type !== "image/heic";
+const isImage = isPreviewableImage;
 const isAudio = (f: Attachment) => f.mime_type.startsWith("audio/");
 
-/** Protected files need the Authorization header, so they are fetched as a blob
- *  and shown through an object URL (released when the component unmounts). */
-export function useBlobUrl(file: Attachment) {
-  const q = useQuery({
-    queryKey: ["file-blob", file.id],
-    queryFn: async () => (await http.get<Blob>(`/files/${file.id}`, { responseType: "blob" })).data,
-    staleTime: Infinity,
-    gcTime: 5 * 60_000,
-  });
-  const url = useMemo(() => (q.data ? URL.createObjectURL(q.data) : null), [q.data]);
-  useEffect(() => () => {
-    if (url) URL.revokeObjectURL(url);
-  }, [url]);
-  return { url, isLoading: q.isLoading, isError: q.isError };
-}
+export { useBlobUrl };
 
 export function InlineMedia({ file }: { file: Attachment }) {
   const { url, isLoading, isError } = useBlobUrl(file);

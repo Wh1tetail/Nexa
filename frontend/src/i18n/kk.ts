@@ -9,6 +9,7 @@ const kk: Dict = {
   common: {
     somethingWrong: "Бірдеңе дұрыс болмады",
     offline: "Сервермен байланыс жоқ",
+    timeout: "Сервер уақытында жауап бермеді. Интернетті тексеріп, қайталап көріңіз",
     save: "Сақтау",
     saving: "Сақталуда…",
     cancel: "Бас тарту",
@@ -60,6 +61,7 @@ const kk: Dict = {
   },
 
   files: {
+    open: (name: string) => `«${name}» ашу`,
     badType: (name: string) => `«${name}»: рұқсат етілмеген формат`,
     tooBig: (name: string, mb: number) => `«${name}»: ${mb} МБ-тан үлкен`,
     empty: (name: string) => `«${name}»: бос файл`,

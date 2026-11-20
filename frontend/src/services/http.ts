@@ -42,6 +42,10 @@ export const tokenStore = {
 
 export const http = axios.create({ baseURL: API_BASE, timeout: 30000 });
 
+/** File uploads may take minutes on a slow mobile connection, so they get
+ *  their own limit instead of the 30-second one for ordinary requests. */
+export const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;
+
 /** Interface language sent with every request: the server answers (errors,
  *  CSV, texts) in it. Read from storage at start so even the very first
  *  requests carry it; kept current by I18nProvider. */
@@ -117,10 +121,15 @@ http.interceptors.response.use(
 
 /** Human-readable message from any API error. */
 /** Set by I18nProvider so messages created outside React follow the interface language. */
-const fallbackText = { generic: "Что-то пошло не так", offline: "Нет соединения с сервером" };
-export function setHttpMessages(m: { generic: string; offline: string; lang: string }) {
+const fallbackText = {
+  generic: "Что-то пошло не так",
+  offline: "Нет соединения с сервером",
+  timeout: "Сервер не ответил вовремя. Проверьте интернет и попробуйте ещё раз",
+};
+export function setHttpMessages(m: { generic: string; offline: string; timeout: string; lang: string }) {
   fallbackText.generic = m.generic;
   fallbackText.offline = m.offline;
+  fallbackText.timeout = m.timeout;
   requestLanguage = m.lang;
 }
 
@@ -128,7 +137,10 @@ export function errorMessage(err: unknown, fallback = fallbackText.generic): str
   if (axios.isAxiosError(err)) {
     const body = err.response?.data as ApiErrorBody | undefined;
     if (body && typeof body.detail === "string") return body.detail;
-    if (!err.response) return fallbackText.offline;
+    if (!err.response) {
+      // our own time limit ran out (the request was slow, not refused)
+      return err.code === "ECONNABORTED" || err.code === "ETIMEDOUT" ? fallbackText.timeout : fallbackText.offline;
+    }
   }
   return fallback;
 }

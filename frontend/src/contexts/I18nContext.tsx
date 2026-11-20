@@ -50,7 +50,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.lang = locale;
-    setHttpMessages({ generic: DICTS[locale].common.somethingWrong, offline: DICTS[locale].common.offline, lang: locale });
+    setHttpMessages({ generic: DICTS[locale].common.somethingWrong, offline: DICTS[locale].common.offline, timeout: DICTS[locale].common.timeout, lang: locale });
   }, [locale]);
 
   const value = useMemo(() => ({ t: DICTS[locale], locale, setLocale }), [locale, setLocale]);

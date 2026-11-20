@@ -1,5 +1,5 @@
 /** Typed REST API client. One function per backend endpoint. */
-import { http } from "@/services/http";
+import { http, UPLOAD_TIMEOUT_MS } from "@/services/http";
 import type {
   AdminStats,
   Gamification,
@@ -93,6 +93,7 @@ async function upload(url: string, files: File[], onProgress?: (pct: number) => 
   const form = new FormData();
   files.forEach((f) => form.append("files", f));
   const { data } = await http.post<Attachment[]>(url, form, {
+    timeout: UPLOAD_TIMEOUT_MS,
     onUploadProgress: (e) => e.total && onProgress?.(Math.round((e.loaded * 100) / e.total)),
   });
   return data;
@@ -360,6 +361,7 @@ export const messagesApi = {
     files.forEach((f) => form.append("files", f));
     form.append("body", body);
     const { data } = await http.post<ChatMessage>(`/messages/threads/${studentId}/files`, form, {
+      timeout: UPLOAD_TIMEOUT_MS,
       onUploadProgress: (e) => e.total && onProgress?.(Math.round((e.loaded * 100) / e.total)),
     });
     return data;

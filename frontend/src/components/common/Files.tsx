@@ -2,7 +2,9 @@ import { Download, FileText, Image as ImageIcon, Music, Paperclip, Trash2, Uploa
 import { useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
 
+import { isPreviewableImage, useBlobUrl } from "@/components/common/useBlobUrl";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useI18n } from "@/contexts/I18nContext";
 import type { Dict } from "@/i18n/ru";
@@ -128,6 +130,56 @@ export function FileDropzone({
   );
 }
 
+/** A photo's thumbnail in a file row; opens the full picture. Falls back to the
+ *  type icon while loading or if the picture can't be shown. */
+function ImageThumb({ file, onOpen }: { file: Attachment; onOpen: () => void }) {
+  const { t } = useI18n();
+  const { url, isError } = useBlobUrl(file);
+  if (!url || isError) {
+    return (
+      <span className={cn("flex size-12 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent", !isError && "animate-pulse")}>
+        <ImageIcon className="size-4" />
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={t.files.open(file.original_name)}
+      className="size-12 shrink-0 overflow-hidden rounded-lg border bg-secondary transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <img src={url} alt="" className="size-full object-cover" />
+    </button>
+  );
+}
+
+/** The full picture in a dialog (a bottom sheet on phones), with its download. */
+function ImageViewer({ file, onClose, onDownload, busy }: { file: Attachment | null; onClose: () => void; onDownload: (f: Attachment) => void; busy: boolean }) {
+  const { t } = useI18n();
+  const { url } = useBlobUrl(file ?? ({ id: 0 } as Attachment), !!file);
+  return (
+    <Dialog open={!!file} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent size="xl">
+        <DialogHeader>
+          <DialogTitle className="truncate pr-8">{file?.original_name}</DialogTitle>
+        </DialogHeader>
+        <DialogBody className="flex justify-center">
+          {url && file && (
+            <img src={url} alt={file.original_name} className="max-h-[70dvh] w-auto max-w-full rounded-lg object-contain" />
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" loading={busy} onClick={() => file && onDownload(file)}>
+            {!busy && <Download />}
+            {t.common.download}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function FileList({
   files,
   onRemove,
@@ -139,18 +191,34 @@ export function FileList({
 }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState<number | null>(null);
+  const [viewing, setViewing] = useState<Attachment | null>(null);
+  const download = async (f: Attachment) => {
+    setBusy(f.id);
+    try {
+      await filesApi.download(f);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
   if (!files.length) {
     return emptyText ? <p className="text-sm text-muted-foreground">{emptyText}</p> : null;
   }
   return (
+    <>
     <ul className="grid gap-2">
       {files.map((f) => {
         const Icon = iconFor(f.mime_type);
         return (
           <li key={f.id} className="flex items-center gap-3 rounded-xl border bg-background p-2.5 pr-2">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
-              <Icon className="size-4" />
-            </span>
+            {isPreviewableImage(f) ? (
+              <ImageThumb file={f} onOpen={() => setViewing(f)} />
+            ) : (
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <Icon className="size-4" />
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-primary">{f.original_name}</p>
               <p className="text-xs text-muted-foreground">{fmtSize(f.size_bytes)}</p>
@@ -160,16 +228,7 @@ export function FileList({
               size="icon-sm"
               aria-label={t.common.download}
               loading={busy === f.id}
-              onClick={async () => {
-                setBusy(f.id);
-                try {
-                  await filesApi.download(f);
-                } catch (e) {
-                  toast.error(errorMessage(e));
-                } finally {
-                  setBusy(null);
-                }
-              }}
+              onClick={() => download(f)}
             >
               {busy !== f.id && <Download />}
             </Button>
@@ -188,5 +247,7 @@ export function FileList({
         );
       })}
     </ul>
+    <ImageViewer file={viewing} onClose={() => setViewing(null)} onDownload={download} busy={!!viewing && busy === viewing.id} />
+    </>
   );
 }
