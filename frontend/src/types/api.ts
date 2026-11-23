@@ -52,6 +52,10 @@ export type NotificationType =
   | "lesson_changed"
   | "subscription_expiring"
   | "subscription_expired"
+  | "course_assigned"
+  | "book_processed"
+  | "book_failed"
+  | "questions_ready"
   | "system";
 
 export const ENGLISH_LEVELS: EnglishLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
@@ -288,6 +292,37 @@ export type BookStatus = "uploaded" | "processing" | "ready" | "failed";
 export type BookLanguage = "en" | "ru" | "kk";
 export const BOOK_LANGUAGES: BookLanguage[] = ["en", "ru", "kk"];
 
+export type BookJobKind = "extract" | "generate" | "regenerate";
+export type BookJobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+
+export interface BookJob {
+  id: number;
+  book_id: number;
+  kind: BookJobKind;
+  status: BookJobStatus;
+  /** 0..100 */
+  progress: number;
+  attempts: number;
+  max_attempts: number;
+  cancel_requested: boolean;
+  error_code: string | null;
+  /** AI tokens and estimated cost (generation jobs) */
+  usage: Record<string, unknown> | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+/** Live progress of a job (SSE event `book_job`). */
+export interface BookJobEvent {
+  id: number;
+  book_id: number;
+  kind: BookJobKind;
+  status: BookJobStatus;
+  progress: number;
+  error_code: string | null;
+}
+
 export interface Book {
   id: number;
   title: string;
@@ -303,6 +338,8 @@ export interface Book {
   updated_at: string | null;
   /** the PDF */
   file: Attachment | null;
+  /** the latest text-extraction job */
+  processing: BookJob | null;
 }
 
 export interface BookMeta {

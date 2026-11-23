@@ -116,11 +116,13 @@ class NotificationBroker:
 
     def dispatch(self, payload: dict[str, Any]) -> None:
         """Must run on the event loop thread. Queue items are
-        ("notification", data), ("chat", data) or ("revoke", new_token_version)."""
+        ("notification", data), ("chat", data), ("book_job", data) or ("revoke", new_token_version)."""
         if "revoke" in payload:
             item: tuple[str, Any] = ("revoke", int(payload["revoke"]))
         elif "chat" in payload:
             item = ("chat", payload["chat"])
+        elif "book_job" in payload:  # Book-to-Test job progress (services/book_jobs.py)
+            item = ("book_job", payload["book_job"])
         else:
             item = ("notification", payload["notification"])
         for q in list(self._subs.get(payload.get("user_id"), ())):

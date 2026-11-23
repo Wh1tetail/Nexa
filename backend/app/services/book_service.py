@@ -18,8 +18,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.core.exceptions import BadRequest, NotFound
-from app.models import Attachment, Book, User
-from app.schemas.book import BookOut, BookUpdate
+from app.models import Attachment, Book, BookJob, User
+from app.models.enums import BookJobKind
+from app.schemas.book import BookJobOut, BookOut, BookUpdate
 from app.schemas.homework import AttachmentOut
 from app.storage.base import get_storage
 from app.utils.files import safe_filename
@@ -133,12 +134,17 @@ def delete_stored(keys: list[str]) -> None:
             log.exception("Could not delete stored book file")
 
 
-def to_out(book: Book) -> BookOut:
+def to_out(book: Book, db: Session | None = None) -> BookOut:
     f = book.file
+    job = None
+    if db is not None:
+        job = db.scalar(select(BookJob).where(BookJob.book_id == book.id, BookJob.kind == BookJobKind.EXTRACT)
+                        .order_by(BookJob.created_at.desc(), BookJob.id.desc()).limit(1))
     return BookOut(
         id=book.id, title=book.title, author=book.author, language=book.language, level=book.level,
         page_count=book.page_count, status=book.status, error_code=book.error_code,
         uploaded_by_name=book.uploaded_by.full_name if book.uploaded_by else None,
         created_at=book.created_at, updated_at=book.updated_at,
         file=AttachmentOut.model_validate(f) if f else None,
+        processing=BookJobOut.model_validate(job) if job else None,
     )

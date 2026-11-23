@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     # ---- Book-to-Test: PDF books ----
     BOOK_MAX_UPLOAD_MB: int = Field(default=200, ge=1, le=2000)
     BOOK_MAX_PAGES: int = Field(default=500, ge=1, le=5000)
+    # the worker (python -m app.worker): parallel jobs, queue polling, retries
+    BOOK_WORKER_CONCURRENCY: int = Field(default=1, ge=1, le=8)
+    BOOK_WORKER_POLL_SECONDS: float = Field(default=3, gt=0)
+    BOOK_JOB_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=10)
+    # a running job whose heartbeat is older than this goes back to the queue
+    BOOK_JOB_STALE_MINUTES: int = Field(default=15, ge=1)
 
     # ---- AI (Book-to-Test question generation) ----
     # Only services/ai_client.py talks to the provider; the key never leaves the server.

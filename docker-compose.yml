@@ -9,6 +9,43 @@
 
 name: nexa
 
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-nexa}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-nexa}
+  SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (at least 32 characters)}
+  FRONTEND_URL: ${PUBLIC_URL:-http://localhost:8080}
+  CORS_ORIGINS: '["${PUBLIC_URL:-http://localhost:8080}"]'
+  DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Almaty}
+  WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+  EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
+  EMAIL_FROM: ${EMAIL_FROM:-NEXA <no-reply@nexalanguage.com>}
+  EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-true}
+  EMAIL_NOTIFY_DELAY_MINUTES: ${EMAIL_NOTIFY_DELAY_MINUTES:-10}
+  STORAGE_SWEEP_INTERVAL_HOURS: ${STORAGE_SWEEP_INTERVAL_HOURS:-24}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+  SMTP_SSL: ${SMTP_SSL:-false}
+  STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+  S3_BUCKET: ${S3_BUCKET:-}
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+  S3_REGION: ${S3_REGION:-}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+  BOOK_MAX_UPLOAD_MB: ${BOOK_MAX_UPLOAD_MB:-200}
+  BOOK_MAX_PAGES: ${BOOK_MAX_PAGES:-500}
+  BOOK_WORKER_CONCURRENCY: ${BOOK_WORKER_CONCURRENCY:-1}
+  BOOK_JOB_MAX_ATTEMPTS: ${BOOK_JOB_MAX_ATTEMPTS:-3}
+  BOOK_JOB_STALE_MINUTES: ${BOOK_JOB_STALE_MINUTES:-15}
+  AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  AI_MODEL: ${AI_MODEL:-claude-sonnet-5-5}
+  AI_FALLBACK_MODELS: ${AI_FALLBACK_MODELS:-[]}
+  AI_MAX_QUESTIONS_PER_JOB: ${AI_MAX_QUESTIONS_PER_JOB:-50}
+  AI_MAX_PAGES_PER_JOB: ${AI_MAX_PAGES_PER_JOB:-30}
+  AI_MAX_RETRIES: ${AI_MAX_RETRIES:-3}
+
 services:
   db:
     image: postgres:18-alpine
@@ -31,41 +68,30 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-nexa}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-nexa}
-      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (at least 32 characters)}
-      FRONTEND_URL: ${PUBLIC_URL:-http://localhost:8080}
-      CORS_ORIGINS: '["${PUBLIC_URL:-http://localhost:8080}"]'
-      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Almaty}
-      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
-      EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
-      EMAIL_FROM: ${EMAIL_FROM:-NEXA <no-reply@nexalanguage.com>}
-      EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-true}
-      EMAIL_NOTIFY_DELAY_MINUTES: ${EMAIL_NOTIFY_DELAY_MINUTES:-10}
-      STORAGE_SWEEP_INTERVAL_HOURS: ${STORAGE_SWEEP_INTERVAL_HOURS:-24}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
-      SMTP_SSL: ${SMTP_SSL:-false}
-      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
-      S3_BUCKET: ${S3_BUCKET:-}
-      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
-      S3_REGION: ${S3_REGION:-}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
-      BOOK_MAX_UPLOAD_MB: ${BOOK_MAX_UPLOAD_MB:-200}
-      BOOK_MAX_PAGES: ${BOOK_MAX_PAGES:-500}
-      AI_PROVIDER: ${AI_PROVIDER:-anthropic}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-claude-sonnet-5-5}
-      AI_FALLBACK_MODELS: ${AI_FALLBACK_MODELS:-[]}
-      AI_MAX_QUESTIONS_PER_JOB: ${AI_MAX_QUESTIONS_PER_JOB:-50}
-      AI_MAX_PAGES_PER_JOB: ${AI_MAX_PAGES_PER_JOB:-30}
-      AI_MAX_RETRIES: ${AI_MAX_RETRIES:-3}
+    environment: *backend-env
     volumes:
       - uploads:/app/storage
+
+  # Book-to-Test background jobs (PDF processing, AI generation): same image and
+  # settings as the backend, its own process, no ports. Starts after the backend,
+  # so the migrations have run.
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    entrypoint: ["python", "-m", "app.worker"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment: *backend-env
+    volumes:
+      - uploads:/app/storage
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.worker", "--check"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
 
   web:
     build: ./frontend

@@ -107,7 +107,11 @@ function BookRow({ b }: { b: Book }) {
 export default function BooksPage() {
   const { t } = useI18n();
   const [uploading, setUploading] = useState(false);
-  const q = useQuery({ queryKey: ["books"], queryFn: booksApi.list });
+  const q = useQuery({
+    queryKey: ["books"],
+    queryFn: booksApi.list,
+    refetchInterval: (query) => (query.state.data?.some((b) => b.status === "processing") ? 5000 : false),
+  });
 
   return (
     <div>

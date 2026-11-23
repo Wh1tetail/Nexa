@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink, Info, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import { JobProgress, isActiveJob } from "@/components/books/JobProgress";
 import { ErrorState, PageSkeleton } from "@/components/common";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,33 @@ export default function BookPage() {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [opening, setOpening] = useState(false);
-  const q = useQuery({ queryKey: ["books", id], queryFn: () => booksApi.get(id) });
+  // live updates come over SSE; polling while a job runs is the fallback
+  const q = useQuery({
+    queryKey: ["books", id],
+    queryFn: () => booksApi.get(id),
+    refetchInterval: (query) => (isActiveJob(query.state.data?.processing) ? 3000 : false),
+  });
+  const onJobChange = () => {
+    qc.invalidateQueries({ queryKey: ["books", id] });
+    qc.invalidateQueries({ queryKey: ["books"], exact: true });
+  };
+  const cancel = useMutation({
+    mutationFn: (jobId: number) => booksApi.cancelJob(jobId),
+    onSuccess: (j) => {
+      if (j.status === "cancelled") toast.success(t.books.cancelled);
+      onJobChange();
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const reprocess = useMutation({
+    mutationFn: () => booksApi.reprocess(id),
+    onSuccess: (b) => {
+      qc.setQueryData(["books", id], b);
+      qc.invalidateQueries({ queryKey: ["books"], exact: true });
+      toast.success(t.books.reprocessStarted);
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
 
   const remove = useMutation({
     mutationFn: () => booksApi.remove(id),
@@ -137,11 +164,22 @@ export default function BookPage() {
         </CardContent>
       </Card>
 
-      {b.status === "uploaded" && (
-        <p className="flex items-start gap-2 rounded-xl bg-secondary px-4 py-3 text-sm text-muted-foreground">
-          <Info className="mt-0.5 size-4 shrink-0 text-accent" />
-          {t.books.nextStage}
-        </p>
+      {b.processing ? (
+        <JobProgress
+          title={t.books.processing}
+          job={b.processing}
+          onCancel={() => cancel.mutate(b.processing!.id)}
+          cancelling={cancel.isPending}
+          onRestart={() => reprocess.mutate()}
+          restarting={reprocess.isPending}
+        />
+      ) : (
+        <Card className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">{t.books.status[b.status]}</p>
+          <Button variant="outline" size="sm" loading={reprocess.isPending} onClick={() => reprocess.mutate()}>
+            {t.books.reprocess}
+          </Button>
+        </Card>
       )}
 
       {editing && <EditDialog book={b} open onClose={() => setEditing(false)} />}

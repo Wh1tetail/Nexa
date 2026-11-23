@@ -1,10 +1,14 @@
 import {
   Bell,
+  BookMarked,
   BookOpenCheck,
+  BookX,
   CalendarClock,
   ClipboardCheck,
   ClipboardList,
   CreditCard,
+  GraduationCap,
+  ListChecks,
   FileCheck2,
   FileUp,
   type LucideIcon,
@@ -27,6 +31,10 @@ const ICONS: Record<NotificationType, { icon: LucideIcon; tone: string }> = {
   lesson_changed: { icon: CalendarClock, tone: "bg-warning-soft text-warning-strong" },
   subscription_expiring: { icon: CreditCard, tone: "bg-warning-soft text-warning-strong" },
   subscription_expired: { icon: CreditCard, tone: "bg-danger-soft text-danger" },
+  course_assigned: { icon: GraduationCap, tone: "bg-accent-soft text-accent" },
+  book_processed: { icon: BookMarked, tone: "bg-success-soft text-success-strong" },
+  book_failed: { icon: BookX, tone: "bg-danger-soft text-danger" },
+  questions_ready: { icon: ListChecks, tone: "bg-accent-soft text-accent" },
   system: { icon: Bell, tone: "bg-secondary text-primary" },
 };
 

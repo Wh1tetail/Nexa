@@ -8,7 +8,7 @@ import { useI18n } from "@/contexts/I18nContext";
 import { notificationsApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
 import { activeChat, realtimeStatus, runNotificationStream } from "@/services/realtime";
-import type { ChatEvent, Notification, NotificationType } from "@/types/api";
+import type { BookJobEvent, ChatEvent, Notification, NotificationType } from "@/types/api";
 
 /** Fallback polling: frequent only while the live stream is down. */
 const POLL_OFFLINE_MS = 30_000;
@@ -71,6 +71,10 @@ const STALE: Record<NotificationType, QueryKey[]> = {
   lesson_changed: [["me", "attendance"]],
   subscription_expiring: [["subscriptions"], ["me", "subscription"], ["students"]],
   subscription_expired: [["subscriptions"], ["me", "subscription"], ["students"]],
+  course_assigned: [["my-courses"]],
+  book_processed: [["books"]],
+  book_failed: [["books"]],
+  questions_ready: [["books"]],
   system: [],
 };
 
@@ -111,7 +115,11 @@ export function useRealtimeNotifications() {
         });
       }
     };
-    runNotificationStream({ onNotification, onChat, signal: controller.signal });
+    const onBookJob = (e: BookJobEvent) => {
+      qc.invalidateQueries({ queryKey: ["books", e.book_id] });
+      if (e.status !== "running") qc.invalidateQueries({ queryKey: ["books"], exact: true });
+    };
+    runNotificationStream({ onNotification, onChat, onBookJob, signal: controller.signal });
     return () => controller.abort();
   }, [qc, navigate, t, userId, role]);
 }

@@ -105,6 +105,24 @@ class BookStatus(StrEnum):
     FAILED = "failed"
 
 
+class BookJobKind(StrEnum):
+    """Book-to-Test background jobs (run by the worker process, app/worker.py)."""
+    EXTRACT = "extract"  # check the stored PDF, read text and chapters
+    GENERATE = "generate"  # AI questions for a chapter or page range
+    REGENERATE = "regenerate"  # AI: one replacement question
+
+
+class BookJobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+ACTIVE_JOB_STATUSES = frozenset({BookJobStatus.QUEUED, BookJobStatus.RUNNING})
+
+
 class AttemptStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     PENDING_REVIEW = "pending_review"  # has short answers awaiting manual check
@@ -122,6 +140,9 @@ class NotificationType(StrEnum):
     COURSE_ASSIGNED = "course_assigned"
     SUBSCRIPTION_EXPIRING = "subscription_expiring"
     SUBSCRIPTION_EXPIRED = "subscription_expired"
+    BOOK_PROCESSED = "book_processed"
+    BOOK_FAILED = "book_failed"
+    QUESTIONS_READY = "questions_ready"
     SYSTEM = "system"
 
 

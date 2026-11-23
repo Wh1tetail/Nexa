@@ -59,7 +59,8 @@ async def stream(
     stream with fetch, so the token never appears in a URL). The stream ends
     when the access token expires — the client refreshes it and reconnects.
     Events: `ready`, `notification` (JSON like NotificationOut), `chat`
-    (`{"type": "message" | "read", ...}`, see message_service), `expired`,
+    (`{"type": "message" | "read", ...}`, see message_service), `book_job`
+    (Book-to-Test job progress, see book_jobs.job_payload), `expired`,
     `revoked` (logout / password change / deactivation — sent immediately, then
     the stream closes);
     `: ping` comments keep proxies from closing the connection.
@@ -88,7 +89,7 @@ async def stream(
                         yield sse("revoked", {})
                         return
                     continue
-                yield sse(kind, data)  # "notification" or "chat"
+                yield sse(kind, data)  # "notification", "chat" or "book_job"
         finally:
             broker.unsubscribe(user_id, queue)
 

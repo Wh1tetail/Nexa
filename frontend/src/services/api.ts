@@ -3,6 +3,7 @@ import { http, UPLOAD_TIMEOUT_MS } from "@/services/http";
 import type {
   AdminStats,
   Book,
+  BookJob,
   BookMeta,
   Gamification,
   XPSettings,
@@ -546,4 +547,8 @@ export const booksApi = {
   },
   update: (id: number, meta: BookMeta) => put<Book>(`/books/${id}`, meta),
   remove: (id: number) => del(`/books/${id}`),
+  reprocess: (id: number) => post<Book>(`/books/${id}/reprocess`),
+  jobs: (id: number) => get<BookJob[]>(`/books/${id}/jobs`),
+  job: (jobId: number) => get<BookJob>(`/books/jobs/${jobId}`),
+  cancelJob: (jobId: number) => post<BookJob>(`/books/jobs/${jobId}/cancel`),
 };

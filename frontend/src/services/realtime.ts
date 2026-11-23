@@ -2,7 +2,7 @@
  *  Uses fetch streaming (not EventSource) so the access token travels in the
  *  Authorization header instead of the URL. */
 import { http, tokenStore } from "@/services/http";
-import type { ChatEvent, Notification } from "@/types/api";
+import type { BookJobEvent, ChatEvent, Notification } from "@/types/api";
 
 const STREAM_URL = (import.meta.env.VITE_API_URL ?? "") + "/api/v1/notifications/stream";
 
@@ -37,6 +37,8 @@ function setStatus(s: Status) {
 interface Options {
   onNotification: (n: Notification) => void;
   onChat: (e: ChatEvent) => void;
+  /** Book-to-Test job progress (sent to the job's author). */
+  onBookJob?: (e: BookJobEvent) => void;
   signal: AbortSignal;
 }
 
@@ -98,6 +100,7 @@ async function readStream(res: Response, opts: Options, kill: () => void): Promi
         if (event === "ready") setStatus("live");
         else if (event === "notification") opts.onNotification(JSON.parse(data.join("\n")) as Notification);
         else if (event === "chat") opts.onChat(JSON.parse(data.join("\n")) as ChatEvent);
+        else if (event === "book_job") opts.onBookJob?.(JSON.parse(data.join("\n")) as BookJobEvent);
         else if (event === "expired") return "closed"; // token expired: reconnect with a fresh one
         else if (event === "revoked") return "revoked";
       }

@@ -1,5 +1,5 @@
 """Import all models so Alembic autogenerate & relationship resolution see them."""
-from app.models.book import Book
+from app.models.book import Book, BookJob
 from app.models.course import (
     Course,
     CourseAssignment,
@@ -43,6 +43,7 @@ __all__ = [
     "AuthAttempt",
     "Attendance",
     "Book",
+    "BookJob",
     "Course",
     "CourseAssignment",
     "CourseAssignmentStudent",
