@@ -129,3 +129,5 @@ def test_sweep_keeps_book_files(client, school):
     with SessionLocal() as db:
         res = sweep_orphans(db, grace=timedelta(hours=24))
     assert key not in res.orphans and key in {k for k, _ in get_storage().list_keys()}
+    # the storage outlives each test's database: don't leave an old file for later sweeps
+    assert client.delete(f"{API}/books/{b['id']}", headers=school["adm"]).status_code == 204
