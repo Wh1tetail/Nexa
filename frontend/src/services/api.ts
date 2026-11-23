@@ -2,6 +2,8 @@
 import { http, UPLOAD_TIMEOUT_MS } from "@/services/http";
 import type {
   AdminStats,
+  Book,
+  BookMeta,
   Gamification,
   XPSettings,
   AssignCourseInput,
@@ -508,4 +510,40 @@ export const filesApi = {
     const res = await http.get<Blob>(`/files/${file.id}`, { responseType: "blob" });
     saveBlob(res.data, file.original_name);
   },
+  /** Opens a PDF or a picture in a new tab (fetched with the auth header). The tab is opened
+   *  before the request so the browser doesn't block it as a pop-up. */
+  async open(file: Pick<Attachment, "id">) {
+    const tab = window.open("", "_blank");
+    try {
+      const res = await http.get<Blob>(`/files/${file.id}`, { params: { inline: true }, responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      tab?.close();
+      throw e;
+    }
+  },
+};
+
+export const booksApi = {
+  list: () => get<Book[]>("/books"),
+  get: (id: number) => get<Book>(`/books/${id}`),
+  /** PDF + metadata; large files, so it uses the upload timeout. */
+  async upload(file: File, meta: BookMeta, onProgress?: (pct: number) => void) {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("title", meta.title);
+    if (meta.author) form.append("author", meta.author);
+    form.append("language", meta.language);
+    if (meta.level) form.append("level", meta.level);
+    const { data } = await http.post<Book>("/books", form, {
+      timeout: UPLOAD_TIMEOUT_MS,
+      onUploadProgress: (e) => e.total && onProgress?.(Math.round((e.loaded * 100) / e.total)),
+    });
+    return data;
+  },
+  update: (id: number, meta: BookMeta) => put<Book>(`/books/${id}`, meta),
+  remove: (id: number) => del(`/books/${id}`),
 };

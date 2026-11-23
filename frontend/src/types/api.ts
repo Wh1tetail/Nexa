@@ -282,6 +282,36 @@ export interface Attachment {
   created_at: string;
 }
 
+// ---------- Book-to-Test ----------
+
+export type BookStatus = "uploaded" | "processing" | "ready" | "failed";
+export type BookLanguage = "en" | "ru" | "kk";
+export const BOOK_LANGUAGES: BookLanguage[] = ["en", "ru", "kk"];
+
+export interface Book {
+  id: number;
+  title: string;
+  author: string | null;
+  language: BookLanguage;
+  level: EnglishLevel | null;
+  page_count: number;
+  status: BookStatus;
+  /** why processing failed (stage 2+) */
+  error_code: string | null;
+  uploaded_by_name: string | null;
+  created_at: string;
+  updated_at: string | null;
+  /** the PDF */
+  file: Attachment | null;
+}
+
+export interface BookMeta {
+  title: string;
+  author: string | null;
+  language: BookLanguage;
+  level: EnglishLevel | null;
+}
+
 export interface SubmissionCounts {
   total: number;
   new: number;

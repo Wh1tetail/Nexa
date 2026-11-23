@@ -97,6 +97,14 @@ class AchievementCode(StrEnum):
     LEVEL_COMPLETED = "level_completed"
 
 
+class BookStatus(StrEnum):
+    """Book-to-Test: where a book is in its processing."""
+    UPLOADED = "uploaded"  # stored and checked, waiting for text extraction
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"
+
+
 class AttemptStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     PENDING_REVIEW = "pending_review"  # has short answers awaiting manual check

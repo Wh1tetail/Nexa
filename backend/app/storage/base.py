@@ -4,7 +4,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from functools import lru_cache
+import shutil
 from pathlib import Path
+from typing import BinaryIO
 
 from app.core.config import settings
 
@@ -12,6 +14,11 @@ from app.core.config import settings
 class Storage(ABC):
     @abstractmethod
     def save(self, key: str, data: bytes, content_type: str) -> None: ...
+
+    def save_file(self, key: str, fileobj: BinaryIO, content_type: str) -> None:
+        """Save from an open file without reading it into memory (large uploads)."""
+        fileobj.seek(0)
+        self.save(key, fileobj.read(), content_type)
 
     @abstractmethod
     def open(self, key: str) -> Iterator[bytes]: ...
@@ -40,6 +47,13 @@ class LocalStorage(Storage):
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
+
+    def save_file(self, key: str, fileobj: BinaryIO, content_type: str) -> None:
+        path = self._path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fileobj.seek(0)
+        with path.open("wb") as out:
+            shutil.copyfileobj(fileobj, out, 1024 * 1024)
 
     def open(self, key: str) -> Iterator[bytes]:
         path = self._path(key)
@@ -74,6 +88,10 @@ class S3Storage(Storage):
 
     def save(self, key: str, data: bytes, content_type: str) -> None:
         self.client.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)
+
+    def save_file(self, key: str, fileobj: BinaryIO, content_type: str) -> None:
+        fileobj.seek(0)
+        self.client.upload_fileobj(fileobj, self.bucket, key, ExtraArgs={"ContentType": content_type})
 
     def open(self, key: str) -> Iterator[bytes]:
         obj = self.client.get_object(Bucket=self.bucket, Key=key)

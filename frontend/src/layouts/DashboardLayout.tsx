@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BookMarked,
   BookOpen,
   BookOpenCheck,
   CalendarCheck,
@@ -90,6 +91,7 @@ function navFor(role: string | undefined, t: ReturnType<typeof useI18n>["t"], un
     return [
       { to: "/methodist/courses", label: t.nav.courses, icon: GraduationCap },
       { to: "/methodist/library", label: t.nav.library, icon: Library },
+      { to: "/methodist/books", label: t.nav.books, icon: BookMarked },
     ];
   }
   if (role === "student") {

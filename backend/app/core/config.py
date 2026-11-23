@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -77,6 +77,28 @@ class Settings(BaseSettings):
     STORAGE_SWEEP_INTERVAL_HOURS: int = 24
     STORAGE_SWEEP_GRACE_HOURS: int = 24
 
+    # ---- Book-to-Test: PDF books ----
+    BOOK_MAX_UPLOAD_MB: int = Field(default=200, ge=1, le=2000)
+    BOOK_MAX_PAGES: int = Field(default=500, ge=1, le=5000)
+
+    # ---- AI (Book-to-Test question generation) ----
+    # Only services/ai_client.py talks to the provider; the key never leaves the server.
+    AI_PROVIDER: Literal["anthropic"] = "anthropic"
+    ANTHROPIC_API_KEY: SecretStr | None = None
+    AI_MODEL: str = "claude-sonnet-5-5"
+    # Tried in order after AI_MODEL when it declines the request or stays unavailable
+    # after its retries, e.g. ["claude-opus-5-5"]; empty = no model switching.
+    AI_FALLBACK_MODELS: list[str] = []
+    AI_MAX_QUESTIONS_PER_JOB: int = Field(default=50, ge=1, le=200)
+    AI_MAX_PAGES_PER_JOB: int = Field(default=30, ge=1, le=300)
+    # Retries per model for rate limits, timeouts, network/server errors and malformed answers
+    AI_MAX_RETRIES: int = Field(default=3, ge=0, le=10)
+    AI_TIMEOUT_SECONDS: float = Field(default=300, gt=0)
+    AI_MAX_OUTPUT_TOKENS: int = Field(default=32000, ge=1024, le=128000)
+    # USD per million tokens, for cost estimates: {"model": {"input": .., "output": ..,
+    # "cache_read": .., "cache_write": ..}}. Merged over the built-in table in ai_client.
+    AI_PRICES: dict[str, dict[str, float]] = {}
+
     @field_validator("LOCAL_STORAGE_PATH")
     @classmethod
     def storage_relative_to_backend(cls, v: Path) -> Path:
@@ -94,6 +116,10 @@ class Settings(BaseSettings):
         if v.startswith("postgres://"):
             return v.replace("postgres://", "postgresql+psycopg://", 1)
         return v
+
+    @property
+    def book_max_upload_bytes(self) -> int:
+        return self.BOOK_MAX_UPLOAD_MB * 1024 * 1024
 
     @property
     def max_upload_bytes(self) -> int:

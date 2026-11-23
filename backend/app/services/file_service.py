@@ -108,6 +108,11 @@ def get_accessible_attachment(db: Session, user: User, attachment_id: int) -> At
     if user.role == UserRole.ADMIN:
         return att
 
+    if att.book_id is not None:  # Book-to-Test PDFs: library editors only
+        if user.role == UserRole.METHODIST:
+            return att
+        raise NotFound("Файл не найден")
+
     if att.course_lesson_id is not None:  # course materials: editors; teachers once published
         from app.models import CourseLesson
 
