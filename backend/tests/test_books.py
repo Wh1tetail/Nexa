@@ -50,7 +50,7 @@ def test_methodist_uploads_lists_edits_and_deletes(client, school):
     assert r.status_code == 201, r.text
     b = r.json()
     assert (b["title"], b["author"], b["language"], b["level"], b["page_count"], b["status"]) == (
-        "Grammar in Use", "R. Murphy", "en", "B1", 5, "uploaded")
+        "Grammar in Use", "R. Murphy", "en", "B1", 5, "processing")  # queued for the worker
     assert b["uploaded_by_name"] == "Mila Methodist" and b["file"]["mime_type"] == "application/pdf"
     assert b["file"]["original_name"] == "Grammar in Use.pdf" and b["file"]["size_bytes"] > 0
 
