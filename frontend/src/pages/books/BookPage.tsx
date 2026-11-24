@@ -4,12 +4,16 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import { ChapterManager } from "@/components/books/ChapterManager";
+import { GeneratePanel } from "@/components/books/GeneratePanel";
 import { JobProgress, isActiveJob } from "@/components/books/JobProgress";
+import { PagePreview } from "@/components/books/PagePreview";
 import { ErrorState, PageSkeleton } from "@/components/common";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/contexts/I18nContext";
 import { BookMetaFields, BookStatusBadge } from "@/pages/books/shared";
 import { booksApi, filesApi } from "@/services/api";
@@ -65,11 +69,14 @@ export default function BookPage() {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [opening, setOpening] = useState(false);
+  const [tab, setTab] = useState("chapters");
+  const [range, setRange] = useState<{ from: number; to: number } | null>(null);
   // live updates come over SSE; polling while a job runs is the fallback
   const q = useQuery({
     queryKey: ["books", id],
     queryFn: () => booksApi.get(id),
-    refetchInterval: (query) => (isActiveJob(query.state.data?.processing) ? 3000 : false),
+    refetchInterval: (query) =>
+      isActiveJob(query.state.data?.processing) || isActiveJob(query.state.data?.generation) ? 3000 : false,
   });
   const onJobChange = () => {
     qc.invalidateQueries({ queryKey: ["books", id] });
@@ -160,6 +167,13 @@ export default function BookPage() {
             <Fact label={t.books.uploadedAt}>{fmtDateTime(b.created_at, locale)}</Fact>
             {b.uploaded_by_name && <Fact label={t.books.uploadedBy}>{b.uploaded_by_name}</Fact>}
             {b.file && <Fact label={t.books.fileLabel}>{b.file.original_name}, {fmtSize(b.file.size_bytes)}</Fact>}
+            {b.status === "ready" && (
+              <>
+                <Fact label={t.books.textPagesLabel}>{b.text_pages}</Fact>
+                {b.ocr_pages > 0 && <Fact label={t.books.ocrPagesLabel}>{b.ocr_pages}</Fact>}
+                <Fact label={t.books.outlineLabel}>{b.has_outline ? t.books.outlineFound : t.books.outlineMissing}</Fact>
+              </>
+            )}
           </dl>
         </CardContent>
       </Card>
@@ -180,6 +194,33 @@ export default function BookPage() {
             {t.books.reprocess}
           </Button>
         </Card>
+      )}
+
+      {b.status === "ready" ? (
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList>
+            <TabsTrigger value="chapters">{t.books.chaptersTab}</TabsTrigger>
+            <TabsTrigger value="text">{t.books.textTab}</TabsTrigger>
+            <TabsTrigger value="questions">{t.books.questionsTab}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="chapters" className="mt-4">
+            <ChapterManager
+              book={b}
+              onShow={(from, to) => {
+                setRange({ from, to });
+                setTab("text");
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="text" className="mt-4">
+            <PagePreview book={b} range={range} />
+          </TabsContent>
+          <TabsContent value="questions" className="mt-4">
+            <GeneratePanel book={b} />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        !isActiveJob(b.processing) && <p className="text-sm text-muted-foreground">{t.books.notReady}</p>
       )}
 
       {editing && <EditDialog book={b} open onClose={() => setEditing(false)} />}

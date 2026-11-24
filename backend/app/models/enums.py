@@ -105,6 +105,32 @@ class BookStatus(StrEnum):
     FAILED = "failed"
 
 
+class PageTextSource(StrEnum):
+    TEXT_LAYER = "text_layer"  # the PDF's own text
+    OCR = "ocr"  # recognized from the page image (stage 4)
+    NONE = "none"  # no text found
+
+
+class ChapterOrigin(StrEnum):
+    OUTLINE = "outline"  # the PDF's table of contents
+    DETECTED = "detected"  # headings like "Chapter 3" / "Unit 4"
+    MANUAL = "manual"  # created or edited by a methodist (kept on reprocessing)
+
+
+class DraftStatus(StrEnum):
+    """Book-to-Test question drafts: only a methodist moves one to approved."""
+    DRAFT = "draft"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPORTED = "exported"  # sent to the test library
+
+
+class Difficulty(StrEnum):
+    EASY = "easy"
+    MEDIUM = "medium"
+    HARD = "hard"
+
+
 class BookJobKind(StrEnum):
     """Book-to-Test background jobs (run by the worker process, app/worker.py)."""
     EXTRACT = "extract"  # check the stored PDF, read text and chapters

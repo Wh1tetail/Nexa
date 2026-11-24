@@ -18,6 +18,7 @@ export function JobProgress({
   cancelling,
   onRestart,
   restarting,
+  generation,
 }: {
   title: string;
   job: BookJob;
@@ -25,6 +26,8 @@ export function JobProgress({
   cancelling: boolean;
   onRestart: () => void;
   restarting: boolean;
+  /** wording for a generation job: "generation finished", "generate again" */
+  generation?: boolean;
 }) {
   const { t, locale } = useI18n();
   const active = isActiveJob(job);
@@ -40,7 +43,7 @@ export function JobProgress({
           <div className="min-w-0">
             <p className="font-semibold text-primary">{title}</p>
             <p className="text-sm text-muted-foreground">
-              {job.cancel_requested && active ? t.books.cancelling : t.books.jobStatus[job.status]}
+              {job.cancel_requested && active ? t.books.cancelling : (generation ? t.books.genStatus : t.books.jobStatus)[job.status]}
               {job.finished_at && !active && <> · {fmtDateTime(job.finished_at, locale)}</>}
             </p>
           </div>
@@ -53,7 +56,7 @@ export function JobProgress({
           ) : (
             <Button variant="outline" size="sm" loading={restarting} onClick={onRestart}>
               {!restarting && <RotateCcw />}
-              {t.books.reprocess}
+              {generation ? t.books.generateAgain : t.books.reprocess}
             </Button>
           )}
         </div>

@@ -47,6 +47,7 @@ const AdminLessonsPage = lazy(() => import("@/pages/admin/AdminLessonsPage"));
 const AdminSubscriptionsPage = lazy(() => import("@/pages/admin/AdminSubscriptionsPage"));
 const BooksPage = lazy(() => import("@/pages/books/BooksPage"));
 const BookPage = lazy(() => import("@/pages/books/BookPage"));
+const ReviewPage = lazy(() => import("@/pages/books/ReviewPage"));
 const LibraryPage = lazy(() => import("@/pages/library/LibraryPage"));
 const LibraryTestPage = lazy(() => import("@/pages/library/LibraryTestPage"));
 const CoursesPage = lazy(() => import("@/pages/courses/CoursesPage"));
@@ -165,6 +166,7 @@ export default function App() {
             <Route path="library/tests/:testId/edit" element={<TestEditorPage library />} />
             <Route path="books" element={<BooksPage />} />
             <Route path="books/:bookId" element={<BookPage />} />
+            <Route path="books/:bookId/review" element={<ReviewPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

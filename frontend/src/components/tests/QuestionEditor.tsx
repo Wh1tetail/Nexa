@@ -47,14 +47,15 @@ export function QuestionEditor({
 }: {
   q: QuestionInput;
   index: number;
-  /** number among real questions (blocks have none) */
-  number: number;
+  /** number among real questions (blocks have none); none for a single question */
+  number?: number;
   total: number;
   locked: boolean;
   files: Attachment[];
   onChange: (q: QuestionInput) => void;
-  onRemove: () => void;
-  onMove: (dir: -1 | 1) => void;
+  /** without onRemove / onMove the editor shows no delete and move buttons (one question alone) */
+  onRemove?: () => void;
+  onMove?: (dir: -1 | 1) => void;
   error?: string;
   /** types the editor may switch between (one type: no switch) */
   types?: QuestionType[];
@@ -83,7 +84,9 @@ export function QuestionEditor({
           </span>
         ) : (
           <>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-accent-soft text-xs font-semibold text-accent">{number}</span>
+            {number !== undefined && (
+              <span className="flex size-7 items-center justify-center rounded-lg bg-accent-soft text-xs font-semibold text-accent">{number}</span>
+            )}
             {types.length > 1 ? (
               <NativeSelect value={q.type} disabled={locked} onChange={(e) => setType(e.target.value as QuestionType)} className="h-9 w-auto min-w-[170px] flex-1 sm:flex-none">
                 {types.map((type) => (
@@ -105,11 +108,19 @@ export function QuestionEditor({
             )}
           </label>
         )}
-        <div className="ml-auto flex gap-1">
-          <Button variant="ghost" size="icon-sm" disabled={locked || index === 0} onClick={() => onMove(-1)} aria-label="Up"><ArrowUp /></Button>
-          <Button variant="ghost" size="icon-sm" disabled={locked || index === total - 1} onClick={() => onMove(1)} aria-label="Down"><ArrowDown /></Button>
-          <Button variant="ghost" size="icon-sm" disabled={locked} onClick={onRemove} className="hover:text-danger" aria-label={t.common.delete}><Trash2 /></Button>
-        </div>
+        {(onMove || onRemove) && (
+          <div className="ml-auto flex gap-1">
+            {onMove && (
+              <>
+                <Button variant="ghost" size="icon-sm" disabled={locked || index === 0} onClick={() => onMove(-1)} aria-label="Up"><ArrowUp /></Button>
+                <Button variant="ghost" size="icon-sm" disabled={locked || index === total - 1} onClick={() => onMove(1)} aria-label="Down"><ArrowDown /></Button>
+              </>
+            )}
+            {onRemove && (
+              <Button variant="ghost" size="icon-sm" disabled={locked} onClick={onRemove} className="hover:text-danger" aria-label={t.common.delete}><Trash2 /></Button>
+            )}
+          </div>
+        )}
       </div>
 
       {isBlock ? (

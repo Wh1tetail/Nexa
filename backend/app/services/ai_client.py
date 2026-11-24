@@ -340,5 +340,13 @@ class AIClient:
         raise last
 
 
+def is_configured(cfg: Settings | None = None) -> bool:
+    """Whether generation can run at all (a key for the configured provider)."""
+    cfg = cfg or default_settings
+    if cfg.AI_PROVIDER == "anthropic":
+        return cfg.ANTHROPIC_API_KEY is not None and bool(cfg.ANTHROPIC_API_KEY.get_secret_value().strip())
+    return False
+
+
 def get_ai_client() -> AIClient:
     return AIClient()

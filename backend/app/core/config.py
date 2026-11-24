@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     # ---- Book-to-Test: PDF books ----
     BOOK_MAX_UPLOAD_MB: int = Field(default=200, ge=1, le=2000)
     BOOK_MAX_PAGES: int = Field(default=500, ge=1, le=5000)
+    # a page with less text than this and a picture on it is a scan waiting for OCR
+    BOOK_OCR_MIN_CHARS: int = Field(default=30, ge=1)
+    # OCR (stage 4, services/ocr_service.py): off until an engine is chosen; scans are only marked
+    OCR_ENABLED: bool = False
+    OCR_ENGINE: str = ""  # the registered engine's name, e.g. "tesseract"
+    OCR_LANGUAGES: str = "eng+rus+kaz"
     # the worker (python -m app.worker): parallel jobs, queue polling, retries
     BOOK_WORKER_CONCURRENCY: int = Field(default=1, ge=1, le=8)
     BOOK_WORKER_POLL_SECONDS: float = Field(default=3, gt=0)
@@ -97,6 +103,10 @@ class Settings(BaseSettings):
     AI_FALLBACK_MODELS: list[str] = []
     AI_MAX_QUESTIONS_PER_JOB: int = Field(default=50, ge=1, le=200)
     AI_MAX_PAGES_PER_JOB: int = Field(default=30, ge=1, le=300)
+    # pages sent in one request (longer ranges go in portions)
+    AI_PAGES_PER_REQUEST: int = Field(default=10, ge=1, le=100)
+    # question types methodists may generate (stage 1 of Book-to-Test: choice and true/false)
+    AI_QUESTION_TYPES: list[str] = ["single_choice", "multiple_choice", "true_false"]
     # Retries per model for rate limits, timeouts, network/server errors and malformed answers
     AI_MAX_RETRIES: int = Field(default=3, ge=0, le=10)
     AI_TIMEOUT_SECONDS: float = Field(default=300, gt=0)

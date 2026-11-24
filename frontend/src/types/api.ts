@@ -307,7 +307,9 @@ export interface BookJob {
   cancel_requested: boolean;
   error_code: string | null;
   /** AI tokens and estimated cost (generation jobs) */
-  usage: Record<string, unknown> | null;
+  usage: AIUsage | null;
+  /** what was asked (generation) and, when done, the result */
+  settings: GenerationJobSettings & Record<string, unknown>;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -321,6 +323,77 @@ export interface BookJobEvent {
   status: BookJobStatus;
   progress: number;
   error_code: string | null;
+}
+
+export interface AIUsage {
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  /** null when a model has no price */
+  estimated_cost_usd: number | null;
+}
+
+export type Difficulty = "easy" | "medium" | "hard";
+export type GeneratableType = "single_choice" | "multiple_choice" | "true_false";
+
+export interface GenerationJobSettings {
+  chapter_id?: number | null;
+  chapter_title?: string | null;
+  page_start?: number;
+  page_end?: number;
+  question_count?: number;
+  types?: string[];
+  difficulty?: Difficulty | "mixed";
+  question_language?: "en" | "ru";
+  level?: EnglishLevel | null;
+  result?: { drafts: number; rejected: number; shortfall: number; model: string | null };
+}
+
+export interface GenerateInput {
+  chapter_id?: number | null;
+  page_start?: number | null;
+  page_end?: number | null;
+  question_count: number;
+  types: GeneratableType[];
+  /** null: mixed */
+  difficulty: Difficulty | null;
+  question_language: "en" | "ru";
+  level: EnglishLevel | null;
+}
+
+export type DraftStatus = "draft" | "approved" | "rejected" | "exported";
+
+export interface QuestionDraft {
+  id: number;
+  job_id: number | null;
+  status: DraftStatus;
+  /** the question in the test format (QuestionInput) */
+  question: QuestionInput;
+  difficulty: Difficulty;
+  page_start: number;
+  page_end: number;
+  excerpt: string;
+  warnings: string[];
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface DraftUpdate {
+  question: QuestionInput;
+  difficulty: Difficulty;
+  excerpt?: string | null;
+}
+
+export type ReviewAction = "approve" | "reject" | "reset";
+
+export interface ReviewResult {
+  id: number;
+  ok: boolean;
+  status: DraftStatus | null;
+  /** not_found, exported, invalid, needs_edit */
+  reason: string | null;
 }
 
 export interface Book {
@@ -340,6 +413,43 @@ export interface Book {
   file: Attachment | null;
   /** the latest text-extraction job */
   processing: BookJob | null;
+  has_outline: boolean;
+  /** pages with text */
+  text_pages: number;
+  /** scans waiting for OCR */
+  ocr_pages: number;
+  /** the latest question-generation job */
+  generation: BookJob | null;
+  /** drafts by status */
+  drafts: Partial<Record<DraftStatus, number>>;
+}
+
+export interface BookPageText {
+  page_number: number;
+  text: string;
+  source: "text_layer" | "ocr" | "none";
+  needs_ocr: boolean;
+  char_count: number;
+}
+
+export interface BookChapter {
+  id: number;
+  parent_id: number | null;
+  title: string;
+  start_page: number;
+  end_page: number;
+  page_count: number;
+  position: number;
+  /** 1 = chapter, 2 = section, 3 = subsection */
+  depth: number;
+  origin: "outline" | "detected" | "manual";
+}
+
+export interface ChapterInput {
+  title: string;
+  start_page: number;
+  end_page: number;
+  parent_id?: number | null;
 }
 
 export interface BookMeta {

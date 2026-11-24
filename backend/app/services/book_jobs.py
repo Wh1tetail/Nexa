@@ -199,11 +199,39 @@ class JobContext:
             if job.cancel_requested:
                 raise JobCancelled()
 
+    def record_usage(self, usage: dict[str, Any]) -> None:
+        """Add an AI run's tokens and cost to the job, in its own transaction: what was
+        spent stays on record even when the job then fails or is retried."""
+        with SessionLocal() as db:
+            job = db.get(BookJob, self.job_id)
+            if job is None:
+                return
+            job.usage = merge_usage(job.usage, usage)
+            db.commit()
+
     def check_cancel(self) -> None:
         with SessionLocal() as db:
             requested = db.scalar(select(BookJob.cancel_requested).where(BookJob.id == self.job_id))
         if requested is None or requested:
             raise JobCancelled()
+
+
+def merge_usage(old: dict[str, Any] | None, new: dict[str, Any]) -> dict[str, Any]:
+    """Sum two AIUsage.to_dict() records (retries of the same job add up)."""
+    if not old:
+        return dict(new)
+    out = dict(old)
+    for k in ("requests", "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens"):
+        out[k] = (old.get(k) or 0) + (new.get(k) or 0)
+    cost_old, cost_new = old.get("estimated_cost_usd"), new.get("estimated_cost_usd")
+    out["estimated_cost_usd"] = None if cost_old is None or cost_new is None else round(cost_old + cost_new, 6)
+    by_model = {m: dict(c) for m, c in (old.get("by_model") or {}).items()}
+    for m, c in (new.get("by_model") or {}).items():
+        cur = by_model.setdefault(m, {})
+        for k, v in c.items():
+            cur[k] = (cur.get(k) or 0) + (v or 0)
+    out["by_model"] = by_model
+    return out
 
 
 def _heartbeat(job_id: int, stop: threading.Event) -> None:
