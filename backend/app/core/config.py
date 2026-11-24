@@ -82,10 +82,12 @@ class Settings(BaseSettings):
     BOOK_MAX_PAGES: int = Field(default=500, ge=1, le=5000)
     # a page with less text than this and a picture on it is a scan waiting for OCR
     BOOK_OCR_MIN_CHARS: int = Field(default=30, ge=1)
-    # OCR (stage 4, services/ocr_service.py): off until an engine is chosen; scans are only marked
+    # OCR (services/ocr_service.py). Off by default for local runs without Tesseract;
+    # the Docker image ships Tesseract and docker-compose turns it on. Off = scans are only marked.
     OCR_ENABLED: bool = False
-    OCR_ENGINE: str = ""  # the registered engine's name, e.g. "tesseract"
+    OCR_ENGINE: str = ""  # the registered engine's name: "tesseract"
     OCR_LANGUAGES: str = "eng+rus+kaz"
+    OCR_PAGE_TIMEOUT_SECONDS: int = Field(default=120, ge=5, le=1800)
     # the worker (python -m app.worker): parallel jobs, queue polling, retries
     BOOK_WORKER_CONCURRENCY: int = Field(default=1, ge=1, le=8)
     BOOK_WORKER_POLL_SECONDS: float = Field(default=3, gt=0)

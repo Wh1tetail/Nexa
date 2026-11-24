@@ -125,6 +125,10 @@ jobs:
             python -m scripts.create_admin --email owner@example.com --name "Owner"
           curl -fsS -H 'Content-Type: application/json' \
             -d '{"email":"owner@example.com","password":"Admin12345"}' "$base/api/v1/auth/login" | grep -q access_token
+          # Real OCR in the worker image: Tesseract with eng/rus/kaz reads a rendered page
+          docker compose exec -T worker python -m scripts.check_ocr
+          docker compose exec -T worker tesseract --list-langs > /tmp/langs.txt
+          grep -qx kaz /tmp/langs.txt && grep -qx rus /tmp/langs.txt
           # The backup service writes a database dump and a files archive
           for i in $(seq 1 30); do ls backups/db-*.dump >/dev/null 2>&1 && break; sleep 2; done
           ls -l backups

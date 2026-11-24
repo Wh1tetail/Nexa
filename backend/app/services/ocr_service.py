@@ -5,15 +5,11 @@ no text as `needs_ocr`. When OCR is switched on (OCR_ENABLED) and an engine is
 registered under OCR_ENGINE, the extract job asks the engine for those pages'
 text; otherwise they stay marked and the methodist sees them.
 
-No engine is shipped yet (agreed decision 3: OCR is postponed). Adding one is
-a class with `recognize()` and a `register_engine("name", factory)` call, plus
-its system packages in backend/Dockerfile - nothing else changes:
-
-    class TesseractEngine:
-        name = "tesseract"
-        def recognize(self, pdf_path, page_number, languages) -> OcrResult: ...
-
-    register_engine("tesseract", TesseractEngine)
+Shipped engine: "tesseract" (services/ocr_tesseract.py; its apt packages are in
+backend/Dockerfile). Another engine is a class with `recognize()` and a
+`register_engine("name", factory)` call, plus its system packages - nothing
+else changes. A factory that raises (e.g. the binary is missing) only turns
+OCR off for that job.
 
 An engine renders the page itself (it gets the PDF's path and the page number),
 so the parser never depends on a renderer.
@@ -64,3 +60,12 @@ def get_ocr_engine() -> OcrEngine | None:
     except Exception:  # a missing system package must not fail the book
         log.exception("OCR engine %r could not start; scanned pages stay marked", settings.OCR_ENGINE)
         return None
+
+
+def _tesseract() -> OcrEngine:
+    from app.services.ocr_tesseract import TesseractEngine
+
+    return TesseractEngine()
+
+
+register_engine("tesseract", _tesseract)

@@ -32,6 +32,7 @@ from app.storage.base import get_storage
 log = logging.getLogger(__name__)
 
 PROGRESS_EVERY = 10  # pages between progress updates
+OCR_FROM = 50  # with OCR on, reading the PDF fills 0-50% and recognizing the scans 50-99%
 
 
 def _book_link(book: Book) -> str:
@@ -87,9 +88,14 @@ def _store_chapters(db: Session, book: Book, drafts: list[ChapterDraft], origin:
 
 
 def _run_ocr(engine: OcrEngine, pdf_path: str, pages: list[PageResult], ctx: JobContext) -> None:
-    """Recognize the scanned pages in place; a page the engine can't read stays marked."""
+    """Recognize the scanned pages in place; a page the engine can't read stays marked.
+
+    OCR takes seconds per page, so it gets the second half of the progress bar
+    and the methodist's "cancel" is checked before every page.
+    """
     scans = [p for p in pages if p.needs_ocr]
     for i, p in enumerate(scans, start=1):
+        ctx.check_cancel()
         try:
             res = engine.recognize(pdf_path, p.number, settings.OCR_LANGUAGES)
             text = clean_text(res.text)
@@ -99,10 +105,10 @@ def _run_ocr(engine: OcrEngine, pdf_path: str, pages: list[PageResult], ctx: Job
             res = None
         if text and res is not None:
             p.text, p.needs_ocr, p.source, p.confidence = text, False, "ocr", res.confidence
-        ctx.progress(95 + round(4 * i / len(scans)))
+        ctx.progress(OCR_FROM + round((99 - OCR_FROM) * i / len(scans)))
 
 
-def _read_pdf(pdf_path: str, ctx: JobContext) -> tuple[list[PageResult], list[ChapterDraft], int]:
+def _read_pdf(pdf_path: str, ctx: JobContext, until: int = 95) -> tuple[list[PageResult], list[ChapterDraft], int]:
     """Text of every page and the outline; a broken or protected PDF fails the job for good."""
     from pypdf import PdfReader
 
@@ -119,7 +125,7 @@ def _read_pdf(pdf_path: str, ctx: JobContext) -> tuple[list[PageResult], list[Ch
             for i, page in enumerate(reader.pages, start=1):
                 pages.append(read_page(page, i, settings.BOOK_OCR_MIN_CHARS))
                 if i % PROGRESS_EVERY == 0 or i == total:
-                    ctx.progress(round(95 * i / total))
+                    ctx.progress(round(until * i / total))
             outline = outline_chapters(reader, total)
         except (FinalJobError, RetryableJobError, JobCancelled):
             raise
@@ -144,8 +150,8 @@ def extract(db: Session, job: BookJob, ctx: JobContext) -> None:
                 raise FinalJobError("file_missing") from None
             except OSError as e:  # storage temporarily unavailable
                 raise RetryableJobError("storage_unavailable", type(e).__name__) from None
-        pages, outline, total = _read_pdf(pdf_path, ctx)
         engine = get_ocr_engine()
+        pages, outline, total = _read_pdf(pdf_path, ctx, until=OCR_FROM if engine is not None else 95)
         if engine is not None and any(p.needs_ocr for p in pages):
             _run_ocr(engine, pdf_path, pages, ctx)
     finally:
