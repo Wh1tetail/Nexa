@@ -157,6 +157,7 @@ class DraftOut(BaseModel):
     page_end: int
     excerpt: str
     warnings: list[str]
+    exported_test_id: int | None = None  # the library test it went to
     created_at: datetime
     updated_at: datetime | None
 
@@ -174,6 +175,33 @@ class DraftUpdate(BaseModel):
 class ReviewRequest(BaseModel):
     ids: list[int] = Field(min_length=1, max_length=500)
     action: Literal["approve", "reject", "reset"]
+
+
+class ExportRequest(BaseModel):
+    """Approved drafts into a new library test (title) or the end of an unpublished one (test_id)."""
+    draft_ids: list[int] = Field(min_length=1, max_length=200)
+    test_id: int | None = None
+    title: str | None = Field(default=None, max_length=200)
+    level: EnglishLevel | None = None
+    section_ids: list[int] = Field(default_factory=list, max_length=20)
+    tags: list[str] = Field(default_factory=list, max_length=15)
+
+    @field_validator("tags")
+    @classmethod
+    def _tags(cls, v: list[str]) -> list[str]:
+        out: list[str] = []
+        for t in v:
+            t = " ".join(t.strip().lower().split())[:40]
+            if t and t not in out:
+                out.append(t)
+        return out
+
+    @model_validator(mode="after")
+    def _target(self):
+        self.title = (self.title or "").strip() or None
+        if self.test_id is None and not self.title:
+            raise ValueError("Укажите название теста")
+        return self
 
 
 class ReviewResult(BaseModel):

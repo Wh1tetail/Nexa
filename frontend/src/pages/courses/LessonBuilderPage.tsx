@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { ArrowDown, ArrowLeft, ArrowUp, Eye, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Eye, Library, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ErrorState, Field, PageSkeleton } from "@/components/common";
 import { FileDropzone, FileList } from "@/components/common/Files";
+import { LibraryQuestionsDialog } from "@/components/courses/LibraryQuestionsDialog";
 import { Markdown } from "@/components/tests/Markdown";
 import { QuestionEditor, SCORED_TYPES, Toggle, blankQuestion } from "@/components/tests/QuestionEditor";
 import { blankTask } from "@/components/tests/TaskEditors";
@@ -165,6 +166,7 @@ function QuestionsEditor({ block, files, onChange }: { block: Draft; files: Atta
   const { t } = useI18n();
   const single = SINGLE[block.type];
   const qs = block.questions;
+  const [picking, setPicking] = useState(false);
   const set = (i: number, q: QuestionInput) => onChange(qs.map((x, k) => (k === i ? q : x)));
   const move = (i: number, dir: -1 | 1) => {
     const next = [...qs];
@@ -190,10 +192,29 @@ function QuestionsEditor({ block, files, onChange }: { block: Draft; files: Atta
         />
       ))}
       {!single && qs.length < 30 && (
-        <Button variant="soft" size="sm" className="justify-self-start" onClick={() => onChange([...qs, blankQuestion()])}>
-          <Plus />
-          {t.courses.addQuestion}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="soft" size="sm" onClick={() => onChange([...qs, blankQuestion()])}>
+            <Plus />
+            {t.courses.addQuestion}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
+            <Library />
+            {t.courses.fromLibrary}
+          </Button>
+        </div>
+      )}
+      {!single && (
+        <LibraryQuestionsDialog
+          open={picking}
+          onClose={() => setPicking(false)}
+          types={SCORED_TYPES}
+          room={30 - qs.filter((q) => q.text.trim()).length}
+          onInsert={(added) => {
+            // untouched blank questions (a new block starts with them) make room for the copies
+            onChange([...qs.filter((q) => q.text.trim()), ...added].slice(0, 30));
+            toast.success(t.courses.libraryInserted(added.length));
+          }}
+        />
       )}
     </div>
   );

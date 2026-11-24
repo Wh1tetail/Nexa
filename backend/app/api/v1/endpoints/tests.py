@@ -55,7 +55,7 @@ def _detail(test: Test) -> TestDetail:
         time_limit_minutes=test.time_limit_minutes,
         due_at=test.due_at,
         created_at=test.created_at,
-        questions=[svc.question_out(q, reveal=True) for q in test.questions],
+        questions=[svc.question_out(q, reveal=True, with_source=True) for q in test.questions],
         student_ids=[s.id for s in test.students],
         has_attempts=bool(test.attempts),
         files=[AttachmentOut.model_validate(f) for f in test.files],

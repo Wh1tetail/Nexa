@@ -9,6 +9,7 @@ import type {
   BookPageText,
   ChapterInput,
   DraftUpdate,
+  ExportInput,
   GenerateInput,
   QuestionDraft,
   ReviewAction,
@@ -569,4 +570,6 @@ export const booksApi = {
   updateDraft: (draftId: number, data: DraftUpdate) => put<QuestionDraft>(`/books/drafts/${draftId}`, data),
   review: (id: number, ids: number[], action: ReviewAction) => post<ReviewResult[]>(`/books/${id}/drafts/review`, { ids, action }),
   regenerateDraft: (draftId: number) => post<BookJob>(`/books/drafts/${draftId}/regenerate`),
+  /** Approved questions into an unpublished library test (never published here). */
+  exportDrafts: (id: number, data: ExportInput) => post<LibraryTestDetail>(`/books/${id}/export`, data),
 };

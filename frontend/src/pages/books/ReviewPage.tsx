@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  Library,
   RefreshCw,
   RotateCcw,
   Save,
@@ -16,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import { ExportDialog } from "@/components/books/ExportDialog";
 import { CardListSkeleton, EmptyState, ErrorState, Field, PageSkeleton } from "@/components/common";
 import { QuestionEditor } from "@/components/tests/QuestionEditor";
 import { Badge } from "@/components/ui/badge";
@@ -30,8 +32,8 @@ import { booksApi } from "@/services/api";
 import { errorMessage } from "@/services/http";
 import type { Difficulty, DraftStatus, QuestionDraft, QuestionInput, QuestionType, ReviewAction } from "@/types/api";
 
-type Filter = Exclude<DraftStatus, "exported"> | "all";
-const FILTERS: Filter[] = ["draft", "approved", "rejected", "all"];
+type Filter = DraftStatus | "all";
+const FILTERS: Filter[] = ["draft", "approved", "rejected", "exported", "all"];
 const EDIT_TYPES: QuestionType[] = ["single_choice", "multiple_choice", "true_false"];
 const STATUS_VARIANT = { draft: "warning", approved: "success", rejected: "danger", exported: "default" } as const;
 
@@ -111,6 +113,11 @@ function DraftEditor({
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={STATUS_VARIANT[draft.status]}>{t.books.draftStatus[draft.status]}</Badge>
           <span className="text-xs text-muted-foreground">{t.books.sourcePage(draft.page_start, draft.page_end)}</span>
+          {exported && draft.exported_test_id && (
+            <Button asChild variant="link" size="sm" className="h-auto p-0">
+              <Link to={`/methodist/library/tests/${draft.exported_test_id}`}><Library />{t.books.openTest}</Link>
+            </Button>
+          )}
         </div>
         <QuestionEditor
           q={question}
@@ -207,7 +214,10 @@ export default function ReviewPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [currentId, setCurrentId] = useState<number | null>(null);
   const [regenJob, setRegenJob] = useState<number | null>(null);
-  const book = useQuery({ queryKey: ["books", id], queryFn: () => booksApi.get(id) });
+  // the ids are fixed when the dialog opens (the list changes once they are sent)
+  const [exportFor, setExportFor] = useState<number[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const book =useQuery({ queryKey: ["books", id], queryFn: () => booksApi.get(id) });
   const all = useQuery({ queryKey: ["books", id, "drafts"], queryFn: () => booksApi.drafts(id) });
   const list = useMemo(
     () => (all.data ?? []).filter((d) => filter === "all" || d.status === filter),
@@ -268,6 +278,9 @@ export default function ReviewPage() {
   if (book.isLoading || all.isLoading) return <PageSkeleton />;
   if (book.isError || all.isError || !book.data || !all.data) return <ErrorState onRetry={() => { book.refetch(); all.refetch(); }} />;
   const allSelected = list.length > 0 && list.every((d) => selected.has(d.id));
+  const selectable = filter !== "exported"; // exported questions are out of review's reach
+  // in "approved": the selected ones, or all of them when nothing is selected
+  const exportIds = filter === "approved" ? (selected.size ? [...selected] : list.map((d) => d.id)) : [];
 
   return (
     <div className="space-y-5">
@@ -293,11 +306,17 @@ export default function ReviewPage() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
           <Card className="h-fit overflow-hidden">
-            <div className="flex flex-wrap items-center gap-2 border-b p-3">
+            {selectable && <div className="flex flex-wrap items-center gap-2 border-b p-3">
               <label className="mr-auto flex items-center gap-2 text-sm">
                 <Checkbox checked={allSelected} onCheckedChange={(v) => setSelected(new Set(v ? list.map((d) => d.id) : []))} />
                 {t.books.selectAll}
               </label>
+              {exportIds.length > 0 && (
+                <Button size="sm" className="w-full" onClick={() => (setExportFor(exportIds), setExporting(true))}>
+                  <Library />
+                  {selected.size ? t.books.exportSelected(selected.size) : t.books.exportAll(exportIds.length)}
+                </Button>
+              )}
               {selected.size > 0 && (
                 <>
                   <Button size="sm" loading={bulk.isPending && bulk.variables === "approve"} onClick={() => bulk.mutate("approve")}>
@@ -308,11 +327,11 @@ export default function ReviewPage() {
                   </Button>
                 </>
               )}
-            </div>
+            </div>}
             <ul className="max-h-[32rem] divide-y overflow-y-auto">
               {list.map((d, i) => (
                 <li key={d.id} className={cn("flex items-start gap-2 p-3", current?.id === d.id && "bg-accent-soft/50")}>
-                  <Checkbox
+                  {d.status !== "exported" && <Checkbox
                     className="mt-0.5"
                     aria-label={`${i + 1}`}
                     checked={selected.has(d.id)}
@@ -324,7 +343,7 @@ export default function ReviewPage() {
                         return n;
                       })
                     }
-                  />
+                  />}
                   <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setCurrentId(d.id)}>
                     <p className="line-clamp-2 break-words text-sm text-primary">{i + 1}. {d.question.text}</p>
                     <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
@@ -352,6 +371,15 @@ export default function ReviewPage() {
           )}
         </div>
       )}
+      <ExportDialog
+        book={book.data}
+        ids={exportFor}
+        open={exporting}
+        onClose={() => {
+          setExporting(false);
+          setSelected(new Set());
+        }}
+      />
     </div>
   );
 }

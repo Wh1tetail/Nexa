@@ -135,6 +135,9 @@ class TestQuestion(Base):
     attachment_ids: Mapped[list[int]] = mapped_column(JSONB, default=list, server_default="[]")
     # type settings: gaps, matching pairs, audio file and play limit, reading text
     config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
+    # where the question came from (schemas.test.QuestionSource: book, pages, quote,
+    # difficulty); editors only - question_out leaves it out unless with_source=True
+    source: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     test: Mapped[Test] = relationship(back_populates="questions")
 

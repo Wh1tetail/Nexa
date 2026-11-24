@@ -205,7 +205,7 @@ def to_detail(db: Session, t: Test) -> LibraryTestDetail:
     return LibraryTestDetail(
         **item.model_dump(),
         **svc.settings_of(t),
-        questions=[svc.question_out(q, reveal=True) for q in t.questions],
+        questions=[svc.question_out(q, reveal=True, with_source=True) for q in t.questions],
         files=[AttachmentOut.model_validate(f) for f in t.files],
     )
 
@@ -262,6 +262,7 @@ def copy_test(db: Session, src: Test, *, uploader: User, teacher_id: int | None,
             position=q.position, type=q.type, text=q.text, options=list(q.options),
             correct_answer=list(q.correct_answer), points=q.points, explanation=q.explanation,
             attachment_ids=[id_map[i] for i in (q.attachment_ids or []) if i in id_map], config=config,
+            source=dict(q.source) if q.source else None,
         ))
     if teacher_id is None:
         copy.sections = list(src.sections)

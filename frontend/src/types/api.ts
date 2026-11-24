@@ -376,8 +376,20 @@ export interface QuestionDraft {
   page_end: number;
   excerpt: string;
   warnings: string[];
+  /** the library test it went to */
+  exported_test_id: number | null;
   created_at: string;
   updated_at: string | null;
+}
+
+/** Approved drafts into a new library test (title) or the end of an unpublished one (test_id). */
+export interface ExportInput {
+  draft_ids: number[];
+  test_id?: number | null;
+  title?: string | null;
+  level?: EnglishLevel | null;
+  section_ids?: number[];
+  tags?: string[];
 }
 
 export interface DraftUpdate {
@@ -542,6 +554,16 @@ export interface QuestionOption {
   text: string;
 }
 
+/** Where a question came from (Book-to-Test). Editors only: students never get it. */
+export interface QuestionSource {
+  book_id: number | null;
+  book_title: string;
+  page_start: number;
+  page_end: number;
+  excerpt: string | null;
+  difficulty: Difficulty | null;
+}
+
 export interface Question {
   id: number;
   position: number;
@@ -555,6 +577,8 @@ export interface Question {
   /** Ids of the test's files shown with this question. */
   attachment_ids: number[];
   config: QuestionConfig;
+  /** editors only (test editor, library) */
+  source?: QuestionSource | null;
 }
 
 export interface QuestionInput {
@@ -568,6 +592,8 @@ export interface QuestionInput {
   /** fill_gaps: {template, gap_points, mode, case_sensitive, distractors}; matching: {pairs, distractors};
    *  audio: {attachment_id, max_plays, body}; reading: {body, image_id} */
   config?: Record<string, unknown>;
+  /** kept as it is through edits and copies */
+  source?: QuestionSource | null;
 }
 
 export interface AudioPlay {

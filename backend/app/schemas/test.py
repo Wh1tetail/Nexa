@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -13,6 +13,23 @@ class OptionIn(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
 
 
+class QuestionSource(BaseModel):
+    """Where a question came from (Book-to-Test). Editors only: never sent to students."""
+    book_id: int | None = None  # None once the book is deleted; the title stays
+    book_title: str = Field(min_length=1, max_length=300)
+    page_start: int = Field(ge=1, le=100000)
+    page_end: int = Field(ge=1, le=100000)
+    excerpt: str | None = Field(default=None, max_length=1000)
+    difficulty: Literal["easy", "medium", "hard"] | None = None
+
+    @model_validator(mode="after")
+    def _pages(self):
+        if self.page_end < self.page_start:
+            self.page_start, self.page_end = self.page_end, self.page_start
+        self.excerpt = (self.excerpt or "").strip() or None
+        return self
+
+
 class QuestionIn(BaseModel):
     type: QuestionType
     text: str = Field(min_length=1, max_length=5000)
@@ -24,6 +41,8 @@ class QuestionIn(BaseModel):
     attachment_ids: list[int] = Field(default_factory=list, max_length=10)
     # fill_gaps / matching / audio / reading settings (see services/task_types.py)
     config: dict[str, Any] = Field(default_factory=dict)
+    # book, pages and quote of a generated question (kept through edits and copies)
+    source: QuestionSource | None = None
 
     @model_validator(mode="after")
     def _validate(self):
@@ -121,6 +140,8 @@ class QuestionOut(BaseModel):
     attachment_ids: list[int] = []
     # public settings: gaps/word bank, matching lists, audio/reading block (answers only when revealed)
     config: dict[str, Any] = {}
+    # editors only (question_out(with_source=True)); always None for students
+    source: QuestionSource | None = None
 
 
 class TestListItem(TestSettings):

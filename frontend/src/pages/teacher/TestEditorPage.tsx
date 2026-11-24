@@ -87,6 +87,7 @@ export default function TestEditorPage({ library = false }: { library?: boolean 
         explanation: q.explanation ?? "",
         attachment_ids: q.attachment_ids,
         config: taskConfigFromSaved(q),
+        source: q.source ?? null, // the book it came from: kept on save
       })),
     );
     setAvailableFrom(d.available_from ? toDateTimeInput(new Date(d.available_from)) : "");

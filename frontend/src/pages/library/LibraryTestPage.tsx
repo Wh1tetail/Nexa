@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ErrorState, PageSkeleton } from "@/components/common";
+import { QuestionSourceNote } from "@/components/tests/QuestionSourceNote";
 import { QuestionView } from "@/components/tests/QuestionView";
 import { TestBody, hasReading } from "@/components/tests/TestBody";
 import { ConfirmDialog } from "@/components/ui/alert-dialog";
@@ -115,7 +116,12 @@ export default function LibraryTestPage() {
       <TestBody
         questions={d.questions}
         files={d.files}
-        renderQuestion={(qq, i) => <QuestionView index={i} question={qq} files={d.files} value={correctValue(qq)} />}
+        renderQuestion={(qq, i) => (
+          <div className="grid gap-2">
+            <QuestionView index={i} question={qq} files={d.files} value={correctValue(qq)} />
+            {qq.source && <QuestionSourceNote source={qq.source} />}
+          </div>
+        )}
       />
 
       <ConfirmDialog

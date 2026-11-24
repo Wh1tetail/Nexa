@@ -24,12 +24,16 @@ from app.schemas.book import (
     ChapterUpdate,
     DraftOut,
     DraftUpdate,
+    ExportRequest,
     GenerateRequest,
     PageOut,
     ReviewRequest,
     ReviewResult,
 )
+from app.schemas.library import LibraryTestDetail
 from app.services import book_jobs
+from app.services import draft_export
+from app.services import library_service as lib
 from app.services import book_service as svc
 from app.services.book_processing import start_processing
 
@@ -195,3 +199,13 @@ def review_drafts(book_id: int, data: ReviewRequest, user: LibraryEditor, db: DB
     out = svc.review(db, user, book, data.ids, data.action)
     db.commit()
     return out
+
+
+@router.post("/{book_id}/export", response_model=LibraryTestDetail, status_code=status.HTTP_201_CREATED)
+def export_drafts(book_id: int, data: ExportRequest, user: LibraryEditor, db: DB) -> LibraryTestDetail:
+    """Approved questions into an unpublished library test; nothing is published here."""
+    book = svc.get_book(db, book_id)
+    test = draft_export.export(db, user, book, data)
+    db.commit()
+    db.expire_all()
+    return lib.to_detail(db, lib.get_test(db, user, test.id))

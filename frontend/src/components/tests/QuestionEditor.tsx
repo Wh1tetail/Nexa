@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox, RadioGroup, RadioGroupItem } from "@/components/ui/checkbox";
 import { Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { useI18n } from "@/contexts/I18nContext";
+import { QuestionSourceNote } from "@/components/tests/QuestionSourceNote";
 import { cn } from "@/lib/utils";
 import { CONTENT_TYPES, type Attachment, type QuestionInput, type QuestionType } from "@/types/api";
 
@@ -122,6 +123,7 @@ export function QuestionEditor({
           </div>
         )}
       </div>
+      {q.source && <div className="mt-3"><QuestionSourceNote source={q.source} /></div>}
 
       {isBlock ? (
         <BlockEditor q={q} locked={locked} files={files} onChange={onChange} />

@@ -49,10 +49,16 @@ def check_attachment_ids(test: Test, questions: list[QuestionIn]) -> None:
 def build_questions(test: Test, questions: list[QuestionIn]) -> None:
     check_attachment_ids(test, questions)
     test.questions.clear()
+    append_questions(test, questions)
+
+
+def append_questions(test: Test, questions: list[QuestionIn]) -> None:
+    """Adds checked questions after the test's own (positions continue)."""
+    start = max((q.position for q in test.questions), default=-1) + 1
     for i, q in enumerate(questions):
         test.questions.append(
             TestQuestion(
-                position=i,
+                position=start + i,
                 type=q.type,
                 text=q.text,
                 options=[o.model_dump() for o in q.options],
@@ -61,6 +67,7 @@ def build_questions(test: Test, questions: list[QuestionIn]) -> None:
                 explanation=q.explanation,
                 attachment_ids=q.attachment_ids,
                 config=q.config,
+                source=q.source.model_dump() if q.source else None,
             )
         )
 
@@ -225,8 +232,11 @@ def passed(attempt: TestAttempt) -> bool | None:
 
 
 def question_out(
-    q: TestQuestion, reveal: bool, option_order: random.Random | None = None, seed: str | None = None
+    q: TestQuestion, reveal: bool, option_order: random.Random | None = None, seed: str | None = None,
+    *, with_source: bool = False,
 ) -> QuestionOut:
+    """with_source=True only for editors (test editor, library): the book and quote
+    a question came from are never sent to students."""
     options = [OptionIn(**o) for o in q.options]
     if option_order is not None and q.type != QuestionType.TRUE_FALSE:
         option_order.shuffle(options)
@@ -241,6 +251,7 @@ def question_out(
         explanation=q.explanation if reveal else None,
         attachment_ids=list(q.attachment_ids or []),
         config=task_types.public_config(q.type, q.config or {}, reveal, seed or f"q-{q.id}"),
+        source=(getattr(q, "source", None) or None) if with_source else None,
     )
 
 
